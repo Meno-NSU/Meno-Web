@@ -1,4 +1,4 @@
-import uuid
+import random
 
 import requests
 import uvicorn
@@ -19,12 +19,12 @@ dialogue_cache = {}  # chat_id -> list of messages
 
 
 def get_or_create_chat_id(request: Request) -> int:
-    chat_id = uuid.uuid4().int
+    chat_id = request.cookies.get(SESSION_COOKIE)
     if not chat_id:
-        chat_id = str(uuid.uuid4())
-        print(f"🔑 Сгенерирована новая chat_id: {chat_id}")
+        chat_id = random.randint(10 ** 9, 10 ** 10 - 1)  # Пример: 10-значное число
+        print(f"🔑 Сгенерирован новый chat_id: {chat_id}")
     else:
-        print(f"🔑 chat_id из cookie: {chat_id}")
+        chat_id = int(chat_id)  # Конвертируем строку из куки в число
     return chat_id
 
 

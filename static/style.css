@@ -1,0 +1,276 @@
+:root {
+    --bg: #1e1e2f;
+    --fg: #e0e0e0;
+    --accent: #3b82f6;
+    --border: #2c2c3c;
+    --user-bubble: #2563eb33;
+    --assistant-bubble: #10b98133;
+    --sidebar-bg: #2a2a40;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    background-color: var(--bg);
+    color: var(--fg);
+    font-family: 'Segoe UI', sans-serif;
+}
+
+.container {
+    display: flex;
+    height: 100vh;
+}
+
+.chat {
+    flex: 3;
+    display: flex;
+    flex-direction: column;
+    padding: 1rem;
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+}
+
+.sidebar {
+    flex: 1;
+    background-color: var(--sidebar-bg);
+    padding: 1rem;
+    overflow-y: auto;
+    border-left: 1px solid var(--border);
+    font-size: 1.5rem;
+}
+
+.sidebar h2 {
+    font-size: 1.5rem;
+    margin-bottom: 0.75rem;
+}
+
+.sidebar ul {
+    padding-left: 1rem;
+}
+
+.sidebar li {
+    margin-bottom: 0.5rem;
+    font-size: 1.5rem;
+    color: var(--fg);
+}
+
+.bubble {
+    margin-bottom: 1rem;
+    padding: 0.75rem 1rem;
+    border-radius: 1rem;
+    max-width: 90%;
+    word-wrap: break-word;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.bubble.user {
+    align-self: flex-end;
+    background-color: var(--user-bubble);
+    border: 1px solid var(--accent);
+    color: var(--fg);
+}
+
+.bubble.assistant {
+    align-self: flex-start;
+    background-color: var(--assistant-bubble);
+    border: 1px solid #10b981;
+    color: var(--fg);
+}
+
+.input-bar {
+    display: flex;
+    padding: 0.75rem;
+    border-top: 1px solid var(--border);
+    background-color: var(--bg);
+    gap: 0.5rem;
+    position: sticky;
+    bottom: 0;
+}
+
+.input-bar input {
+    flex: 1;
+    padding: 0.75rem 1rem;
+    border-radius: 1rem;
+    border: 1px solid var(--border);
+    background-color: #2c2c3c;
+    color: var(--fg);
+    font-size: 1.5rem;
+    outline: none;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    min-width: 0;
+}
+
+
+.input-bar button {
+    padding: 0.75rem 1.25rem;
+    background-color: var(--accent);
+    color: white;
+    font-weight: bold;
+    font-size: 1.5rem;
+    border: none;
+    border-radius: 1rem;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.input-bar button:hover {
+    background-color: #2563eb;
+}
+
+.clear-btn {
+    padding: 0.75rem 1.25rem;
+    background-color: #ef4444;
+    color: white;
+    font-weight: bold;
+    font-size: 1.5rem;
+    border: none;
+    border-radius: 1rem;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.clear-btn:hover {
+    background-color: #dc2626;
+}
+
+.messages {
+    flex: 1;
+    overflow-y: auto;
+    padding-bottom: 1rem;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.messages::-webkit-scrollbar {
+    display: none;
+}
+
+.input-area {
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    padding: 0.75rem;
+    gap: 1rem;
+    border-top: 1px solid var(--border);
+    background-color: var(--bg);
+    position: sticky;
+    bottom: 0;
+    z-index: 50;
+}
+
+.input-bar {
+    flex: 1;
+    display: flex;
+    gap: 0.5rem;
+}
+
+.input-bar input {
+    flex: 1;
+    padding: 0.75rem 1rem;
+    border-radius: 1rem;
+    border: 1px solid var(--border);
+    background-color: #2c2c3c;
+    color: var(--fg);
+    font-size: 1rem;
+    outline: none;
+}
+
+.input-bar button {
+    padding: 0.75rem 1.25rem;
+    background-color: var(--accent);
+    color: white;
+    font-weight: bold;
+    border: none;
+    border-radius: 1rem;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.input-bar button:hover {
+    background-color: #2563eb;
+}
+
+.clear-form-inline {
+    display: flex;
+    align-items: center;
+}
+
+.topbar {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.75rem 1.5rem;
+    background-color: #111827;
+    color: white;
+    font-size: 1.25rem;
+    font-weight: 600;
+    border-bottom: 1px solid var(--border);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.topbar-icon {
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+    filter: brightness(1.2);
+}
+
+.topbar-title {
+    font-family: 'Segoe UI', sans-serif;
+    letter-spacing: 0.03em;
+    font-size: 2.0rem;
+}
+
+/* Контейнер сообщения пользователя */
+.msg-user {
+    display: flex;
+    justify-content: flex-end;
+    margin: 2.5rem 0;
+}
+
+/* Контейнер сообщения ассистента */
+.msg-assistant {
+    display: flex;
+    justify-content: center;
+    margin: 1.2rem 0;
+}
+
+/* Облачко пользователя (по правому краю) */
+.msg-bubble.user {
+    background-color: var(--user-bubble, #2563eb33);
+    color: var(--fg);
+    padding: 0.5rem 0.75rem;
+    max-width: 75%;
+    border-radius: 1rem 0.75rem 0.25rem 1rem;
+    border: 1px solid var(--accent);
+    font-size: 1.5rem;
+    line-height: 1.6;
+    text-align: left;
+    overflow-wrap: break-word;
+    word-break: break-word;
+    white-space: pre-wrap;
+}
+
+/* Сообщение ассистента (в стиле ChatGPT) */
+.msg-plain {
+    width: 100%;
+    margin: 1.2rem 0;
+    font-size: 1.5rem;
+    line-height: 1.6;
+    color: var(--fg);
+    padding: 0.5rem 0.75rem;
+
+    /* обновления: */
+    text-align: left;
+    overflow-wrap: break-word;
+    word-break: break-word;
+    white-space: pre-wrap;
+}

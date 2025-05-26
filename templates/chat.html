@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:hx-on="http://www.w3.org/1999/xhtml">
+<head>
+    <meta charset="UTF-8">
+    <title>RAG-Чат</title>
+    <script src="https://unpkg.com/htmx.org@1.9.2"></script>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header class="topbar">
+    <img src="/static/meno-icon.jpg" alt="Иконка" class="topbar-icon">
+    <span class="topbar-title">Менон</span>
+</header>
+<div class="container">
+    <div class="chat">
+        <div id="messages" class="messages" hx-target="this" hx-swap="innerHTML">
+            {% include "components/messages.html" %}
+        </div>
+    </div>
+
+    <div class="sidebar">
+        <h2>📄 Источники</h2>
+        <div id="refs" hx-get="/refs" hx-trigger="every 1s">
+            {% include "components/refs.html" %}
+        </div>
+    </div>
+</div>
+<button id="scroll-down-btn" class="scroll-down-btn" onclick="scrollToBottom()">▼</button>
+<script>
+    const scrollBtn = document.getElementById('scroll-down-btn');
+    const messages = document.getElementById('messages');
+
+    function scrollToBottom() {
+        messages.scrollTop = messages.scrollHeight;
+    }
+
+    // Скрыть/показать кнопку при скролле
+    messages.addEventListener('scroll', () => {
+        const delta = messages.scrollHeight - messages.scrollTop - messages.clientHeight;
+        scrollBtn.style.display = delta > 50 ? 'block' : 'none';
+    });
+
+    // Автоскролл при загрузке страницы
+    document.addEventListener('DOMContentLoaded', scrollToBottom);
+
+    // Автоскролл при обновлении сообщений через htmx
+    document.body.addEventListener("htmx:afterSwap", (e) => {
+        if (e.target.id === "messages") {
+            scrollToBottom();
+        }
+    });
+</script>
+<div class="input-area">
+    <form class="input-bar"
+          hx-post="/send"
+          hx-target="#messages"
+          hx-swap="innerHTML"
+          hx-on::after-request="this.querySelector('input').value='';">
+        <input type="text" name="message" id="input" placeholder="Введите сообщение..." required>
+        <button type="submit">Отправить</button>
+    </form>
+    <form
+            hx-post="/clear"
+            hx-target="#messages"
+            hx-swap="innerHTML"
+            class="clear-form"
+    >
+        <button type="submit" class="clear-btn">🗑️ Очистить историю</button>
+    </form>
+</div>
+
+</body>
+</html>

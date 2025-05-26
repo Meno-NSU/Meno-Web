@@ -1,0 +1,7 @@
+{% for m in messages %}
+  {% if m.role == "user" %}
+    <div class="msg-user"><div class="msg-bubble user">{{ m.text.strip() }}</div></div>
+  {% elif m.role == "assistant" %}
+    <div class="msg-assistant"><div class="msg-plain">{{ m.text.strip() }}</div></div>
+  {% endif %}
+{% endfor %}

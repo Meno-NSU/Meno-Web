@@ -7,7 +7,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-RAG_BACKEND_URL = "http://localhost:8001"  # твой адрес RAG
+RAG_BACKEND_URL = "http://127.0.0.1:8888"  # твой адрес RAG
 SESSION_COOKIE = "chat_id"
 
 app = FastAPI()

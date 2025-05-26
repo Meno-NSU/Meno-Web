@@ -18,8 +18,8 @@ templates = Jinja2Templates(directory="templates")
 dialogue_cache = {}  # chat_id -> list of messages
 
 
-def get_or_create_chat_id(request: Request) -> str:
-    chat_id = request.cookies.get(SESSION_COOKIE)
+def get_or_create_chat_id(request: Request) -> int:
+    chat_id = uuid.uuid4().int
     if not chat_id:
         chat_id = str(uuid.uuid4())
         print(f"🔑 Сгенерирована новая chat_id: {chat_id}")
@@ -38,7 +38,7 @@ async def chat_page(request: Request):
     })
     # Устанавливаем cookie только если её нет
     if SESSION_COOKIE not in request.cookies:
-        response.set_cookie(key=SESSION_COOKIE, value=chat_id, max_age=30 * 24 * 60 * 60)
+        response.set_cookie(key=SESSION_COOKIE, value=str(chat_id), max_age=30 * 24 * 60 * 60)
     return response
 
 
@@ -68,7 +68,7 @@ async def send_message(request: Request, message: str = Form(...)):
         "messages": history
     })
     if SESSION_COOKIE not in request.cookies:
-        response.set_cookie(key=SESSION_COOKIE, value=chat_id, max_age=30 * 24 * 60 * 60)
+        response.set_cookie(key=SESSION_COOKIE, value=str(chat_id), max_age=30 * 24 * 60 * 60)
     return response
 
 
@@ -90,7 +90,7 @@ async def clear_history(request: Request):
         "messages": []
     })
     if SESSION_COOKIE not in request.cookies:
-        response.set_cookie(key=SESSION_COOKIE, value=chat_id, max_age=30 * 24 * 60 * 60)
+        response.set_cookie(key=SESSION_COOKIE, value=str(chat_id), max_age=30 * 24 * 60 * 60)
     return response
 
 

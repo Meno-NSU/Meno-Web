@@ -55,8 +55,8 @@ async def send_message(request: Request, message: str = Form(...)):
         response_data = resp.json()
         assistant_answer = response_data.get("response", "[Нет ответа]")
     except Exception as e:
-        print(f"❌ Ошибка при общении с RAG: {e}")
-        assistant_answer = "[Ошибка: RAG недоступен]"
+        print(f"Ошибка при обращении к системе: {e}")
+        assistant_answer = "К сожалению, система временно недоступна. Пожалуйста, попробуйте позже"
 
     # сохранить в кэш (или не делать этого, если хочешь быть stateless)
     history = dialogue_cache.setdefault(chat_id, [])

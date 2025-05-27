@@ -94,8 +94,9 @@
                 method: 'POST',
                 body: data,
             });
-            console.log("Ответ от сервера:", responseHtml);
             responseHtml = await resp.text();
+            console.log("HTTP статус:", resp.status);
+            console.log("Ответ от сервера:", responseHtml);
             if (!resp.ok || !responseHtml.trim()) {
                 responseHtml = `<div class='msg-assistant'><div class='msg-plain error'>К сожалению, система временно недоступна. Пожалуйста, попробуйте позже.</div></div>`;
             }

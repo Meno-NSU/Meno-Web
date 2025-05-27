@@ -1,4 +1,3 @@
-import random
 import uuid
 
 import requests
@@ -46,7 +45,11 @@ async def send_message(request: Request, message: str = Form(...)):
     chat_id = get_or_create_chat_id(request)
     message = message.strip()
 
-    # отправить запрос на RAG-бэкенд
+    # Сохраняем сообщение пользователя в кэш
+    history = dialogue_cache.setdefault(chat_id, [])
+    history.append({"role": "user", "text": message})
+
+    # Отправляем запрос на RAG-бэкенд
     payload = {"chat_id": chat_id, "message": message}
     try:
         resp = requests.post(f"{RAG_BACKEND_URL}/chat", json=payload, timeout=60)
@@ -57,18 +60,14 @@ async def send_message(request: Request, message: str = Form(...)):
         print(f"Ошибка при обращении к системе: {e}")
         assistant_answer = "К сожалению, система временно недоступна. Пожалуйста, попробуйте позже"
 
-    # сохранить в кэш (или не делать этого, если хочешь быть stateless)
-    history = dialogue_cache.setdefault(chat_id, [])
-    history.append({"role": "user", "text": message})
+    # Сохраняем ответ ассистента в кэш
     history.append({"role": "assistant", "text": assistant_answer})
 
-    response = templates.TemplateResponse("components/messages.html", {
+    # Возвращаем только ответ ассистента
+    return templates.TemplateResponse("components/messages.html", {
         "request": request,
-        "messages": history
+        "messages": [{"role": "assistant", "text": assistant_answer}]
     })
-    if SESSION_COOKIE not in request.cookies:
-        response.set_cookie(key=SESSION_COOKIE, value=str(chat_id), max_age=30 * 24 * 60 * 60)
-    return response
 
 
 @app.post("/clear", response_class=HTMLResponse)

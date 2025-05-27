@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ru" xmlns:hx-on="http://www.w3.org/1999/xhtml">
+<html lang="ru">
 <head>
     <meta charset="UTF-8">
     <title>RAG-Чат</title>
@@ -10,6 +10,14 @@
 <header class="topbar">
     <img src="/static/meno-icon.jpg" alt="Иконка" class="topbar-icon">
     <span class="topbar-title">Менон</span>
+    <form
+            hx-post="/clear"
+            hx-target="#messages"
+            hx-swap="innerHTML"
+            class="clear-form-header"
+            style="margin-left:auto;">
+        <button type="submit" class="clear-btn">🗑️ Очистить историю</button>
+    </form>
 </header>
 <div class="container">
     <div class="chat">
@@ -18,7 +26,7 @@
         </div>
     </div>
 </div>
-<button id="scroll-down-btn" class="scroll-down-btn" onclick="scrollToBottom()">▼</button>
+<!--<button id="scroll-down-btn" class="scroll-down-btn" onclick="scrollToBottom()">▼</button>-->
 <script>
     const scrollBtn = document.getElementById('scroll-down-btn');
     const messages = document.getElementById('messages');
@@ -45,22 +53,106 @@
 </script>
 <div class="input-area">
     <form class="input-bar"
-          hx-post="/send"
-          hx-target="#messages"
-          hx-swap="innerHTML"
-          hx-on::after-request="this.querySelector('input').value='';">
-        <input type="text" name="message" id="input" placeholder="Введите сообщение..." required>
+          id="chat-form"
+          autocomplete="off">
+        <input type="text" name="message" id="input" placeholder="Введите сообщение..." required autocomplete="off">
         <button type="submit">Отправить</button>
     </form>
-    <form
-            hx-post="/clear"
-            hx-target="#messages"
-            hx-swap="innerHTML"
-            class="clear-form"
-    >
-        <button type="submit" class="clear-btn">🗑️ Очистить историю</button>
-    </form>
 </div>
+<script>
+    const form = document.getElementById('chat-form');
+    const input = document.getElementById('input');
+    const messagesDiv = document.getElementById('messages');
 
+    form.addEventListener('submit', async function (e) {
+        e.preventDefault();
+        const userMessage = input.value.trim();
+        if (!userMessage) return;
+
+        // Добавить bubble пользователя
+        const userDiv = document.createElement('div');
+        userDiv.className = 'msg-user';
+        userDiv.innerHTML = `<div class='msg-bubble user'>${escapeHtml(userMessage)}</div>`;
+        messagesDiv.appendChild(userDiv);
+
+        // Добавить bubble ассистента с индикатором загрузки
+        const loadingDiv = document.createElement('div');
+        loadingDiv.className = 'msg-assistant loading-message';
+        loadingDiv.id = 'loading-indicator';
+        loadingDiv.innerHTML = `<div class='msg-plain'><span class='loading-dots'>Генерирую ответ<span class='dot'>.</span><span class='dot'>.</span><span class='dot'>.</span></span></div>`;
+        messagesDiv.appendChild(loadingDiv);
+
+        scrollToBottom();
+        input.value = '';
+        input.focus();
+
+        let responseHtml = '';
+        try {
+            const data = new FormData();
+            data.append('message', userMessage);
+            const resp = await fetch('/send', {
+                method: 'POST',
+                body: data,
+            });
+            console.log("Ответ от сервера:", responseHtml);
+            responseHtml = await resp.text();
+            if (!resp.ok || !responseHtml.trim()) {
+                responseHtml = `<div class='msg-assistant'><div class='msg-plain error'>К сожалению, система временно недоступна. Пожалуйста, попробуйте позже.</div></div>`;
+            }
+        } catch (e) {
+            // Тут важно сделать HTML bubble ассистента с ошибкой
+            responseHtml = `<div class='msg-assistant'><div class='msg-plain error'>[Ошибка соединения с сервером]</div></div>`;
+        }
+
+        // Всегда выполняем замену индикатора
+        const loadingDivCurrent = document.getElementById('loading-indicator');
+        if (loadingDivCurrent) {
+            const temp = document.createElement('div');
+            temp.innerHTML = responseHtml;
+            let newMsg = temp.firstChild;
+            if (!newMsg ||
+                (newMsg.nodeType === 3 && !newMsg.textContent.trim()) || // text node и пустой
+                (newMsg.nodeType === 1 && !newMsg.innerHTML.trim())) {   // элемент, но пустой
+                newMsg = document.createElement('div');
+                newMsg.className = 'msg-assistant';
+                newMsg.innerHTML = "<div class='msg-plain error'>К сожалению, система временно недоступна. Пожалуйста, попробуйте позже.</div>";
+            }
+            messagesDiv.replaceChild(newMsg, loadingDivCurrent);
+            // Остальные дети (если что-то еще в temp) добавляем как обычно
+            // for (let i = 1; i < temp.childNodes.length; i++) {
+            //     messagesDiv.appendChild(temp.childNodes[i]);
+            // }
+        }
+        scrollToBottom();
+    });
+
+    // Escape XSS (важно!)
+    function escapeHtml(unsafe) {
+        return unsafe.replace(/[&<"'>]/g, function (m) {
+            switch (m) {
+                case '&':
+                    return "&amp;";
+                case '<':
+                    return "&lt;";
+                case '>':
+                    return "&gt;";
+                case '"':
+                    return "&quot;";
+                case "'":
+                    return "&#039;";
+            }
+        });
+    }
+
+    // анимация точек
+    setInterval(() => {
+        document.querySelectorAll('.loading-dots').forEach(el => {
+            const now = el.textContent.replace(/\.{1,3}$/, '');
+            if (!el.dataset.dots) el.dataset.dots = '.';
+            el.dataset.dots = (el.dataset.dots.length < 3) ? el.dataset.dots + '.' : '.';
+            el.textContent = "Генерирую ответ" + el.dataset.dots;
+        });
+    }, 400);
+</script>
 </body>
 </html>

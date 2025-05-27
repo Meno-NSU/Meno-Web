@@ -108,21 +108,32 @@
         // Всегда выполняем замену индикатора
         const loadingDivCurrent = document.getElementById('loading-indicator');
         if (loadingDivCurrent) {
-            const temp = document.createElement('div');
-            temp.innerHTML = responseHtml;
-            let newMsg = temp.firstChild;
-            if (!newMsg ||
-                (newMsg.nodeType === 3 && !newMsg.textContent.trim()) || // text node и пустой
-                (newMsg.nodeType === 1 && !newMsg.innerHTML.trim())) {   // элемент, но пустой
-                newMsg = document.createElement('div');
-                newMsg.className = 'msg-assistant';
-                newMsg.innerHTML = "<div class='msg-plain error'>К сожалению, система временно недоступна. Пожалуйста, попробуйте позже.</div>";
+            let errorMode = false;
+            let htmlToInsert = "";
+
+            if (typeof responseHtml === "undefined" || responseHtml === null || !responseHtml.trim()) {
+                // Это либо блок catch, либо ответ пустой — считаем ошибкой
+                errorMode = true;
+                htmlToInsert = "<div class='msg-assistant'><div class='msg-plain error'>К сожалению, система временно недоступна. Пожалуйста, попробуйте позже.</div></div>";
+            } else {
+                htmlToInsert = responseHtml;
             }
-            messagesDiv.replaceChild(newMsg, loadingDivCurrent);
-            // Остальные дети (если что-то еще в temp) добавляем как обычно
-            // for (let i = 1; i < temp.childNodes.length; i++) {
-            //     messagesDiv.appendChild(temp.childNodes[i]);
-            // }
+
+            // Парсим htmlToInsert
+            const temp = document.createElement('div');
+            temp.innerHTML = htmlToInsert;
+            const nodes = Array.from(temp.childNodes).filter(n => n.nodeType === 1 || (n.nodeType === 3 && n.textContent.trim() !== ""));
+            if (nodes.length) {
+                // Первый элемент заменяет индикатор
+                messagesDiv.replaceChild(nodes[0], loadingDivCurrent);
+                // Остальные (если есть) добавляем
+                for (let i = 1; i < nodes.length; i++) {
+                    messagesDiv.appendChild(nodes[i]);
+                }
+            } else {
+                // На всякий случай, если htmlToInsert был совсем пустой (маловероятно)
+                loadingDivCurrent.outerHTML = "<div class='msg-assistant'><div class='msg-plain error'>К сожалению, система временно недоступна. Пожалуйста, попробуйте позже.</div></div>";
+            }
         }
         scrollToBottom();
     });

@@ -7,7 +7,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-RAG_BACKEND_URL = "http://127.0.0.1:8888"  # твой адрес RAG
+RAG_BACKEND_URL = "http://127.0.0.1:8889"
 SESSION_COOKIE = "chat_id"
 
 app = FastAPI()
@@ -45,11 +45,9 @@ async def send_message(request: Request, message: str = Form(...)):
     chat_id = get_or_create_chat_id(request)
     message = message.strip()
 
-    # Сохраняем сообщение пользователя в кэш
     history = dialogue_cache.setdefault(chat_id, [])
     history.append({"role": "user", "text": message})
 
-    # Отправляем запрос на RAG-бэкенд
     payload = {"chat_id": chat_id, "message": message}
     try:
         resp = requests.post(f"{RAG_BACKEND_URL}/chat", json=payload, timeout=60)
@@ -60,10 +58,8 @@ async def send_message(request: Request, message: str = Form(...)):
         print(f"Ошибка при обращении к системе: {e}")
         assistant_answer = "К сожалению, система временно недоступна. Пожалуйста, попробуйте позже"
 
-    # Сохраняем ответ ассистента в кэш
     history.append({"role": "assistant", "text": assistant_answer})
 
-    # Возвращаем только ответ ассистента
     return templates.TemplateResponse("components/messages.html", {
         "request": request,
         "messages": [{"role": "assistant", "text": assistant_answer}]
@@ -74,7 +70,6 @@ async def send_message(request: Request, message: str = Form(...)):
 async def clear_history(request: Request):
     chat_id = get_or_create_chat_id(request)
 
-    # отправить запрос на RAG-бэкенд
     payload = {"chat_id": chat_id}
     try:
         resp = requests.post(f"{RAG_BACKEND_URL}/clear_history", json=payload, timeout=30)

@@ -6,6 +6,7 @@ from fastapi import FastAPI, Request, Form
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+import markdown
 
 RAG_BACKEND_URL = "http://127.0.0.1:8889"
 SESSION_COOKIE = "chat_id"
@@ -62,7 +63,7 @@ async def send_message(request: Request, message: str = Form(...)):
 
     return templates.TemplateResponse("components/messages.html", {
         "request": request,
-        "messages": [{"role": "assistant", "text": assistant_answer}]
+        "messages": [{"role": "assistant", "text": markdown.markdown(assistant_answer)}]
     })
 
 

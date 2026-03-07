@@ -1,13 +1,37 @@
-import { Moon, Sun } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { Moon, Sun, ChevronDown, AlertCircle } from 'lucide-react';
 import { useTranslation } from '../i18n.js';
 import './SettingsBar.css';
 
 export default function SettingsBar({ theme, toggleTheme, isSidebarOpen, models, selectedModel, onModelChange }) {
     const { t, lang, setLanguage } = useTranslation();
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const dropdownRef = useRef(null);
 
     const handleLangToggle = () => {
         setLanguage(lang === 'ru' ? 'en' : 'ru');
     };
+
+    // Close dropdown on outside click
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+                setIsDropdownOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const handleSelectModel = (modelId) => {
+        onModelChange(modelId);
+        setIsDropdownOpen(false);
+    };
+
+    const hasModels = models.length > 0;
+    const currentModelName = hasModels
+        ? (models.find(m => m.id === selectedModel)?.id || selectedModel)
+        : t('noModelsAvailable');
 
     return (
         <header className="settings-bar">
@@ -15,21 +39,32 @@ export default function SettingsBar({ theme, toggleTheme, isSidebarOpen, models,
             <div className={`settings-spacer ${!isSidebarOpen ? 'spaced' : ''}`}></div>
 
             <div className="settings-controls">
-                <div className="control-group">
-                    <label htmlFor="model-select" className="control-label">{t('model')}</label>
-                    <div className="select-wrapper">
-                        <select
-                            id="model-select"
-                            className="select-input"
-                            value={selectedModel}
-                            onChange={(e) => onModelChange(e.target.value)}
-                        >
+                <div className="model-dropdown" ref={dropdownRef}>
+                    <button
+                        className={`model-dropdown-trigger ${!hasModels ? 'no-models' : ''}`}
+                        onClick={() => hasModels && setIsDropdownOpen(prev => !prev)}
+                        type="button"
+                    >
+                        {!hasModels && <AlertCircle size={16} className="no-models-icon" />}
+                        <span className="model-dropdown-label">{currentModelName}</span>
+                        {hasModels && <ChevronDown size={16} className={`model-dropdown-chevron ${isDropdownOpen ? 'open' : ''}`} />}
+                    </button>
+
+                    {isDropdownOpen && hasModels && (
+                        <div className="model-dropdown-menu">
                             {models.map(m => (
-                                <option key={m.id} value={m.id}>{m.id}</option>
+                                <button
+                                    key={m.id}
+                                    className={`model-dropdown-item ${m.id === selectedModel ? 'active' : ''}`}
+                                    onClick={() => handleSelectModel(m.id)}
+                                    type="button"
+                                >
+                                    <span className="model-item-name">{m.id}</span>
+                                    {m.id === selectedModel && <span className="model-item-check">✓</span>}
+                                </button>
                             ))}
-                        </select>
-                        <div className="select-arrow"></div>
-                    </div>
+                        </div>
+                    )}
                 </div>
             </div>
 

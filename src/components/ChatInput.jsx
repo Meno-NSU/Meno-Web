@@ -3,10 +3,13 @@ import { SendHorizontal, Database } from 'lucide-react';
 import { useTranslation } from '../i18n.js';
 import './ChatInput.css';
 
-export default function ChatInput({ onSend, disabled, kbs = [], selectedKb = '', onKbChange }) {
+export default function ChatInput({ onSend, disabled, modelsAvailable = true, kbs = [], selectedKb = '', onKbChange }) {
     const { t } = useTranslation();
     const [input, setInput] = useState('');
     const textareaRef = useRef(null);
+
+    const isSendBlocked = !modelsAvailable;
+    const isDisabled = disabled || isSendBlocked;
 
     const handleInput = (e) => {
         setInput(e.target.value);
@@ -27,7 +30,7 @@ export default function ChatInput({ onSend, disabled, kbs = [], selectedKb = '',
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        if (input.trim() && !disabled) {
+        if (input.trim() && !isDisabled) {
             onSend(input.trim());
             setInput('');
 
@@ -40,8 +43,10 @@ export default function ChatInput({ onSend, disabled, kbs = [], selectedKb = '',
 
     useEffect(() => {
         // Focus input on mount
-        textareaRef.current?.focus();
-    }, []);
+        if (!isSendBlocked) {
+            textareaRef.current?.focus();
+        }
+    }, [isSendBlocked]);
 
     return (
         <div className="input-container">
@@ -51,10 +56,10 @@ export default function ChatInput({ onSend, disabled, kbs = [], selectedKb = '',
                     value={input}
                     onChange={handleInput}
                     onKeyDown={handleKeyDown}
-                    placeholder={t("placeholder")}
+                    placeholder={isSendBlocked ? t('noModelsSendBlocked') : t("placeholder")}
                     className="chat-textarea"
                     rows={1}
-                    disabled={disabled}
+                    disabled={isDisabled}
                 />
 
                 <div className="input-actions-right">
@@ -73,14 +78,20 @@ export default function ChatInput({ onSend, disabled, kbs = [], selectedKb = '',
                             <Database size={16} className="kb-icon" />
                         </div>
                     )}
-                    <button
-                        type="submit"
-                        className={`send-btn ${input.trim() && !disabled ? 'active' : ''}`}
-                        disabled={!input.trim() || disabled}
-                        title="Send message"
-                    >
-                        <SendHorizontal size={20} />
-                    </button>
+
+                    <div className="send-btn-wrapper">
+                        <button
+                            type="submit"
+                            className={`send-btn ${input.trim() && !isDisabled ? 'active' : ''}`}
+                            disabled={!input.trim() || isDisabled}
+                            title={isSendBlocked ? t('noModelsSendBlocked') : 'Send message'}
+                        >
+                            <SendHorizontal size={20} />
+                        </button>
+                        {isSendBlocked && (
+                            <div className="no-models-tooltip">{t('noModelsSendBlocked')}</div>
+                        )}
+                    </div>
                 </div>
             </form>
             <div className="input-footer">

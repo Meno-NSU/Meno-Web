@@ -72,6 +72,11 @@ function App() {
   };
 
   const handleNewChat = () => {
+    // Don't create a new chat if the active one has no messages
+    const currentChat = chats.find(c => c.id === activeChatId);
+    if (currentChat && currentChat.messages.length === 0) {
+      return;
+    }
     const newChat = createNewChat();
     setChats(prev => [newChat, ...prev]);
     setActiveChatId(newChat.id);
@@ -180,6 +185,7 @@ function App() {
           messages={activeChat.messages}
           isGenerating={isGenerating}
           onSendMessage={handleSendMessage}
+          modelsAvailable={models.length > 0}
           kbs={kbs}
           selectedKb={selectedKb}
           onKbChange={setSelectedKb}

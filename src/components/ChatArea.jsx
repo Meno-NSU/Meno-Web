@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Copy, Check, Bot, User } from 'lucide-react';
+import { Copy, Check, Bot } from 'lucide-react';
 import { useTranslation } from '../i18n.js';
 import ChatInput from './ChatInput.jsx';
 import './ChatArea.css';
 
-export default function ChatArea({ messages, isGenerating, onSendMessage, kbs, selectedKb, onKbChange }) {
+export default function ChatArea({ messages, isGenerating, onSendMessage, kbs, selectedKb, onKbChange, modelsAvailable }) {
     const { t } = useTranslation();
     const messagesEndRef = useRef(null);
 
@@ -30,9 +30,6 @@ export default function ChatArea({ messages, isGenerating, onSendMessage, kbs, s
 
                     {isGenerating && (
                         <div className="message-wrapper assistant generating">
-                            <div className="message-avatar">
-                                <Bot size={20} />
-                            </div>
                             <div className="message-content">
                                 <div className="typing-indicator">
                                     <span></span><span></span><span></span>
@@ -59,6 +56,7 @@ export default function ChatArea({ messages, isGenerating, onSendMessage, kbs, s
                 <ChatInput
                     onSend={onSendMessage}
                     disabled={isGenerating}
+                    modelsAvailable={modelsAvailable}
                     kbs={kbs}
                     selectedKb={selectedKb}
                     onKbChange={onKbChange}
@@ -78,28 +76,31 @@ function MessageBubble({ message }) {
         setTimeout(() => setCopied(false), 2000);
     };
 
-    return (
-        <div className={`message-wrapper ${isUser ? 'user' : 'assistant'}`}>
-            <div className="message-avatar">
-                {isUser ? <User size={20} /> : <Bot size={20} />}
-            </div>
-
-            <div className="message-content">
-                {isUser ? (
+    if (isUser) {
+        return (
+            <div className="message-wrapper user">
+                <div className="message-bubble-user">
                     <div className="message-text">{message.content}</div>
-                ) : (
-                    <div className="message-markdown prose">
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                            {message.content}
-                        </ReactMarkdown>
-                    </div>
-                )}
+                </div>
             </div>
+        );
+    }
 
-            <div className="message-actions">
-                <button className="copy-btn" onClick={handleCopy} title="Copy message">
-                    {copied ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
-                </button>
+    // Assistant: full-width article-style
+    return (
+        <div className="message-wrapper assistant">
+            <div className="message-content">
+                <div className="message-markdown prose">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        {message.content}
+                    </ReactMarkdown>
+                </div>
+
+                <div className="message-actions-bar">
+                    <button className="copy-btn" onClick={handleCopy} title="Copy message">
+                        {copied ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
+                    </button>
+                </div>
             </div>
         </div>
     );

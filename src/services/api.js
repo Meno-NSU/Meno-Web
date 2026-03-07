@@ -55,7 +55,7 @@ export async function fetchModels() {
         return data.data || [];
     } catch (error) {
         apiLogger.error('Error fetching models in API client:', error);
-        return [{ id: 'menon-1', name: 'menon-1' }]; // Fallback
+        return []; // No fallback — let UI show "no models" state
     }
 }
 

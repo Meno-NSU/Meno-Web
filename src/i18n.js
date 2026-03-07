@@ -11,7 +11,9 @@ const translations = {
         emptyTitle: "Ассистент Meno-Core",
         emptySubtitle: "Задайте вопрос, чтобы выполнить поиск по локальной базе знаний.",
         disclaimer: "Meno-Core может допускать ошибки. Проверяйте важную информацию.",
-        error: "Ошибка: не удалось получить ответ"
+        error: "Ошибка: не удалось получить ответ",
+        noModelsAvailable: "Нет доступных моделей",
+        noModelsSendBlocked: "Отправка заблокирована: нет доступных моделей"
     },
     en: {
         newChat: "New Chat",
@@ -23,7 +25,9 @@ const translations = {
         emptyTitle: "Meno-Core Assistant",
         emptySubtitle: "Ask a question to search your local knowledge base.",
         disclaimer: "Meno-Core can make mistakes. Consider verifying important information.",
-        error: "Error: Failed to get response"
+        error: "Error: Failed to get response",
+        noModelsAvailable: "No models available",
+        noModelsSendBlocked: "Sending blocked: no models available"
     }
 };
 

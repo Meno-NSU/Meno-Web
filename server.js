@@ -15,8 +15,8 @@ const app = express();
 // Forward /v1/* to the backend. Runs BEFORE the static middleware
 // so that API routes are never accidentally served as files.
 app.use(
-    '/v1',
     createProxyMiddleware({
+        pathFilter: '/v1',
         target: BACKEND_URL,
         changeOrigin: true,
         // Log proxy errors so they are visible in pm2 logs

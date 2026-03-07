@@ -6,7 +6,7 @@ import { dirname, join } from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const PORT = parseInt(process.env.PORT || '9007', 10);
+const PORT = parseInt(process.env.PORT || '9012', 10);
 const BACKEND_URL = process.env.BACKEND_URL || 'http://127.0.0.1:9006';
 
 const app = express();

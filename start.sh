@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# start.sh - Script to start Meno-Web in the background on port 9007
+# start.sh - Script to start Meno-Web in the background on port 9012
 
 echo "Starting Meno-Web deployment process..."
 
@@ -17,7 +17,7 @@ npm run build
 echo "Starting the application using pm2..."
 npx pm2 start server.js --name "meno-web"
 
-echo "Deployment complete! Meno-Web should be running on http://localhost:9007"
+echo "Deployment complete! Meno-Web should be running on http://localhost:9012"
 echo "To check the status, run: npx pm2 status"
 echo "To view logs, run: npx pm2 logs meno-web"
 echo "To stop the app, run: npx pm2 stop meno-web"

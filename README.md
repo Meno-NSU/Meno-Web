@@ -18,7 +18,7 @@ To run the project locally for development:
 
 ## Production Deployment
 
-This project includes a script to easily build and run the application in the background on your server using PM2 (via `npx`). The application will be served on port `9007`.
+This project includes a script to easily build and run the application in the background on your server using PM2 (via `npx`). The application will be served on port `9012`.
 
 1. Make the script executable (if it isn't already):
    ```bash

@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://127.0.0.1:8888';
+const API_BASE_URL = localStorage.getItem('API_BASE_URL') || import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:9006';
 
 export async function fetchModels() {
     try {

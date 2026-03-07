@@ -1,0 +1,59 @@
+import { Plus, MessageSquare, PanelLeftClose, PanelLeft, MoreHorizontal, Trash2 } from 'lucide-react';
+import { useTranslation } from '../i18n.js';
+import './Sidebar.css';
+
+export default function Sidebar({ isOpen, toggleSidebar, chats, activeChatId, onSelectChat, onNewChat, onDeleteChat }) {
+    const { t } = useTranslation();
+    if (!isOpen) {
+        return (
+            <button className="sidebar-toggle-btn collapsed" onClick={toggleSidebar} title="Open sidebar">
+                <PanelLeft size={20} />
+            </button>
+        );
+    }
+
+    return (
+        <aside className="sidebar">
+            <div className="sidebar-header">
+                <button className="sidebar-toggle-btn" onClick={toggleSidebar} title={t("closeSidebar")}>
+                    <PanelLeftClose size={20} />
+                </button>
+                <button className="new-chat-btn" onClick={onNewChat}>
+                    <Plus size={20} />
+                    <span>{t("newChat")}</span>
+                </button>
+            </div>
+
+            <div className="sidebar-content">
+                <div className="sidebar-section-title">{t("recentChats")}</div>
+                {chats && chats.length > 0 ? (
+                    <ul className="chat-list">
+                        {chats.map(chat => (
+                            <li
+                                key={chat.id}
+                                className={`chat-list-item ${activeChatId === chat.id ? 'active' : ''}`}
+                                onClick={() => onSelectChat(chat.id)}
+                            >
+                                <MessageSquare size={18} className="chat-icon" />
+                                <span className="chat-title">{chat.title || t("newChat")}</span>
+
+                                <button
+                                    className="delete-chat-btn"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onDeleteChat(chat.id);
+                                    }}
+                                    title={t("deleteChat")}
+                                >
+                                    <Trash2 size={14} />
+                                </button>
+                            </li>
+                        ))}
+                    </ul>
+                ) : (
+                    <div className="no-chats-msg">{t("noRecentChats")}</div>
+                )}
+            </div>
+        </aside>
+    );
+}

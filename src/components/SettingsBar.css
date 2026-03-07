@@ -1,0 +1,83 @@
+.settings-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1.5rem;
+    background-color: var(--bg-primary);
+    border-bottom: 1px solid var(--border-color);
+    height: 60px;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 10;
+}
+
+.settings-spacer {
+    width: 0;
+    transition: width 0.3s;
+}
+
+.settings-spacer.spaced {
+    width: 40px;
+    /* Leave space for the toggle button */
+}
+
+.settings-controls {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    flex: 1;
+    justify-content: flex-start;
+}
+
+.control-group {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.control-label {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+/* Custom Select styling */
+.select-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.select-input {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    padding-right: 2rem;
+    min-width: 150px;
+    background-color: var(--bg-tertiary);
+    border: 1px solid transparent;
+    font-weight: 500;
+}
+
+.select-input:hover {
+    background-color: var(--sidebar-hover);
+}
+
+.select-arrow {
+    position: absolute;
+    right: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 0;
+    height: 0;
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-top: 4px solid var(--text-secondary);
+    pointer-events: none;
+}
+
+.settings-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}

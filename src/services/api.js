@@ -1,6 +1,9 @@
 import { apiLogger } from './logger';
 
-const API_BASE_URL = localStorage.getItem('API_BASE_URL') || import.meta.env.VITE_API_BASE_URL || 'http://0.0.0.0:9006';
+let API_BASE_URL = localStorage.getItem('API_BASE_URL') || import.meta.env.VITE_API_BASE_URL || 'http://0.0.0.0:9006';
+
+API_BASE_URL = API_BASE_URL.replace(/\/+$/, '');
+API_BASE_URL = API_BASE_URL.replace('http://0.0.0.0', 'http://127.0.0.1');
 
 apiLogger.info('API Base URL configured', { API_BASE_URL });
 

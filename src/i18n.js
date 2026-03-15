@@ -13,7 +13,9 @@ const translations = {
         disclaimer: "Meno-Core может допускать ошибки. Проверяйте важную информацию.",
         error: "Ошибка: не удалось получить ответ",
         noModelsAvailable: "Нет доступных моделей",
-        noModelsSendBlocked: "Отправка заблокирована: нет доступных моделей"
+        noModelsSendBlocked: "Отправка заблокирована: нет доступных моделей",
+        thinking: "Размышляю...",
+        thoughtFor: "Думал {time} секунд"
     },
     en: {
         newChat: "New Chat",
@@ -27,7 +29,9 @@ const translations = {
         disclaimer: "Meno-Core can make mistakes. Consider verifying important information.",
         error: "Error: Failed to get response",
         noModelsAvailable: "No models available",
-        noModelsSendBlocked: "Sending blocked: no models available"
+        noModelsSendBlocked: "Sending blocked: no models available",
+        thinking: "Thinking...",
+        thoughtFor: "Thought for {time} seconds"
     }
 };
 

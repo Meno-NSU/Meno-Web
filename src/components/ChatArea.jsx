@@ -53,7 +53,7 @@ function LoadingPhrase() {
  *   { type: 'think', content: string }
  *   { type: 'text',  content: string }
  */
-function parseThinkBlocks(raw) {
+function parseThinkBlocks(raw, thinkTime) {
     const segments = [];
     const regex = /<think>([\s\S]*?)<\/think>/gi;
     let lastIndex = 0;
@@ -62,7 +62,7 @@ function parseThinkBlocks(raw) {
         if (match.index > lastIndex) {
             segments.push({ type: 'text', content: raw.slice(lastIndex, match.index) });
         }
-        segments.push({ type: 'think', content: match[1].trim() });
+        segments.push({ type: 'think', content: match[1].trim(), thinkTime });
         lastIndex = regex.lastIndex;
     }
     if (lastIndex < raw.length) {
@@ -71,14 +71,20 @@ function parseThinkBlocks(raw) {
     return segments;
 }
 
-function ThinkBlock({ content }) {
+function ThinkBlock({ content, thinkTime }) {
     const [open, setOpen] = useState(false);
+    const { t } = useTranslation();
+
+    // Determine label: "Размышляю..." (Thinking...) if no time, else "Думал X секунд" (Thought for X seconds)
+    const label = thinkTime && thinkTime > 0 
+        ? t('thoughtFor').replace('{time}', thinkTime)
+        : t('thinking');
 
     return (
         <div className={`think-block ${open ? 'open' : ''}`}>
             <button className="think-summary" onClick={() => setOpen(o => !o)}>
                 <Brain size={14} className="think-icon" />
-                <span>Размышляю…</span>
+                <span>{label}</span>
                 <ChevronDown size={14} className="think-chevron" />
             </button>
             {open && (
@@ -172,8 +178,8 @@ function MessageBubble({ message }) {
         );
     }
 
-    // Parse think blocks out of raw content
-    const segments = parseThinkBlocks(message.content || '');
+    // Parse think blocks out of raw content, passing along thinkTime
+    const segments = parseThinkBlocks(message.content || '', message.thinkTime);
 
     return (
         <div className="message-wrapper assistant">
@@ -181,7 +187,7 @@ function MessageBubble({ message }) {
                 <div className="message-markdown prose">
                     {segments.map((seg, i) =>
                         seg.type === 'think' ? (
-                            <ThinkBlock key={i} content={seg.content} />
+                            <ThinkBlock key={i} content={seg.content} thinkTime={seg.thinkTime} />
                         ) : (
                             <ReactMarkdown key={i} remarkPlugins={[remarkGfm]}>
                                 {seg.content}

@@ -2,7 +2,7 @@ import { Plus, MessageSquare, PanelLeftClose, PanelLeft, MoreHorizontal, Trash2 
 import { useTranslation } from '../i18n.js';
 import './Sidebar.css';
 
-export default function Sidebar({ isOpen, toggleSidebar, chats, activeChatId, onSelectChat, onNewChat, onDeleteChat }) {
+export default function Sidebar({ isOpen, toggleSidebar, chats, activeChatId, onSelectChat, onNewChat, onDeleteChat, generatingChats }) {
     const { t } = useTranslation();
     if (!isOpen) {
         return (
@@ -31,7 +31,7 @@ export default function Sidebar({ isOpen, toggleSidebar, chats, activeChatId, on
                         {chats.map(chat => (
                             <li
                                 key={chat.id}
-                                className={`chat-list-item ${activeChatId === chat.id ? 'active' : ''}`}
+                                className={`chat-list-item ${activeChatId === chat.id ? 'active' : ''} ${(generatingChats && generatingChats.has(chat.id)) ? 'generating' : ''}`}
                                 onClick={() => onSelectChat(chat.id)}
                             >
                                 <MessageSquare size={18} className="chat-icon" />

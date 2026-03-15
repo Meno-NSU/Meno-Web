@@ -100,6 +100,7 @@
     cursor: pointer;
     transition: background-color 0.2s, color 0.2s;
     position: relative;
+    overflow: hidden;
 }
 
 .chat-list-item:hover {
@@ -112,6 +113,51 @@
     color: var(--text-primary);
     font-weight: 500;
 }
+
+/* Generating state gradient animation for sidebar items */
+@keyframes sidebarShimmer {
+    0% { background-position: -200% center; }
+    100% { background-position: 200% center; }
+}
+
+.chat-list-item.generating::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(156, 163, 175, 0.15) 20%,
+        rgba(156, 163, 175, 0.3) 50%,
+        rgba(156, 163, 175, 0.15) 80%,
+        transparent 100%
+    );
+    background-size: 200% 100%;
+    animation: sidebarShimmer 2.5s infinite linear;
+    pointer-events: none;
+    z-index: 0;
+}
+
+.chat-list-item.generating > * {
+    position: relative;
+    z-index: 1;
+}
+
+[data-theme='dark'] .chat-list-item.generating::before {
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(156, 163, 175, 0.05) 20%,
+        rgba(156, 163, 175, 0.15) 50%,
+        rgba(156, 163, 175, 0.05) 80%,
+        transparent 100%
+    );
+    background-size: 200% 100%;
+}
+
 
 .chat-icon {
     flex-shrink: 0;

@@ -1,11 +1,98 @@
 import { useEffect, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Copy, Check, Bot } from 'lucide-react';
+import { Copy, Check, Bot, ChevronDown, Brain } from 'lucide-react';
 import { useTranslation } from '../i18n.js';
 import ChatInput from './ChatInput.jsx';
 import './ChatArea.css';
 
+// ── Loading phrases ──────────────────────────────────────────────────────────
+const LOADING_PHRASES = [
+    'Думаю…',
+    'Обращаюсь к мудрецам Академгородка…',
+    'Сопоставляю факты из базы знаний…',
+    'Ищу релевантные документы…',
+    'Роюсь в библиотеке…',
+    'Обрабатываю контекст…',
+    'Взвешиваю гипотезы…',
+    'Прогоняю через нейронные веса…',
+    'Консультируюсь с источниками…',
+    'Анализирую семантику вопроса…',
+];
+
+function LoadingPhrase() {
+    const [index, setIndex] = useState(() => Math.floor(Math.random() * LOADING_PHRASES.length));
+    const [visible, setVisible] = useState(true);
+
+    useEffect(() => {
+        const cycle = setInterval(() => {
+            setVisible(false);
+            setTimeout(() => {
+                setIndex(prev => {
+                    let next;
+                    do { next = Math.floor(Math.random() * LOADING_PHRASES.length); }
+                    while (next === prev);
+                    return next;
+                });
+                setVisible(true);
+            }, 400); // fade-out duration before swap
+        }, 2600);
+        return () => clearInterval(cycle);
+    }, []);
+
+    return (
+        <div className={`loading-phrase ${visible ? 'visible' : 'hidden'}`}>
+            {LOADING_PHRASES[index]}
+        </div>
+    );
+}
+
+// ── Think block parser ───────────────────────────────────────────────────────
+/**
+ * Splits a raw content string into an array of segments:
+ *   { type: 'think', content: string }
+ *   { type: 'text',  content: string }
+ */
+function parseThinkBlocks(raw) {
+    const segments = [];
+    const regex = /<think>([\s\S]*?)<\/think>/gi;
+    let lastIndex = 0;
+    let match;
+    while ((match = regex.exec(raw)) !== null) {
+        if (match.index > lastIndex) {
+            segments.push({ type: 'text', content: raw.slice(lastIndex, match.index) });
+        }
+        segments.push({ type: 'think', content: match[1].trim() });
+        lastIndex = regex.lastIndex;
+    }
+    if (lastIndex < raw.length) {
+        segments.push({ type: 'text', content: raw.slice(lastIndex) });
+    }
+    return segments;
+}
+
+function ThinkBlock({ content }) {
+    const [open, setOpen] = useState(false);
+
+    return (
+        <div className={`think-block ${open ? 'open' : ''}`}>
+            <button className="think-summary" onClick={() => setOpen(o => !o)}>
+                <Brain size={14} className="think-icon" />
+                <span>Размышляю…</span>
+                <ChevronDown size={14} className="think-chevron" />
+            </button>
+            {open && (
+                <div className="think-content">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        {content}
+                    </ReactMarkdown>
+                </div>
+            )}
+        </div>
+    );
+}
+
+// ── Main ChatArea ────────────────────────────────────────────────────────────
 export default function ChatArea({ messages, isGenerating, onSendMessage, kbs, selectedKb, onKbChange, modelsAvailable }) {
     const { t } = useTranslation();
     const messagesEndRef = useRef(null);
@@ -31,9 +118,7 @@ export default function ChatArea({ messages, isGenerating, onSendMessage, kbs, s
                     {isGenerating && (
                         <div className="message-wrapper assistant generating">
                             <div className="message-content">
-                                <div className="typing-indicator">
-                                    <span></span><span></span><span></span>
-                                </div>
+                                <LoadingPhrase />
                             </div>
                         </div>
                     )}
@@ -66,6 +151,7 @@ export default function ChatArea({ messages, isGenerating, onSendMessage, kbs, s
     );
 }
 
+// ── Message bubble ───────────────────────────────────────────────────────────
 function MessageBubble({ message }) {
     const isUser = message.role === 'user';
     const [copied, setCopied] = useState(false);
@@ -86,14 +172,22 @@ function MessageBubble({ message }) {
         );
     }
 
-    // Assistant: full-width article-style
+    // Parse think blocks out of raw content
+    const segments = parseThinkBlocks(message.content || '');
+
     return (
         <div className="message-wrapper assistant">
             <div className="message-content">
                 <div className="message-markdown prose">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                        {message.content}
-                    </ReactMarkdown>
+                    {segments.map((seg, i) =>
+                        seg.type === 'think' ? (
+                            <ThinkBlock key={i} content={seg.content} />
+                        ) : (
+                            <ReactMarkdown key={i} remarkPlugins={[remarkGfm]}>
+                                {seg.content}
+                            </ReactMarkdown>
+                        )
+                    )}
                 </div>
 
                 <div className="message-actions-bar">

@@ -166,40 +166,109 @@
     max-width: 900px;
 }
 
-/* Typing indicator */
-.typing-indicator {
+/* ══════════════════════════════════════════════════════════
+   Think / Reasoning block
+   ══════════════════════════════════════════════════════════ */
+.think-block {
+    border: 1px solid var(--border-color);
+    border-left: 3px solid var(--text-tertiary);
+    border-radius: 0.5rem;
+    margin-bottom: 0.75rem;
+    background-color: var(--bg-secondary);
+    overflow: hidden;
+}
+
+.think-summary {
     display: flex;
     align-items: center;
-    gap: 0.3rem;
-    padding-top: 0.5rem;
-    height: 24px;
+    gap: 0.5rem;
+    width: 100%;
+    padding: 0.55rem 0.85rem;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    transition: background-color 0.15s;
+    text-align: left;
 }
 
-.typing-indicator span {
-    width: 6px;
-    height: 6px;
-    background-color: var(--text-tertiary);
-    border-radius: 50%;
-    animation: typing 1.4s infinite ease-in-out both;
+.think-summary:hover {
+    background-color: var(--bg-tertiary);
 }
 
-.typing-indicator span:nth-child(1) {
-    animation-delay: -0.32s;
+.think-icon {
+    color: var(--text-tertiary);
+    flex-shrink: 0;
 }
 
-.typing-indicator span:nth-child(2) {
-    animation-delay: -0.16s;
+.think-chevron {
+    margin-left: auto;
+    flex-shrink: 0;
+    color: var(--text-tertiary);
+    transition: transform 0.25s ease;
 }
 
-@keyframes typing {
+.think-block.open .think-chevron {
+    transform: rotate(180deg);
+}
 
-    0%,
-    80%,
-    100% {
-        transform: scale(0);
-    }
+.think-content {
+    padding: 0.65rem 1rem 0.75rem;
+    font-size: 0.85rem;
+    line-height: 1.6;
+    color: var(--text-secondary);
+    font-style: italic;
+    border-top: 1px solid var(--border-color);
+    animation: fadeIn 0.2s ease;
+}
 
-    40% {
-        transform: scale(1);
-    }
+/* ══════════════════════════════════════════════════════════
+   Loading phrase with shimmer gradient
+   ══════════════════════════════════════════════════════════ */
+@keyframes shimmer {
+    0%   { background-position: -400px 0; }
+    100% { background-position:  400px 0; }
+}
+
+@keyframes phraseIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.loading-phrase {
+    display: inline-block;
+    font-size: 0.92rem;
+    font-weight: 500;
+    padding-top: 0.35rem;
+
+    /* Shimmer text */
+    background: linear-gradient(
+        90deg,
+        var(--text-tertiary) 0%,
+        var(--text-secondary) 30%,
+        var(--text-tertiary) 50%,
+        var(--text-tertiary) 100%
+    );
+    background-size: 800px 100%;
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+    animation: shimmer 2s linear infinite;
+
+    transition: opacity 0.35s ease, transform 0.35s ease;
+}
+
+.loading-phrase.visible {
+    opacity: 1;
+    transform: translateY(0);
+    animation: shimmer 2s linear infinite, phraseIn 0.35s ease;
+}
+
+.loading-phrase.hidden {
+    opacity: 0;
+    transform: translateY(-4px);
+    animation: none;
 }

@@ -160,3 +160,46 @@
     align-items: center;
     gap: 0.5rem;
 }
+
+/* Explicit Toggle Button Styling */
+.btn-explicit {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.4rem 0.8rem;
+    border-radius: 12px;
+    background-color: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-explicit:hover {
+    background-color: var(--sidebar-hover);
+}
+
+.btn-explicit.arena-toggle.active {
+    background-color: var(--primary);
+    color: white;
+    border-color: var(--primary);
+}
+
+.btn-explicit.arena-toggle.active:hover {
+    background-color: var(--primary-hover, var(--primary));
+    opacity: 0.9;
+}
+
+.arena-icon {
+    font-size: 1rem;
+}
+
+.btn-icon.leaderboard-toggle {
+    color: var(--text-secondary);
+}
+
+.btn-icon.leaderboard-toggle:hover {
+    color: var(--primary);
+}

@@ -1,9 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
-import { Moon, Sun, ChevronDown, AlertCircle } from 'lucide-react';
+import { Trophy, Moon, Sun, ChevronDown, AlertCircle } from 'lucide-react';
 import { useTranslation } from '../i18n.js';
 import './SettingsBar.css';
 
-export default function SettingsBar({ theme, toggleTheme, isSidebarOpen, models, selectedModel, onModelChange, isArenaMode, setIsArenaMode }) {
+export default function SettingsBar({ theme, toggleTheme, isSidebarOpen, models, selectedModel, onModelChange, isArenaMode, setIsArenaMode, setCurrentView }) {
     const { t, lang, setLanguage } = useTranslation();
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const dropdownRef = useRef(null);
@@ -26,6 +26,10 @@ export default function SettingsBar({ theme, toggleTheme, isSidebarOpen, models,
     const handleSelectModel = (modelId) => {
         onModelChange(modelId);
         setIsDropdownOpen(false);
+    };
+
+    const handleLeaderboardClick = () => {
+        setCurrentView('leaderboard');
     };
 
     const hasModels = models.length > 0;
@@ -78,12 +82,19 @@ export default function SettingsBar({ theme, toggleTheme, isSidebarOpen, models,
                     {lang.toUpperCase()}
                 </button>
                 <button
-                    className={`btn-icon arena-toggle ${isArenaMode ? 'active' : ''}`}
+                    className="btn-icon leaderboard-toggle"
+                    onClick={handleLeaderboardClick}
+                    title={t('arenaLeaderboardTitle')}
+                >
+                    <Trophy size={20} />
+                </button>
+                <button
+                    className={`btn-explicit arena-toggle ${isArenaMode ? 'active' : ''}`}
                     onClick={() => setIsArenaMode(!isArenaMode)}
                     title={`Arena Mode is ${isArenaMode ? 'ON' : 'OFF'}`}
-                    style={{ fontWeight: "600", fontSize: "1rem", backgroundColor: isArenaMode ? "var(--primary)" : "transparent", color: isArenaMode ? "white" : "inherit", borderRadius: "8px", padding: "4px 8px" }}
                 >
-                    ⚔️
+                    <span className="arena-icon">⚔️</span>
+                    <span className="arena-text">{isArenaMode ? t('battleArenaModeOn') : t('battleArenaModeOff')}</span>
                 </button>
                 <button
                     className="btn-icon theme-toggle"

@@ -210,6 +210,7 @@ function MessageBubble({ message }) {
 
 // ── Arena Message bubble ─────────────────────────────────────────────────────
 function ArenaMessageBubble({ message, chatId, setChats }) {
+    const { t } = useTranslation();
     const { arenaData } = message;
     const [voting, setVoting] = useState(false);
 
@@ -260,12 +261,12 @@ function ArenaMessageBubble({ message, chatId, setChats }) {
     return (
         <div className="message-wrapper assistant arena" style={{ maxWidth: '100%', marginBottom: '2rem' }}>
             <div className="arena-container" style={{ display: 'flex', gap: '1rem', width: '100%' }}>
-                <div className="arena-column a" style={{ flex: 1, backgroundColor: bgA, border: borderA, borderRadius: '12px', padding: '1rem', overflowX: 'auto' }}>
+                <div className="arena-column a" style={{ flex: 1, backgroundColor: bgA, border: borderA, borderRadius: '12px', padding: '1rem', overflowX: 'auto', display: 'flex', flexDirection: 'column' }}>
                     <div className="arena-header" style={{ marginBottom: '1rem', fontWeight: 'bold', display: 'flex', justifyContent: 'space-between' }}>
                         <span>{arenaData.voted ? `A: ${arenaData.a.model} (${arenaData.a.kb})` : 'Model A'}</span>
                         {arenaData.winner === 'a' && <span style={{ color: 'var(--primary)' }}>🏆 Winner</span>}
                     </div>
-                    <div className="message-markdown prose">
+                    <div className="message-markdown prose" style={{ flex: 1 }}>
                         {segmentsA.map((seg, i) =>
                             seg.type === 'think' ? (
                                 <ThinkBlock key={i} content={seg.content} thinkTime={seg.thinkTime} />
@@ -274,14 +275,21 @@ function ArenaMessageBubble({ message, chatId, setChats }) {
                             )
                         )}
                     </div>
+                    {!arenaData.voted && (
+                        <div className="arena-vote-primary">
+                            <button className="vote-btn vote-btn-primary" onClick={() => handleVote('a')} disabled={voting}>
+                                {t('arenaVoteLeftBetter')}
+                            </button>
+                        </div>
+                    )}
                 </div>
                 
-                <div className="arena-column b" style={{ flex: 1, backgroundColor: bgB, border: borderB, borderRadius: '12px', padding: '1rem', overflowX: 'auto' }}>
+                <div className="arena-column b" style={{ flex: 1, backgroundColor: bgB, border: borderB, borderRadius: '12px', padding: '1rem', overflowX: 'auto', display: 'flex', flexDirection: 'column' }}>
                     <div className="arena-header" style={{ marginBottom: '1rem', fontWeight: 'bold', display: 'flex', justifyContent: 'space-between' }}>
                         <span>{arenaData.voted ? `B: ${arenaData.b.model} (${arenaData.b.kb})` : 'Model B'}</span>
                         {arenaData.winner === 'b' && <span style={{ color: 'var(--primary)' }}>🏆 Winner</span>}
                     </div>
-                    <div className="message-markdown prose">
+                    <div className="message-markdown prose" style={{ flex: 1 }}>
                         {segmentsB.map((seg, i) =>
                             seg.type === 'think' ? (
                                 <ThinkBlock key={i} content={seg.content} thinkTime={seg.thinkTime} />
@@ -290,15 +298,20 @@ function ArenaMessageBubble({ message, chatId, setChats }) {
                             )
                         )}
                     </div>
+                    {!arenaData.voted && (
+                        <div className="arena-vote-primary">
+                            <button className="vote-btn vote-btn-primary" onClick={() => handleVote('b')} disabled={voting}>
+                                {t('arenaVoteRightBetter')}
+                            </button>
+                        </div>
+                    )}
                 </div>
             </div>
 
             {!arenaData.voted && (
-                <div className="arena-vote-actions" style={{ display: 'flex', justifyContent: 'center', gap: '1rem', marginTop: '1rem' }}>
-                    <button onClick={() => handleVote('a')} disabled={voting} style={{ padding: '8px 16px', borderRadius: '8px', background: 'var(--primary)', color: 'white', border: 'none', cursor: 'pointer' }}>👈 A is better</button>
-                    <button onClick={() => handleVote('tie')} disabled={voting} style={{ padding: '8px 16px', borderRadius: '8px', background: 'var(--surface-3)', color: 'var(--text-1)', border: 'none', cursor: 'pointer' }}>🤝 Tie</button>
-                    <button onClick={() => handleVote('both_bad')} disabled={voting} style={{ padding: '8px 16px', borderRadius: '8px', background: 'var(--surface-3)', color: 'var(--text-1)', border: 'none', cursor: 'pointer' }}>👎 Both bad</button>
-                    <button onClick={() => handleVote('b')} disabled={voting} style={{ padding: '8px 16px', borderRadius: '8px', background: 'var(--primary)', color: 'white', border: 'none', cursor: 'pointer' }}>👉 B is better</button>
+                <div className="arena-vote-secondary" style={{ display: 'flex', justifyContent: 'center', gap: '1rem', marginTop: '1rem' }}>
+                    <button className="vote-btn vote-btn-secondary" onClick={() => handleVote('tie')} disabled={voting}>{t('arenaVoteTie')}</button>
+                    <button className="vote-btn vote-btn-secondary" onClick={() => handleVote('both_bad')} disabled={voting}>{t('arenaVoteBothBad')}</button>
                 </div>
             )}
         </div>

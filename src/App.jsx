@@ -319,6 +319,7 @@ function App() {
           onModelChange={setSelectedModel}
           isArenaMode={isArenaMode}
           setIsArenaMode={setIsArenaMode}
+          setCurrentView={setCurrentView}
         />
         {currentView === 'chat' ? (
           <ChatArea

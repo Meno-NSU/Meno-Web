@@ -51,21 +51,31 @@
 .new-chat-btn {
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 0.5rem;
-    background-color: var(--bg-primary);
-    border: 1px solid var(--border-color);
-    color: var(--text-primary);
+    background-color: var(--primary);
+    color: white;
     flex: 1;
-    padding: 0 1rem;
-    height: 36px;
-    border-radius: 0.5rem;
-    font-weight: 500;
-    font-size: 0.875rem;
-    transition: all 0.2s;
+    padding: 0.75rem 1.25rem;
+    height: 48px;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 1rem;
+    border: none;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+    cursor: pointer;
 }
 
 .new-chat-btn:hover {
-    background-color: var(--sidebar-hover);
+    background-color: var(--primary-hover, #2563eb); /* Adjust if you use a specific primary color */
+    box-shadow: 0 6px 8px -1px rgba(0, 0, 0, 0.15), 0 3px 6px -1px rgba(0, 0, 0, 0.1);
+    transform: translateY(-1px);
+}
+
+.new-chat-btn:active {
+    transform: translateY(1px);
+    box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.1);
 }
 
 .sidebar-content {

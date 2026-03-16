@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Trophy } from 'lucide-react';
+import { useTranslation } from '../i18n.js';
 import './Leaderboard.css';
 
 export default function Leaderboard() {
+    const { t } = useTranslation();
     const [data, setData] = useState([]);
     const [loading, setLoading] = useState(true);
 
@@ -21,25 +23,25 @@ export default function Leaderboard() {
         fetchLeaderboard();
     }, []);
 
-    if (loading) return <div className="leaderboard-loading">Loading Arena Leaderboard...</div>;
+    if (loading) return <div className="leaderboard-loading">{t('arenaLoading')}</div>;
 
     return (
         <div className="leaderboard-container">
             <div className="leaderboard-header">
                 <Trophy size={48} className="trophy-icon" />
-                <h1>Arena Leaderboard</h1>
-                <p>Vote for the best outputs to see which Model & Knowledge Base combination performs best.</p>
+                <h1>{t('arenaLeaderboardTitle')}</h1>
+                <p>{t('arenaLeaderboardDesc')}</p>
             </div>
 
             <div className="table-wrapper">
                 <table className="leaderboard-table">
                     <thead>
                         <tr>
-                            <th>Rank</th>
-                            <th>Setup (Model + KB)</th>
-                            <th>Elo Rating</th>
-                            <th>Win Rate</th>
-                            <th>Matches</th>
+                            <th>{t('arenaRank')}</th>
+                            <th>{t('arenaSetup')}</th>
+                            <th>{t('arenaEloRating')}</th>
+                            <th>{t('arenaWinRate')}</th>
+                            <th>{t('arenaMatches')}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -57,7 +59,7 @@ export default function Leaderboard() {
                         ))}
                         {data.length === 0 && (
                             <tr>
-                                <td colSpan="5" className="empty-row" style={{textAlign: 'center', padding: '2rem'}}>No battles fought yet.</td>
+                                <td colSpan="5" className="empty-row" style={{textAlign: 'center', padding: '2rem'}}>{t('arenaNoBattles')}</td>
                             </tr>
                         )}
                     </tbody>

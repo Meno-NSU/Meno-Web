@@ -272,3 +272,68 @@
     transform: translateY(-4px);
     animation: none;
 }
+
+/* ══════════════════════════════════════════════════════════
+   Arena Voting Buttons
+   ══════════════════════════════════════════════════════════ */
+.arena-vote-primary {
+    margin-top: 1rem;
+    display: flex;
+    justify-content: center;
+}
+
+.vote-btn {
+    border: none;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.vote-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.vote-btn-primary {
+    padding: 0.75rem 1.5rem;
+    border-radius: 12px;
+    background-color: var(--primary);
+    color: white;
+    font-size: 1.05rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    width: 100%;
+}
+
+.vote-btn-primary:hover:not(:disabled) {
+    background-color: var(--primary-hover, #2563eb);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 8px -1px rgba(0, 0, 0, 0.15);
+}
+
+.vote-btn-primary:active:not(:disabled) {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.1);
+}
+
+.arena-vote-secondary {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.vote-btn-secondary {
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    background-color: var(--surface-3);
+    color: var(--text-1);
+    font-size: 0.9rem;
+}
+
+.vote-btn-secondary:hover:not(:disabled) {
+    background-color: var(--sidebar-hover);
+    transform: translateY(-1px);
+}

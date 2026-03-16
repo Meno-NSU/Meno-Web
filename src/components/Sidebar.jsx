@@ -23,9 +23,6 @@ export default function Sidebar({ isOpen, toggleSidebar, chats, activeChatId, on
                         <Plus size={20} />
                         <span>{t("newChat")}</span>
                     </button>
-                    <button className="new-chat-btn" onClick={() => setCurrentView('leaderboard')} title="Arena Leaderboard" style={{ padding: '0.5rem', width: 'auto' }}>
-                        <Trophy size={20} />
-                    </button>
                 </div>
             </div>
 

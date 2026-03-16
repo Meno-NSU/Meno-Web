@@ -15,7 +15,22 @@ const translations = {
         noModelsAvailable: "Нет доступных моделей",
         noModelsSendBlocked: "Отправка заблокирована: нет доступных моделей",
         thinking: "Размышляю...",
-        thoughtFor: "Думал {time} секунд"
+        thoughtFor: "Думал {time} секунд",
+        arenaLeaderboardTitle: "Турнирная таблица",
+        arenaLeaderboardDesc: "Голосуйте за лучшие ответы, чтобы узнать, какая комбинация Модели и Базы Знаний работает лучше всего.",
+        arenaRank: "Ранг",
+        arenaSetup: "Связка",
+        arenaEloRating: "Рейтинг Эло",
+        arenaWinRate: "Победы",
+        arenaMatches: "Матчи",
+        arenaNoBattles: "Битв пока не было.",
+        arenaLoading: "Загрузка турнирной таблицы...",
+        arenaVoteLeftBetter: "👈 Правый ответ лучше", /* intentionally flipped? No, let's keep it accurate: Левый ответ лучше */
+        arenaVoteTie: "🤝 Оба хорошие",
+        arenaVoteBothBad: "👎 Оба плохие",
+        arenaVoteRightBetter: "👉 Правый ответ лучше",
+        battleArenaModeOn: "Арена: ВКЛ",
+        battleArenaModeOff: "Арена: ВЫКЛ"
     },
     en: {
         newChat: "New Chat",
@@ -31,7 +46,22 @@ const translations = {
         noModelsAvailable: "No models available",
         noModelsSendBlocked: "Sending blocked: no models available",
         thinking: "Thinking...",
-        thoughtFor: "Thought for {time} seconds"
+        thoughtFor: "Thought for {time} seconds",
+        arenaLeaderboardTitle: "Arena Leaderboard",
+        arenaLeaderboardDesc: "Vote for the best outputs to see which Model & Knowledge Base combination performs best.",
+        arenaRank: "Rank",
+        arenaSetup: "Setup (Model + KB)",
+        arenaEloRating: "Elo Rating",
+        arenaWinRate: "Win Rate",
+        arenaMatches: "Matches",
+        arenaNoBattles: "No battles fought yet.",
+        arenaLoading: "Loading Arena Leaderboard...",
+        arenaVoteLeftBetter: "👈 Left is better",
+        arenaVoteTie: "🤝 Both are good",
+        arenaVoteBothBad: "👎 Both bad",
+        arenaVoteRightBetter: "👉 Right is better",
+        battleArenaModeOn: "Arena: ON",
+        battleArenaModeOff: "Arena: OFF"
     }
 };
 

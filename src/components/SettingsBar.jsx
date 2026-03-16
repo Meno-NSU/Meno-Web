@@ -3,7 +3,7 @@ import { Moon, Sun, ChevronDown, AlertCircle } from 'lucide-react';
 import { useTranslation } from '../i18n.js';
 import './SettingsBar.css';
 
-export default function SettingsBar({ theme, toggleTheme, isSidebarOpen, models, selectedModel, onModelChange }) {
+export default function SettingsBar({ theme, toggleTheme, isSidebarOpen, models, selectedModel, onModelChange, isArenaMode, setIsArenaMode }) {
     const { t, lang, setLanguage } = useTranslation();
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const dropdownRef = useRef(null);
@@ -76,6 +76,14 @@ export default function SettingsBar({ theme, toggleTheme, isSidebarOpen, models,
                     style={{ fontWeight: "600", fontSize: "1rem" }}
                 >
                     {lang.toUpperCase()}
+                </button>
+                <button
+                    className={`btn-icon arena-toggle ${isArenaMode ? 'active' : ''}`}
+                    onClick={() => setIsArenaMode(!isArenaMode)}
+                    title={`Arena Mode is ${isArenaMode ? 'ON' : 'OFF'}`}
+                    style={{ fontWeight: "600", fontSize: "1rem", backgroundColor: isArenaMode ? "var(--primary)" : "transparent", color: isArenaMode ? "white" : "inherit", borderRadius: "8px", padding: "4px 8px" }}
+                >
+                    ⚔️
                 </button>
                 <button
                     className="btn-icon theme-toggle"

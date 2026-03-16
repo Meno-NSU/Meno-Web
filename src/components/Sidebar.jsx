@@ -1,8 +1,8 @@
-import { Plus, MessageSquare, PanelLeftClose, PanelLeft, MoreHorizontal, Trash2 } from 'lucide-react';
+import { Plus, MessageSquare, PanelLeftClose, PanelLeft, MoreHorizontal, Trash2, Trophy } from 'lucide-react';
 import { useTranslation } from '../i18n.js';
 import './Sidebar.css';
 
-export default function Sidebar({ isOpen, toggleSidebar, chats, activeChatId, onSelectChat, onNewChat, onDeleteChat, generatingChats }) {
+export default function Sidebar({ isOpen, toggleSidebar, chats, activeChatId, onSelectChat, onNewChat, onDeleteChat, generatingChats, currentView, setCurrentView }) {
     const { t } = useTranslation();
     if (!isOpen) {
         return (
@@ -18,10 +18,15 @@ export default function Sidebar({ isOpen, toggleSidebar, chats, activeChatId, on
                 <button className="sidebar-toggle-btn" onClick={toggleSidebar} title={t("closeSidebar")}>
                     <PanelLeftClose size={20} />
                 </button>
-                <button className="new-chat-btn" onClick={onNewChat}>
-                    <Plus size={20} />
-                    <span>{t("newChat")}</span>
-                </button>
+                <div style={{display: 'flex', gap: '0.5rem', flex: 1}}>
+                    <button className="new-chat-btn" onClick={() => { setCurrentView('chat'); onNewChat(); }} style={{ flex: 1 }}>
+                        <Plus size={20} />
+                        <span>{t("newChat")}</span>
+                    </button>
+                    <button className="new-chat-btn" onClick={() => setCurrentView('leaderboard')} title="Arena Leaderboard" style={{ padding: '0.5rem', width: 'auto' }}>
+                        <Trophy size={20} />
+                    </button>
+                </div>
             </div>
 
             <div className="sidebar-content">

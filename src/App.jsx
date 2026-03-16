@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import Sidebar from './components/Sidebar.jsx';
 import ChatArea from './components/ChatArea.jsx';
 import SettingsBar from './components/SettingsBar.jsx';
+import Leaderboard from './components/Leaderboard.jsx';
 import { fetchModels, fetchKnowledgeBases, sendChatMessage } from './services/api.js';
 import { loadChats, saveChats, createNewChat, generateTitle } from './store/chatStore.js';
 import './index.css';
@@ -22,6 +23,12 @@ function App() {
   const [chats, setChats] = useState(loadChats());
   const [activeChatId, setActiveChatId] = useState(null);
   const [generatingChats, setGeneratingChats] = useState(new Set());
+
+  // App routing state
+  const [currentView, setCurrentView] = useState('chat');
+
+  // Arena Mode
+  const [isArenaMode, setIsArenaMode] = useState(false);
 
   // Initialize data
   useEffect(() => {
@@ -115,17 +122,114 @@ function App() {
     setGeneratingChats(prev => new Set(prev).add(targetChatId));
 
     try {
-      // Create empty assistant message first
-      setChats(prev => prev.map(c => {
-        if (c.id === targetChatId) {
-          return {
-            ...c,
-            // also tracking timestamps for think-time
-            messages: [...c.messages, { role: 'assistant', content: '', thinkStartTime: Date.now() }]
-          };
+      if (isArenaMode) {
+        // Generate two setups
+        const combinations = [];
+        for (const m of models) {
+          for (const k of kbs) {
+            combinations.push({ model: m.id, kb: k.id });
+          }
         }
-        return c;
-      }));
+        let setupA, setupB;
+        if (combinations.length < 2) {
+          setupA = { model: selectedModel, kb: selectedKb };
+          setupB = { model: selectedModel, kb: selectedKb };
+        } else {
+          const shuffled = combinations.sort(() => 0.5 - Math.random());
+          setupA = shuffled[0];
+          setupB = shuffled[1];
+        }
+
+        // Create empty arena message
+        setChats(prev => prev.map(c => {
+          if (c.id === targetChatId) {
+            return {
+              ...c,
+              messages: [...c.messages, {
+                role: 'assistant',
+                isArena: true,
+                arenaData: {
+                  a: { ...setupA, content: '' },
+                  b: { ...setupB, content: '' },
+                  voted: false,
+                  winner: null
+                }
+              }]
+            };
+          }
+          return c;
+        }));
+
+        const currentChat = chats.find(c => c.id === targetChatId);
+        const messageHistory = [...(currentChat?.messages || []), userMessage];
+
+        // Dual streaming promises
+        const reqA = sendChatMessage(
+          messageHistory, setupA.model, setupA.kb, true,
+          (_, fullContent) => {
+            setChats(prev => prev.map(c => {
+              if (c.id === targetChatId) {
+                const msgs = [...c.messages];
+                const lastMsg = msgs[msgs.length - 1];
+                if (lastMsg.isArena) {
+                  lastMsg.arenaData.a.content = fullContent;
+                }
+                return { ...c, messages: msgs };
+              }
+              return c;
+            }));
+          }
+        ).catch(e => {
+            setChats(prev => prev.map(c => {
+              if (c.id === targetChatId) {
+                const msgs = [...c.messages];
+                if (msgs[msgs.length - 1].isArena) msgs[msgs.length - 1].arenaData.a.content = `Error: ${e.message}`;
+                return { ...c, messages: msgs };
+              }
+              return c;
+            }));
+        });
+
+        const reqB = sendChatMessage(
+          messageHistory, setupB.model, setupB.kb, true,
+          (_, fullContent) => {
+            setChats(prev => prev.map(c => {
+              if (c.id === targetChatId) {
+                const msgs = [...c.messages];
+                const lastMsg = msgs[msgs.length - 1];
+                if (lastMsg.isArena) {
+                  lastMsg.arenaData.b.content = fullContent;
+                }
+                return { ...c, messages: msgs };
+              }
+              return c;
+            }));
+          }
+        ).catch(e => {
+            setChats(prev => prev.map(c => {
+              if (c.id === targetChatId) {
+                const msgs = [...c.messages];
+                if (msgs[msgs.length - 1].isArena) msgs[msgs.length - 1].arenaData.b.content = `Error: ${e.message}`;
+                return { ...c, messages: msgs };
+              }
+              return c;
+            }));
+        });
+
+        await Promise.all([reqA, reqB]);
+
+      } else {
+        // Create empty assistant message first
+        setChats(prev => prev.map(c => {
+          if (c.id === targetChatId) {
+            return {
+              ...c,
+              // also tracking timestamps for think-time
+              messages: [...c.messages, { role: 'assistant', content: '', thinkStartTime: Date.now() }]
+            };
+          }
+          return c;
+        }));
 
       // Find chat again since state updated
       const currentChat = chats.find(c => c.id === targetChatId);
@@ -170,7 +274,7 @@ function App() {
         }
         return c;
       }));
-
+      }
     } catch (error) {
       console.error(error);
       setChats(prev => prev.map(c => {
@@ -197,10 +301,12 @@ function App() {
         toggleSidebar={toggleSidebar}
         chats={chats.sort((a, b) => b.updatedAt - a.updatedAt)}
         activeChatId={activeChatId}
-        onSelectChat={setActiveChatId}
+        onSelectChat={(id) => { setActiveChatId(id); setCurrentView('chat'); }}
         onNewChat={handleNewChat}
         onDeleteChat={handleDeleteChat}
         generatingChats={generatingChats}
+        currentView={currentView}
+        setCurrentView={setCurrentView}
       />
 
       <main className="main-content">
@@ -211,16 +317,24 @@ function App() {
           models={models}
           selectedModel={selectedModel}
           onModelChange={setSelectedModel}
+          isArenaMode={isArenaMode}
+          setIsArenaMode={setIsArenaMode}
         />
-        <ChatArea
-          messages={activeChat.messages}
-          isGenerating={generatingChats.has(activeChatId)}
-          onSendMessage={handleSendMessage}
-          modelsAvailable={models.length > 0}
-          kbs={kbs}
-          selectedKb={selectedKb}
-          onKbChange={setSelectedKb}
-        />
+        {currentView === 'chat' ? (
+          <ChatArea
+            messages={activeChat.messages}
+            isGenerating={generatingChats.has(activeChatId)}
+            onSendMessage={handleSendMessage}
+            modelsAvailable={models.length > 0}
+            kbs={kbs}
+            selectedKb={selectedKb}
+            onKbChange={setSelectedKb}
+            chatId={activeChatId}
+            setChats={setChats}
+          />
+        ) : (
+          <Leaderboard />
+        )}
       </main>
     </div>
   );

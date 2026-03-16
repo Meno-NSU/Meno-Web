@@ -99,7 +99,7 @@ function ThinkBlock({ content, thinkTime }) {
 }
 
 // ── Main ChatArea ────────────────────────────────────────────────────────────
-export default function ChatArea({ messages, isGenerating, onSendMessage, kbs, selectedKb, onKbChange, modelsAvailable }) {
+export default function ChatArea({ messages, isGenerating, onSendMessage, kbs, selectedKb, onKbChange, modelsAvailable, chatId, setChats }) {
     const { t } = useTranslation();
     const messagesEndRef = useRef(null);
 
@@ -118,7 +118,9 @@ export default function ChatArea({ messages, isGenerating, onSendMessage, kbs, s
             {!isEmpty && (
                 <div className="chat-messages">
                     {messages.map((msg, index) => (
-                        <MessageBubble key={index} message={msg} />
+                        msg.isArena 
+                          ? <ArenaMessageBubble key={index} message={msg} chatId={chatId} setChats={setChats} />
+                          : <MessageBubble key={index} message={msg} />
                     ))}
 
                     {isGenerating && (
@@ -202,6 +204,103 @@ function MessageBubble({ message }) {
                     </button>
                 </div>
             </div>
+        </div>
+    );
+}
+
+// ── Arena Message bubble ─────────────────────────────────────────────────────
+function ArenaMessageBubble({ message, chatId, setChats }) {
+    const { arenaData } = message;
+    const [voting, setVoting] = useState(false);
+
+    const handleVote = async (winner) => {
+        if (arenaData.voted || voting) return;
+        setVoting(true);
+        try {
+            await fetch('/v1/arena/vote', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    model_a: arenaData.a.model,
+                    kb_a: arenaData.a.kb,
+                    model_b: arenaData.b.model,
+                    kb_b: arenaData.b.kb,
+                    winner
+                })
+            });
+            // Update local state to mark as voted
+            setChats(prev => prev.map(c => {
+                if (c.id === chatId) {
+                    const newMsgs = c.messages.map(m => {
+                        if (m === message) {
+                            return { ...m, arenaData: { ...m.arenaData, voted: true, winner } };
+                        }
+                        return m;
+                    });
+                    return { ...c, messages: newMsgs };
+                }
+                return c;
+            }));
+        } catch (e) {
+            console.error('Vote failed:', e);
+        } finally {
+            setVoting(false);
+        }
+    };
+
+    const segmentsA = parseThinkBlocks(arenaData.a.content || '', arenaData.a.thinkTime);
+    const segmentsB = parseThinkBlocks(arenaData.b.content || '', arenaData.b.thinkTime);
+
+    // Apply primary colors to the voted column if a/b
+    const bgA = arenaData.winner === 'a' ? 'rgba(var(--primary-rgb), 0.1)' : 'transparent';
+    const borderA = arenaData.winner === 'a' ? '2px solid var(--primary)' : '1px solid var(--border)';
+    const bgB = arenaData.winner === 'b' ? 'rgba(var(--primary-rgb), 0.1)' : 'transparent';
+    const borderB = arenaData.winner === 'b' ? '2px solid var(--primary)' : '1px solid var(--border)';
+
+    return (
+        <div className="message-wrapper assistant arena" style={{ maxWidth: '100%', marginBottom: '2rem' }}>
+            <div className="arena-container" style={{ display: 'flex', gap: '1rem', width: '100%' }}>
+                <div className="arena-column a" style={{ flex: 1, backgroundColor: bgA, border: borderA, borderRadius: '12px', padding: '1rem', overflowX: 'auto' }}>
+                    <div className="arena-header" style={{ marginBottom: '1rem', fontWeight: 'bold', display: 'flex', justifyContent: 'space-between' }}>
+                        <span>{arenaData.voted ? `A: ${arenaData.a.model} (${arenaData.a.kb})` : 'Model A'}</span>
+                        {arenaData.winner === 'a' && <span style={{ color: 'var(--primary)' }}>🏆 Winner</span>}
+                    </div>
+                    <div className="message-markdown prose">
+                        {segmentsA.map((seg, i) =>
+                            seg.type === 'think' ? (
+                                <ThinkBlock key={i} content={seg.content} thinkTime={seg.thinkTime} />
+                            ) : (
+                                <ReactMarkdown key={i} remarkPlugins={[remarkGfm]}>{seg.content}</ReactMarkdown>
+                            )
+                        )}
+                    </div>
+                </div>
+                
+                <div className="arena-column b" style={{ flex: 1, backgroundColor: bgB, border: borderB, borderRadius: '12px', padding: '1rem', overflowX: 'auto' }}>
+                    <div className="arena-header" style={{ marginBottom: '1rem', fontWeight: 'bold', display: 'flex', justifyContent: 'space-between' }}>
+                        <span>{arenaData.voted ? `B: ${arenaData.b.model} (${arenaData.b.kb})` : 'Model B'}</span>
+                        {arenaData.winner === 'b' && <span style={{ color: 'var(--primary)' }}>🏆 Winner</span>}
+                    </div>
+                    <div className="message-markdown prose">
+                        {segmentsB.map((seg, i) =>
+                            seg.type === 'think' ? (
+                                <ThinkBlock key={i} content={seg.content} thinkTime={seg.thinkTime} />
+                            ) : (
+                                <ReactMarkdown key={i} remarkPlugins={[remarkGfm]}>{seg.content}</ReactMarkdown>
+                            )
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            {!arenaData.voted && (
+                <div className="arena-vote-actions" style={{ display: 'flex', justifyContent: 'center', gap: '1rem', marginTop: '1rem' }}>
+                    <button onClick={() => handleVote('a')} disabled={voting} style={{ padding: '8px 16px', borderRadius: '8px', background: 'var(--primary)', color: 'white', border: 'none', cursor: 'pointer' }}>👈 A is better</button>
+                    <button onClick={() => handleVote('tie')} disabled={voting} style={{ padding: '8px 16px', borderRadius: '8px', background: 'var(--surface-3)', color: 'var(--text-1)', border: 'none', cursor: 'pointer' }}>🤝 Tie</button>
+                    <button onClick={() => handleVote('both_bad')} disabled={voting} style={{ padding: '8px 16px', borderRadius: '8px', background: 'var(--surface-3)', color: 'var(--text-1)', border: 'none', cursor: 'pointer' }}>👎 Both bad</button>
+                    <button onClick={() => handleVote('b')} disabled={voting} style={{ padding: '8px 16px', borderRadius: '8px', background: 'var(--primary)', color: 'white', border: 'none', cursor: 'pointer' }}>👉 B is better</button>
+                </div>
+            )}
         </div>
     );
 }

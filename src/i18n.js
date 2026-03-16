@@ -25,7 +25,7 @@ const translations = {
         arenaMatches: "Матчи",
         arenaNoBattles: "Битв пока не было.",
         arenaLoading: "Загрузка турнирной таблицы...",
-        arenaVoteLeftBetter: "👈 Правый ответ лучше", /* intentionally flipped? No, let's keep it accurate: Левый ответ лучше */
+        arenaVoteLeftBetter: "👈 Левый ответ лучше",
         arenaVoteTie: "🤝 Оба хорошие",
         arenaVoteBothBad: "👎 Оба плохие",
         arenaVoteRightBetter: "👉 Правый ответ лучше",

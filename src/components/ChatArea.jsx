@@ -119,7 +119,7 @@ export default function ChatArea({ messages, isGenerating, onSendMessage, kbs, s
                 <div className="chat-messages">
                     {messages.map((msg, index) => (
                         msg.isArena 
-                          ? <ArenaMessageBubble key={index} message={msg} chatId={chatId} setChats={setChats} />
+                          ? <ArenaMessageBubble key={index} message={msg} chatId={chatId} setChats={setChats} isGenerating={isGenerating} />
                           : <MessageBubble key={index} message={msg} />
                     ))}
 
@@ -209,7 +209,7 @@ function MessageBubble({ message }) {
 }
 
 // ── Arena Message bubble ─────────────────────────────────────────────────────
-function ArenaMessageBubble({ message, chatId, setChats }) {
+function ArenaMessageBubble({ message, chatId, setChats, isGenerating }) {
     const { t } = useTranslation();
     const { arenaData } = message;
     const [voting, setVoting] = useState(false);
@@ -266,7 +266,7 @@ function ArenaMessageBubble({ message, chatId, setChats }) {
                         <span>{arenaData.voted ? `A: ${arenaData.a.model} (${arenaData.a.kb})` : 'Model A'}</span>
                         {arenaData.winner === 'a' && <span style={{ color: 'var(--primary)' }}>🏆 Winner</span>}
                     </div>
-                    <div className="message-markdown prose" style={{ flex: 1 }}>
+                    <div className="message-markdown prose" style={{ flex: 1, paddingBottom: isGenerating ? '2rem' : '0' }}>
                         {segmentsA.map((seg, i) =>
                             seg.type === 'think' ? (
                                 <ThinkBlock key={i} content={seg.content} thinkTime={seg.thinkTime} />
@@ -274,8 +274,9 @@ function ArenaMessageBubble({ message, chatId, setChats }) {
                                 <ReactMarkdown key={i} remarkPlugins={[remarkGfm]}>{seg.content}</ReactMarkdown>
                             )
                         )}
+                        {isGenerating && <LoadingPhrase />}
                     </div>
-                    {!arenaData.voted && (
+                    {!arenaData.voted && !isGenerating && (
                         <div className="arena-vote-primary">
                             <button className="vote-btn vote-btn-primary" onClick={() => handleVote('a')} disabled={voting}>
                                 {t('arenaVoteLeftBetter')}
@@ -289,7 +290,7 @@ function ArenaMessageBubble({ message, chatId, setChats }) {
                         <span>{arenaData.voted ? `B: ${arenaData.b.model} (${arenaData.b.kb})` : 'Model B'}</span>
                         {arenaData.winner === 'b' && <span style={{ color: 'var(--primary)' }}>🏆 Winner</span>}
                     </div>
-                    <div className="message-markdown prose" style={{ flex: 1 }}>
+                    <div className="message-markdown prose" style={{ flex: 1, paddingBottom: isGenerating ? '2rem' : '0' }}>
                         {segmentsB.map((seg, i) =>
                             seg.type === 'think' ? (
                                 <ThinkBlock key={i} content={seg.content} thinkTime={seg.thinkTime} />
@@ -297,8 +298,9 @@ function ArenaMessageBubble({ message, chatId, setChats }) {
                                 <ReactMarkdown key={i} remarkPlugins={[remarkGfm]}>{seg.content}</ReactMarkdown>
                             )
                         )}
+                        {isGenerating && <LoadingPhrase />}
                     </div>
-                    {!arenaData.voted && (
+                    {!arenaData.voted && !isGenerating && (
                         <div className="arena-vote-primary">
                             <button className="vote-btn vote-btn-primary" onClick={() => handleVote('b')} disabled={voting}>
                                 {t('arenaVoteRightBetter')}
@@ -308,7 +310,7 @@ function ArenaMessageBubble({ message, chatId, setChats }) {
                 </div>
             </div>
 
-            {!arenaData.voted && (
+            {!arenaData.voted && !isGenerating && (
                 <div className="arena-vote-secondary" style={{ display: 'flex', justifyContent: 'center', gap: '1rem', marginTop: '1rem' }}>
                     <button className="vote-btn vote-btn-secondary" onClick={() => handleVote('tie')} disabled={voting}>{t('arenaVoteTie')}</button>
                     <button className="vote-btn vote-btn-secondary" onClick={() => handleVote('both_bad')} disabled={voting}>{t('arenaVoteBothBad')}</button>

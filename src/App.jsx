@@ -149,8 +149,8 @@ function App() {
                 role: 'assistant',
                 isArena: true,
                 arenaData: {
-                  a: { ...setupA, content: '' },
-                  b: { ...setupB, content: '' },
+                  a: { ...setupA, content: '', thinkStartTime: Date.now() },
+                  b: { ...setupB, content: '', thinkStartTime: Date.now() },
                   voted: false,
                   winner: null
                 }
@@ -173,6 +173,9 @@ function App() {
                 const lastMsg = msgs[msgs.length - 1];
                 if (lastMsg.isArena) {
                   lastMsg.arenaData.a.content = fullContent;
+                  if (fullContent.includes('</think>') && !lastMsg.arenaData.a.thinkTime && lastMsg.arenaData.a.thinkStartTime) {
+                      lastMsg.arenaData.a.thinkTime = Math.floor((Date.now() - lastMsg.arenaData.a.thinkStartTime) / 1000);
+                  }
                 }
                 return { ...c, messages: msgs };
               }
@@ -199,6 +202,9 @@ function App() {
                 const lastMsg = msgs[msgs.length - 1];
                 if (lastMsg.isArena) {
                   lastMsg.arenaData.b.content = fullContent;
+                  if (fullContent.includes('</think>') && !lastMsg.arenaData.b.thinkTime && lastMsg.arenaData.b.thinkStartTime) {
+                      lastMsg.arenaData.b.thinkTime = Math.floor((Date.now() - lastMsg.arenaData.b.thinkStartTime) / 1000);
+                  }
                 }
                 return { ...c, messages: msgs };
               }
@@ -217,6 +223,24 @@ function App() {
         });
 
         await Promise.all([reqA, reqB]);
+
+        // Force calculation if stream closed without closing think tag for Arena
+        setChats(prev => prev.map(c => {
+          if (c.id === targetChatId) {
+            const msgs = [...c.messages];
+            const lastMsg = msgs[msgs.length - 1];
+            if (lastMsg.isArena) {
+              if (!lastMsg.arenaData.a.thinkTime && lastMsg.arenaData.a.thinkStartTime && lastMsg.arenaData.a.content.includes('<think>')) {
+                  lastMsg.arenaData.a.thinkTime = Math.floor((Date.now() - lastMsg.arenaData.a.thinkStartTime) / 1000);
+              }
+              if (!lastMsg.arenaData.b.thinkTime && lastMsg.arenaData.b.thinkStartTime && lastMsg.arenaData.b.content.includes('<think>')) {
+                  lastMsg.arenaData.b.thinkTime = Math.floor((Date.now() - lastMsg.arenaData.b.thinkStartTime) / 1000);
+              }
+            }
+            return { ...c, messages: msgs };
+          }
+          return c;
+        }));
 
       } else {
         // Create empty assistant message first

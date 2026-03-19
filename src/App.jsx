@@ -160,9 +160,13 @@ function App() {
           setupA = { model: selectedModel, kb: selectedKb };
           setupB = { model: selectedModel, kb: selectedKb };
         } else {
-          const shuffled = combinations.sort(() => 0.5 - Math.random());
-          setupA = shuffled[0];
-          setupB = shuffled[1];
+          const idxA = Math.floor(Math.random() * combinations.length);
+          let idxB;
+          do {
+            idxB = Math.floor(Math.random() * combinations.length);
+          } while (idxB === idxA);
+          setupA = combinations[idxA];
+          setupB = combinations[idxB];
         }
 
         // Create empty arena message

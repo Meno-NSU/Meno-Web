@@ -83,7 +83,8 @@ export async function sendChatMessage(messages, model, kb, stream = false, onChu
             model: model,
             messages: messages,
             stream: stream,
-            user: 'local-user' // Could be dynamic
+            user: 'local-user', // Could be dynamic
+            knowledge_base_id: kb
         };
 
         const res = await fetchWithLogging(`${API_BASE_URL}/v1/chat/completions`, {

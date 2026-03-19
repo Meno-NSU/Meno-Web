@@ -16,8 +16,12 @@ function App() {
   // Data state
   const [models, setModels] = useState([]);
   const [kbs, setKbs] = useState([]);
-  const [selectedModel, setSelectedModel] = useState('');
-  const [selectedKb, setSelectedKb] = useState('');
+  const [selectedModel, setSelectedModel] = useState(() => {
+    return localStorage.getItem('selectedModel') || '';
+  });
+  const [selectedKb, setSelectedKb] = useState(() => {
+    return localStorage.getItem('selectedKb') || '';
+  });
 
   // Chat state
   const [chats, setChats] = useState(loadChats());
@@ -40,11 +44,32 @@ function App() {
       setModels(fetchedModels);
       setKbs(fetchedKbs);
 
-      if (fetchedModels.length > 0) setSelectedModel(fetchedModels[0].id);
-      if (fetchedKbs.length > 0) setSelectedKb(fetchedKbs[0].id);
+      const storedModel = localStorage.getItem('selectedModel');
+      const isValidStoredModel = fetchedModels.some(m => m.id === storedModel);
+      if (fetchedModels.length > 0 && (!storedModel || !isValidStoredModel)) {
+        setSelectedModel(fetchedModels[0].id);
+      }
+
+      const storedKb = localStorage.getItem('selectedKb');
+      const isValidStoredKb = fetchedKbs.some(k => k.id === storedKb);
+      if (fetchedKbs.length > 0 && (!storedKb || !isValidStoredKb)) {
+        setSelectedKb(fetchedKbs[0].id);
+      }
     };
     initData();
   }, []);
+
+  useEffect(() => {
+    if (selectedModel) {
+      localStorage.setItem('selectedModel', selectedModel);
+    }
+  }, [selectedModel]);
+
+  useEffect(() => {
+    if (selectedKb) {
+      localStorage.setItem('selectedKb', selectedKb);
+    }
+  }, [selectedKb]);
 
   // Initialize chat
   useEffect(() => {

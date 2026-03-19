@@ -7,6 +7,47 @@ const API_BASE_URL = '';
 
 const generateRequestId = () => Math.random().toString(36).substring(2, 10);
 
+function splitSseBuffer(buffer) {
+    const normalized = buffer.replace(/\r\n/g, '\n');
+    const events = normalized.split('\n\n');
+    return {
+        completeEvents: events.slice(0, -1),
+        remainder: events.at(-1) || '',
+    };
+}
+
+function parseSseEventBlock(block) {
+    const dataLines = [];
+
+    for (const line of block.split('\n')) {
+        if (line.startsWith('data:')) {
+            dataLines.push(line.slice(5).trimStart());
+        }
+    }
+
+    if (dataLines.length === 0) {
+        return null;
+    }
+
+    const payload = dataLines.join('\n');
+    if (payload === '[DONE]') {
+        return { done: true };
+    }
+
+    try {
+        return {
+            done: false,
+            data: JSON.parse(payload),
+        };
+    } catch (error) {
+        apiLogger.warn('Ignoring malformed SSE payload', {
+            error: error instanceof Error ? error.message : String(error),
+            payloadPreview: payload.slice(0, 200),
+        });
+        return null;
+    }
+}
+
 async function fetchWithLogging(url, options = {}) {
     const requestId = generateRequestId();
     const method = options.method || 'GET';
@@ -76,15 +117,47 @@ export async function fetchKnowledgeBases() {
     }
 }
 
-export async function sendChatMessage(messages, model, kb, stream = false, onChunk = null) {
-    apiLogger.debug('sendChatMessage called', { model, kb, stream, messageCount: messages.length });
+export async function clearChatHistory(chatId) {
+    apiLogger.debug('clearChatHistory called', { chatId });
+    const res = await fetchWithLogging(`${API_BASE_URL}/v1/chat/completions/clear_history`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ chat_id: chatId }),
+    });
+
+    if (!res.ok) {
+        const errorText = await res.text();
+        apiLogger.error(`clearChatHistory failed with HTTP ${res.status}`, { response: errorText });
+        throw new Error(errorText || 'Failed to clear chat history');
+    }
+
+    return res.json();
+}
+
+export async function sendChatMessage({
+    messages,
+    modelId,
+    knowledgeBaseId,
+    sessionId,
+    stream = false,
+    onEvent = null,
+}) {
+    apiLogger.debug('sendChatMessage called', {
+        modelId,
+        knowledgeBaseId,
+        sessionId,
+        stream,
+        messageCount: messages.length,
+    });
     try {
         const payload = {
-            model: model,
-            messages: messages,
-            stream: stream,
-            user: 'local-user', // Could be dynamic
-            knowledge_base_id: kb
+            model: modelId,
+            messages,
+            stream,
+            user: sessionId,
+            knowledge_base_id: knowledgeBaseId,
         };
 
         const res = await fetchWithLogging(`${API_BASE_URL}/v1/chat/completions`, {
@@ -107,49 +180,118 @@ export async function sendChatMessage(messages, model, kb, stream = false, onChu
 
         if (!stream) {
             const data = await res.json();
+            const responseModelId = data.model || modelId;
+            const content = data.choices?.[0]?.message?.content || '';
+
+            if (onEvent && responseModelId) {
+                onEvent({ type: 'model', modelId: responseModelId, raw: data });
+            }
+            if (onEvent && content) {
+                onEvent({
+                    type: 'content',
+                    textChunk: content,
+                    fullContent: content,
+                    modelId: responseModelId,
+                    raw: data,
+                });
+            }
+
             apiLogger.debug('sendChatMessage (non-stream) completed successfully');
-            return data.choices?.[0]?.message?.content || '';
+            return { content, modelId: responseModelId };
         }
 
         // Handle Streaming Response
         apiLogger.debug('sendChatMessage (stream) processing started');
+        if (!res.body) {
+            throw new Error('Streaming response body is missing');
+        }
+
         const reader = res.body.getReader();
         const decoder = new TextDecoder('utf-8');
         let fullContent = '';
         let chunkCount = 0;
+        let responseModelId = null;
+        let rawBuffer = '';
+        let streamFinished = false;
+
+        const handleParsedEvent = (eventBlock) => {
+            const parsedEvent = parseSseEventBlock(eventBlock);
+            if (!parsedEvent) {
+                return false;
+            }
+            if (parsedEvent.done) {
+                apiLogger.debug('sendChatMessage received data: [DONE]');
+                return true;
+            }
+
+            const data = parsedEvent.data;
+            if (data?.error?.message) {
+                throw new Error(data.error.message);
+            }
+
+            const parsedModelId = typeof data?.model === 'string' && data.model.trim()
+                ? data.model.trim()
+                : null;
+            if (parsedModelId && parsedModelId !== responseModelId) {
+                responseModelId = parsedModelId;
+                if (onEvent) {
+                    onEvent({ type: 'model', modelId: responseModelId, raw: data });
+                }
+            }
+
+            const textChunk = data.choices?.[0]?.delta?.content;
+            if (typeof textChunk === 'string' && textChunk.length > 0) {
+                fullContent += textChunk;
+                chunkCount += 1;
+                if (onEvent) {
+                    onEvent({
+                        type: 'content',
+                        textChunk,
+                        fullContent,
+                        modelId: responseModelId || modelId,
+                        raw: data,
+                    });
+                }
+            }
+
+            return false;
+        };
 
         while (true) {
             const { done, value } = await reader.read();
-            if (done) {
-                apiLogger.debug('sendChatMessage (stream) completed', { chunkCount, totalLength: fullContent.length });
+            rawBuffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+
+            const { completeEvents, remainder } = splitSseBuffer(rawBuffer);
+            rawBuffer = remainder;
+
+            for (const eventBlock of completeEvents) {
+                if (handleParsedEvent(eventBlock)) {
+                    streamFinished = true;
+                    break;
+                }
+            }
+
+            if (streamFinished) {
                 break;
             }
 
-            const chunk = decoder.decode(value, { stream: true });
-            const lines = chunk.split('\n');
-
-            for (const line of lines) {
-                if (line.trim() === 'data: [DONE]') {
-                    apiLogger.debug('sendChatMessage received data: [DONE]');
-                    return fullContent;
+            if (done) {
+                const trailingEvent = rawBuffer.trim();
+                if (trailingEvent) {
+                    handleParsedEvent(trailingEvent);
                 }
-                if (line.startsWith('data: ')) {
-                    try {
-                        const data = JSON.parse(line.slice(6));
-                        if (data.choices?.[0]?.delta?.content) {
-                            const textChunk = data.choices[0].delta.content;
-                            fullContent += textChunk;
-                            chunkCount++;
-                            if (onChunk) onChunk(textChunk, fullContent);
-                        }
-                    } catch {
-                        // Ignore parsing errors for incomplete chunks
-                    }
-                }
+                apiLogger.debug('sendChatMessage (stream) completed', {
+                    chunkCount,
+                    totalLength: fullContent.length,
+                });
+                break;
             }
         }
 
-        return fullContent;
+        return {
+            content: fullContent,
+            modelId: responseModelId || modelId,
+        };
     } catch (error) {
         apiLogger.error('Error in sendChatMessage:', error);
         throw error;

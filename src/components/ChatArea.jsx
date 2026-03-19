@@ -163,6 +163,7 @@ export default function ChatArea({ messages, isGenerating, onSendMessage, kbs, s
 function MessageBubble({ message }) {
     const isUser = message.role === 'user';
     const [copied, setCopied] = useState(false);
+    const { t } = useTranslation();
 
     const handleCopy = () => {
         navigator.clipboard.writeText(message.content);
@@ -182,10 +183,18 @@ function MessageBubble({ message }) {
 
     // Parse think blocks out of raw content, passing along thinkTime
     const segments = parseThinkBlocks(message.content || '', message.thinkTime);
+    const effectiveModelId = message.responseModelId || message.requestModelId;
 
     return (
         <div className="message-wrapper assistant">
             <div className="message-content">
+                {effectiveModelId && (
+                    <div className="message-meta-row">
+                        <span className="message-model-chip">
+                            {t('model')}: {effectiveModelId}
+                        </span>
+                    </div>
+                )}
                 <div className="message-markdown prose">
                     {segments.map((seg, i) =>
                         seg.type === 'think' ? (

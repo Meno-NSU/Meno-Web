@@ -2,7 +2,7 @@ import { Plus, MessageSquare, PanelLeftClose, PanelLeft, MoreHorizontal, Trash2,
 import { useTranslation } from '../i18n.js';
 import './Sidebar.css';
 
-export default function Sidebar({ isOpen, toggleSidebar, chats, activeChatId, onSelectChat, onNewChat, onDeleteChat, generatingChats, currentView, setCurrentView }) {
+export default function Sidebar({ isOpen, toggleSidebar, chats, activeChatId, onSelectChat, onNewChat, onDeleteChat, generatingChats, setCurrentView }) {
     const { t } = useTranslation();
     if (!isOpen) {
         return (

@@ -25,7 +25,7 @@ export class Logger {
                     const dataStr = typeof data === 'object' ? JSON.stringify(data, null, 2) : String(data);
                     logString += `\n  Data: ${dataStr}`;
                 }
-            } catch (e) {
+            } catch {
                 logString += `\n  Data: [Unserializable Object]`;
             }
         }

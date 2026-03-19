@@ -3,28 +3,214 @@ import Sidebar from './components/Sidebar.jsx';
 import ChatArea from './components/ChatArea.jsx';
 import SettingsBar from './components/SettingsBar.jsx';
 import Leaderboard from './components/Leaderboard.jsx';
-import { fetchModels, fetchKnowledgeBases, sendChatMessage } from './services/api.js';
-import { loadChats, saveChats, createNewChat, generateTitle } from './store/chatStore.js';
+import {
+  clearChatHistory,
+  fetchKnowledgeBases,
+  fetchModels,
+  sendChatMessage,
+} from './services/api.js';
+import {
+  createNewChat,
+  generateTitle,
+  loadChats,
+  migrateChats,
+  saveChats,
+} from './store/chatStore.js';
 import './index.css';
 
-function App() {
-  const [theme, setTheme] = useState(() => {
-    return localStorage.getItem('theme') || 'light';
+const LAST_USED_MODEL_KEY = 'lastUsedModelId';
+const LAST_USED_KB_KEY = 'lastUsedKnowledgeBaseId';
+const SERVER_ERROR_TEXT = 'Извините, произошла ошибка на сервере. Пожалуйста, попробуйте задать свой вопрос позже.';
+const EMPTY_CHAT = {
+  messages: [],
+  runtimeConfig: {
+    modelId: '',
+    knowledgeBaseId: '',
+    sessionId: '',
+  },
+};
+
+function buildErrorMessage(error) {
+  const details = error instanceof Error ? error.message : String(error);
+  return `${SERVER_ERROR_TEXT}\n\n*(Детали: ${details})*`;
+}
+
+function resolveValidId(items, candidateId, fallbackId = '') {
+  const normalized = typeof candidateId === 'string' ? candidateId.trim() : '';
+  if (!normalized) {
+    return fallbackId;
+  }
+  if (items.length === 0 || items.some((item) => item.id === normalized)) {
+    return normalized;
+  }
+  return fallbackId;
+}
+
+function getLatestChatId(chats) {
+  if (!Array.isArray(chats) || chats.length === 0) {
+    return null;
+  }
+  return [...chats].sort((a, b) => b.updatedAt - a.updatedAt)[0].id;
+}
+
+function updateChatById(chats, chatId, updater) {
+  return chats.map((chat) => (chat.id === chatId ? updater(chat) : chat));
+}
+
+function replaceLastMessage(messages, updater) {
+  if (!Array.isArray(messages) || messages.length === 0) {
+    return messages;
+  }
+
+  const lastIndex = messages.length - 1;
+  const currentMessage = messages[lastIndex];
+  const updatedMessage = updater(currentMessage);
+
+  if (updatedMessage === currentMessage) {
+    return messages;
+  }
+
+  return [
+    ...messages.slice(0, lastIndex),
+    updatedMessage,
+  ];
+}
+
+function updateLastMessageInChat(chats, chatId, updater) {
+  return updateChatById(chats, chatId, (chat) => ({
+    ...chat,
+    messages: replaceLastMessage(chat.messages, updater),
+  }));
+}
+
+function applyStreamingThinkTime(message, fullContent) {
+  const nextMessage = {
+    ...message,
+    content: fullContent,
+  };
+
+  if (fullContent.includes('</think>') && !message.thinkTime && message.thinkStartTime) {
+    nextMessage.thinkTime = Math.floor((Date.now() - message.thinkStartTime) / 1000);
+  }
+
+  return nextMessage;
+}
+
+function finalizeThinkTime(message) {
+  if (!message.thinkStartTime || message.thinkTime || !message.content?.includes('<think>')) {
+    return message;
+  }
+
+  return {
+    ...message,
+    thinkTime: Math.floor((Date.now() - message.thinkStartTime) / 1000),
+  };
+}
+
+function applyArenaSideContent(sideState, fullContent) {
+  const nextSideState = {
+    ...sideState,
+    content: fullContent,
+  };
+
+  if (fullContent.includes('</think>') && !sideState.thinkTime && sideState.thinkStartTime) {
+    nextSideState.thinkTime = Math.floor((Date.now() - sideState.thinkStartTime) / 1000);
+  }
+
+  return nextSideState;
+}
+
+function finalizeArenaSideThink(sideState) {
+  if (!sideState.thinkStartTime || sideState.thinkTime || !sideState.content?.includes('<think>')) {
+    return sideState;
+  }
+
+  return {
+    ...sideState,
+    thinkTime: Math.floor((Date.now() - sideState.thinkStartTime) / 1000),
+  };
+}
+
+function updateLastArenaMessageSide(chats, chatId, sideKey, updater) {
+  return updateLastMessageInChat(chats, chatId, (message) => {
+    if (!message?.isArena) {
+      return message;
+    }
+
+    return {
+      ...message,
+      arenaData: {
+        ...message.arenaData,
+        [sideKey]: updater(message.arenaData[sideKey]),
+      },
+    };
   });
+}
+
+function finalizeLastArenaMessage(chats, chatId) {
+  return updateLastMessageInChat(chats, chatId, (message) => {
+    if (!message?.isArena) {
+      return message;
+    }
+
+    return {
+      ...message,
+      arenaData: {
+        ...message.arenaData,
+        a: finalizeArenaSideThink(message.arenaData.a),
+        b: finalizeArenaSideThink(message.arenaData.b),
+      },
+    };
+  });
+}
+
+function applyLastMessageError(chats, chatId, error) {
+  const errorMessage = buildErrorMessage(error);
+
+  return updateLastMessageInChat(chats, chatId, (message) => {
+    if (!message) {
+      return message;
+    }
+
+    if (message.isArena) {
+      return {
+        ...message,
+        arenaData: {
+          ...message.arenaData,
+          a: {
+            ...message.arenaData.a,
+            content: message.arenaData.a.content || errorMessage,
+          },
+          b: {
+            ...message.arenaData.b,
+            content: message.arenaData.b.content || errorMessage,
+          },
+        },
+      };
+    }
+
+    if (message.role !== 'assistant') {
+      return message;
+    }
+
+    return {
+      ...message,
+      content: errorMessage,
+      responseModelId: message.responseModelId || message.requestModelId || null,
+    };
+  });
+}
+
+function App() {
+  const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'light');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   // Data state
   const [models, setModels] = useState([]);
   const [kbs, setKbs] = useState([]);
-  const [selectedModel, setSelectedModel] = useState(() => {
-    return localStorage.getItem('selectedModel') || '';
-  });
-  const [selectedKb, setSelectedKb] = useState(() => {
-    return localStorage.getItem('selectedKb') || '';
-  });
 
   // Chat state
-  const [chats, setChats] = useState(loadChats());
+  const [chats, setChats] = useState(() => loadChats());
   const [activeChatId, setActiveChatId] = useState(null);
   const [generatingChats, setGeneratingChats] = useState(new Set());
 
@@ -34,312 +220,356 @@ function App() {
   // Arena Mode
   const [isArenaMode, setIsArenaMode] = useState(false);
 
-  // Initialize data
+  // Initialize data and migrate stored chats to the chat-scoped config shape.
   useEffect(() => {
     const initData = async () => {
       const [fetchedModels, fetchedKbs] = await Promise.all([
         fetchModels(),
-        fetchKnowledgeBases()
+        fetchKnowledgeBases(),
       ]);
+
       setModels(fetchedModels);
       setKbs(fetchedKbs);
 
-      const storedModel = localStorage.getItem('selectedModel');
-      const isValidStoredModel = fetchedModels.some(m => m.id === storedModel);
-      if (fetchedModels.length > 0 && (!storedModel || !isValidStoredModel)) {
-        setSelectedModel(fetchedModels[0].id);
+      const defaultModelId = resolveValidId(
+        fetchedModels,
+        localStorage.getItem(LAST_USED_MODEL_KEY),
+        fetchedModels[0]?.id || '',
+      );
+      const defaultKnowledgeBaseId = resolveValidId(
+        fetchedKbs,
+        localStorage.getItem(LAST_USED_KB_KEY),
+        fetchedKbs[0]?.id || '',
+      );
+
+      if (defaultModelId) {
+        localStorage.setItem(LAST_USED_MODEL_KEY, defaultModelId);
+      }
+      if (defaultKnowledgeBaseId) {
+        localStorage.setItem(LAST_USED_KB_KEY, defaultKnowledgeBaseId);
       }
 
-      const storedKb = localStorage.getItem('selectedKb');
-      const isValidStoredKb = fetchedKbs.some(k => k.id === storedKb);
-      if (fetchedKbs.length > 0 && (!storedKb || !isValidStoredKb)) {
-        setSelectedKb(fetchedKbs[0].id);
-      }
+      const storedChats = loadChats();
+      const nextChats = migrateChats(storedChats, {
+        validModelIds: new Set(fetchedModels.map((model) => model.id)),
+        validKnowledgeBaseIds: new Set(fetchedKbs.map((kb) => kb.id)),
+        defaultModelId,
+        defaultKnowledgeBaseId,
+      });
+      const hydratedChats = nextChats.length > 0
+        ? nextChats
+        : [createNewChat({ modelId: defaultModelId, knowledgeBaseId: defaultKnowledgeBaseId })];
+
+      setChats(hydratedChats);
+      setActiveChatId((currentChatId) => (
+        currentChatId && hydratedChats.some((chat) => chat.id === currentChatId)
+          ? currentChatId
+          : getLatestChatId(hydratedChats)
+      ));
     };
+
     initData();
   }, []);
 
   useEffect(() => {
-    if (selectedModel) {
-      localStorage.setItem('selectedModel', selectedModel);
-    }
-  }, [selectedModel]);
-
-  useEffect(() => {
-    if (selectedKb) {
-      localStorage.setItem('selectedKb', selectedKb);
-    }
-  }, [selectedKb]);
-
-  // Initialize chat
-  useEffect(() => {
-    if (chats.length === 0) {
-      const newChat = createNewChat();
-      setChats([newChat]);
-      setActiveChatId(newChat.id);
-    } else if (!activeChatId) {
-      // Sort by updated and pick first
-      const sorted = [...chats].sort((a, b) => b.updatedAt - a.updatedAt);
-      setActiveChatId(sorted[0].id);
-    }
-  }, [chats, activeChatId]);
-
-  // Save changes
-  useEffect(() => {
     saveChats(chats);
   }, [chats]);
 
+  useEffect(() => {
+    if (chats.length === 0) {
+      setActiveChatId(null);
+      return;
+    }
+
+    if (!activeChatId || !chats.some((chat) => chat.id === activeChatId)) {
+      setActiveChatId(getLatestChatId(chats));
+    }
+  }, [chats, activeChatId]);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('theme', theme);
   }, [theme]);
 
+  const activeChat = chats.find((chat) => chat.id === activeChatId) || EMPTY_CHAT;
+  const selectedModel = activeChat.runtimeConfig?.modelId || '';
+  const selectedKb = activeChat.runtimeConfig?.knowledgeBaseId || '';
+
+  useEffect(() => {
+    if (selectedModel) {
+      localStorage.setItem(LAST_USED_MODEL_KEY, selectedModel);
+    }
+    if (selectedKb) {
+      localStorage.setItem(LAST_USED_KB_KEY, selectedKb);
+    }
+  }, [selectedModel, selectedKb]);
+
   const toggleTheme = () => {
-    setTheme(prev => prev === 'light' ? 'dark' : 'light');
+    setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));
   };
 
   const toggleSidebar = () => {
-    setIsSidebarOpen(prev => !prev);
+    setIsSidebarOpen((prev) => !prev);
+  };
+
+  const updateActiveChatRuntimeConfig = (updates) => {
+    if (!activeChatId) {
+      return;
+    }
+
+    setChats((prev) => updateChatById(prev, activeChatId, (chat) => ({
+      ...chat,
+      runtimeConfig: {
+        ...chat.runtimeConfig,
+        ...updates,
+        sessionId: chat.id,
+      },
+    })));
+  };
+
+  const handleModelChange = (modelId) => {
+    updateActiveChatRuntimeConfig({ modelId });
+  };
+
+  const handleKbChange = (knowledgeBaseId) => {
+    updateActiveChatRuntimeConfig({ knowledgeBaseId });
   };
 
   const handleNewChat = () => {
-    // Don't create a new chat if the active one has no messages
-    const currentChat = chats.find(c => c.id === activeChatId);
+    const currentChat = chats.find((chat) => chat.id === activeChatId);
     if (currentChat && currentChat.messages.length === 0) {
       return;
     }
-    const newChat = createNewChat();
-    setChats(prev => [newChat, ...prev]);
-    setActiveChatId(newChat.id);
+
+    const nextChat = createNewChat({
+      modelId: resolveValidId(
+        models,
+        selectedModel || localStorage.getItem(LAST_USED_MODEL_KEY),
+        models[0]?.id || '',
+      ),
+      knowledgeBaseId: resolveValidId(
+        kbs,
+        selectedKb || localStorage.getItem(LAST_USED_KB_KEY),
+        kbs[0]?.id || '',
+      ),
+    });
+
+    setChats((prev) => [nextChat, ...prev]);
+    setActiveChatId(nextChat.id);
   };
 
   const handleDeleteChat = (id) => {
-    setChats(prev => prev.filter(c => c.id !== id));
+    setChats((prev) => prev.filter((chat) => chat.id !== id));
     if (activeChatId === id) {
-      setActiveChatId(null); // will auto-select latest in effect
+      setActiveChatId(null);
     }
+
+    void clearChatHistory(id).catch((error) => {
+      console.warn('Failed to clear server-side chat history', error);
+    });
   };
 
-  const activeChat = chats.find(c => c.id === activeChatId) || { messages: [] };
-
   const handleSendMessage = async (text) => {
-    // Check if the ACTIVE chat is generating
-    if (!text.trim() || generatingChats.has(activeChatId) || !activeChatId) return;
-
-    const userMessage = { role: 'user', content: text };
+    const trimmedText = text.trim();
     const targetChatId = activeChatId;
 
-    // Update local state with user message
-    setChats(prev => prev.map(c => {
-      if (c.id === targetChatId) {
-        const newMessages = [...c.messages, userMessage];
-        return {
-          ...c,
-          messages: newMessages,
-          title: generateTitle(newMessages),
-          updatedAt: Date.now()
-        };
-      }
-      return c;
+    if (!trimmedText || !targetChatId || generatingChats.has(targetChatId)) {
+      return;
+    }
+
+    const targetChat = chats.find((chat) => chat.id === targetChatId);
+    if (!targetChat) {
+      return;
+    }
+
+    const requestConfig = {
+      modelId: resolveValidId(models, targetChat.runtimeConfig?.modelId, models[0]?.id || ''),
+      knowledgeBaseId: resolveValidId(
+        kbs,
+        targetChat.runtimeConfig?.knowledgeBaseId,
+        kbs[0]?.id || '',
+      ),
+      sessionId: targetChat.id,
+    };
+
+    if (!requestConfig.modelId) {
+      return;
+    }
+
+    const userMessage = { role: 'user', content: trimmedText };
+    const messageHistory = [...targetChat.messages, userMessage];
+
+    setChats((prev) => updateChatById(prev, targetChatId, (chat) => {
+      const nextMessages = [...chat.messages, userMessage];
+      return {
+        ...chat,
+        messages: nextMessages,
+        title: generateTitle(nextMessages),
+        updatedAt: Date.now(),
+        runtimeConfig: {
+          ...chat.runtimeConfig,
+          ...requestConfig,
+        },
+      };
     }));
 
-    setGeneratingChats(prev => new Set(prev).add(targetChatId));
+    setGeneratingChats((prev) => {
+      const next = new Set(prev);
+      next.add(targetChatId);
+      return next;
+    });
 
     try {
       if (isArenaMode) {
-        // Generate two setups
         const combinations = [];
-        for (const m of models) {
-          for (const k of kbs) {
-            combinations.push({ model: m.id, kb: k.id });
+        for (const model of models) {
+          for (const kb of kbs) {
+            combinations.push({ model: model.id, kb: kb.id });
           }
         }
-        let setupA, setupB;
+
+        let setupA;
+        let setupB;
         if (combinations.length < 2) {
-          setupA = { model: selectedModel, kb: selectedKb };
-          setupB = { model: selectedModel, kb: selectedKb };
+          setupA = { model: requestConfig.modelId, kb: requestConfig.knowledgeBaseId };
+          setupB = { model: requestConfig.modelId, kb: requestConfig.knowledgeBaseId };
         } else {
           const idxA = Math.floor(Math.random() * combinations.length);
           let idxB;
           do {
             idxB = Math.floor(Math.random() * combinations.length);
           } while (idxB === idxA);
+
           setupA = combinations[idxA];
           setupB = combinations[idxB];
         }
 
-        // Create empty arena message
-        setChats(prev => prev.map(c => {
-          if (c.id === targetChatId) {
-            return {
-              ...c,
-              messages: [...c.messages, {
-                role: 'assistant',
-                isArena: true,
-                arenaData: {
-                  a: { ...setupA, content: '', thinkStartTime: Date.now() },
-                  b: { ...setupB, content: '', thinkStartTime: Date.now() },
-                  voted: false,
-                  winner: null
+        const arenaMessage = {
+          role: 'assistant',
+          isArena: true,
+          arenaData: {
+            a: { ...setupA, content: '', thinkStartTime: Date.now() },
+            b: { ...setupB, content: '', thinkStartTime: Date.now() },
+            voted: false,
+            winner: null,
+          },
+        };
+
+        setChats((prev) => updateChatById(prev, targetChatId, (chat) => ({
+          ...chat,
+          messages: [...chat.messages, arenaMessage],
+        })));
+
+        const runArenaSide = async (sideKey, setup) => {
+          try {
+            await sendChatMessage({
+              messages: messageHistory,
+              modelId: setup.model,
+              knowledgeBaseId: setup.kb,
+              sessionId: requestConfig.sessionId,
+              stream: true,
+              onEvent: (event) => {
+                if (event.type !== 'content') {
+                  return;
                 }
-              }]
-            };
+
+                setChats((prev) => updateLastArenaMessageSide(prev, targetChatId, sideKey, (sideState) => (
+                  applyArenaSideContent(sideState, event.fullContent)
+                )));
+              },
+            });
+          } catch (error) {
+            setChats((prev) => updateLastArenaMessageSide(prev, targetChatId, sideKey, (sideState) => ({
+              ...sideState,
+              content: buildErrorMessage(error),
+            })));
           }
-          return c;
-        }));
+        };
 
-        const currentChat = chats.find(c => c.id === targetChatId);
-        const messageHistory = [...(currentChat?.messages || []), userMessage];
+        await Promise.all([
+          runArenaSide('a', setupA),
+          runArenaSide('b', setupB),
+        ]);
 
-        // Dual streaming promises
-        const reqA = sendChatMessage(
-          messageHistory, setupA.model, setupA.kb, true,
-          (_, fullContent) => {
-            setChats(prev => prev.map(c => {
-              if (c.id === targetChatId) {
-                const msgs = [...c.messages];
-                const lastMsg = msgs[msgs.length - 1];
-                if (lastMsg.isArena) {
-                  lastMsg.arenaData.a.content = fullContent;
-                  if (fullContent.includes('</think>') && !lastMsg.arenaData.a.thinkTime && lastMsg.arenaData.a.thinkStartTime) {
-                      lastMsg.arenaData.a.thinkTime = Math.floor((Date.now() - lastMsg.arenaData.a.thinkStartTime) / 1000);
-                  }
-                }
-                return { ...c, messages: msgs };
-              }
-              return c;
-            }));
-          }
-        ).catch(e => {
-            setChats(prev => prev.map(c => {
-              if (c.id === targetChatId) {
-                const msgs = [...c.messages];
-                if (msgs[msgs.length - 1].isArena) msgs[msgs.length - 1].arenaData.a.content = `Error: ${e.message}`;
-                return { ...c, messages: msgs };
-              }
-              return c;
-            }));
-        });
-
-        const reqB = sendChatMessage(
-          messageHistory, setupB.model, setupB.kb, true,
-          (_, fullContent) => {
-            setChats(prev => prev.map(c => {
-              if (c.id === targetChatId) {
-                const msgs = [...c.messages];
-                const lastMsg = msgs[msgs.length - 1];
-                if (lastMsg.isArena) {
-                  lastMsg.arenaData.b.content = fullContent;
-                  if (fullContent.includes('</think>') && !lastMsg.arenaData.b.thinkTime && lastMsg.arenaData.b.thinkStartTime) {
-                      lastMsg.arenaData.b.thinkTime = Math.floor((Date.now() - lastMsg.arenaData.b.thinkStartTime) / 1000);
-                  }
-                }
-                return { ...c, messages: msgs };
-              }
-              return c;
-            }));
-          }
-        ).catch(e => {
-            setChats(prev => prev.map(c => {
-              if (c.id === targetChatId) {
-                const msgs = [...c.messages];
-                if (msgs[msgs.length - 1].isArena) msgs[msgs.length - 1].arenaData.b.content = `Error: ${e.message}`;
-                return { ...c, messages: msgs };
-              }
-              return c;
-            }));
-        });
-
-        await Promise.all([reqA, reqB]);
-
-        // Force calculation if stream closed without closing think tag for Arena
-        setChats(prev => prev.map(c => {
-          if (c.id === targetChatId) {
-            const msgs = [...c.messages];
-            const lastMsg = msgs[msgs.length - 1];
-            if (lastMsg.isArena) {
-              if (!lastMsg.arenaData.a.thinkTime && lastMsg.arenaData.a.thinkStartTime && lastMsg.arenaData.a.content.includes('<think>')) {
-                  lastMsg.arenaData.a.thinkTime = Math.floor((Date.now() - lastMsg.arenaData.a.thinkStartTime) / 1000);
-              }
-              if (!lastMsg.arenaData.b.thinkTime && lastMsg.arenaData.b.thinkStartTime && lastMsg.arenaData.b.content.includes('<think>')) {
-                  lastMsg.arenaData.b.thinkTime = Math.floor((Date.now() - lastMsg.arenaData.b.thinkStartTime) / 1000);
-              }
-            }
-            return { ...c, messages: msgs };
-          }
-          return c;
-        }));
-
+        setChats((prev) => finalizeLastArenaMessage(prev, targetChatId));
       } else {
-        // Create empty assistant message first
-        setChats(prev => prev.map(c => {
-          if (c.id === targetChatId) {
-            return {
-              ...c,
-              // also tracking timestamps for think-time
-              messages: [...c.messages, { role: 'assistant', content: '', thinkStartTime: Date.now() }]
+        const assistantMessage = {
+          role: 'assistant',
+          content: '',
+          thinkStartTime: Date.now(),
+          requestModelId: requestConfig.modelId,
+          responseModelId: null,
+          knowledgeBaseId: requestConfig.knowledgeBaseId,
+        };
+
+        setChats((prev) => updateChatById(prev, targetChatId, (chat) => ({
+          ...chat,
+          messages: [...chat.messages, assistantMessage],
+        })));
+
+        const result = await sendChatMessage({
+          messages: messageHistory,
+          modelId: requestConfig.modelId,
+          knowledgeBaseId: requestConfig.knowledgeBaseId,
+          sessionId: requestConfig.sessionId,
+          stream: true,
+          onEvent: (event) => {
+            if (event.type === 'model') {
+              setChats((prev) => updateLastMessageInChat(prev, targetChatId, (message) => {
+                if (message?.isArena || message?.role !== 'assistant' || message.responseModelId === event.modelId) {
+                  return message;
+                }
+
+                return {
+                  ...message,
+                  responseModelId: event.modelId,
+                };
+              }));
+              return;
+            }
+
+            if (event.type === 'content') {
+              setChats((prev) => updateLastMessageInChat(prev, targetChatId, (message) => {
+                if (message?.isArena || message?.role !== 'assistant') {
+                  return message;
+                }
+
+                const nextMessage = applyStreamingThinkTime(message, event.fullContent);
+                if (event.modelId) {
+                  nextMessage.responseModelId = event.modelId;
+                }
+                return nextMessage;
+              }));
+            }
+          },
+        });
+
+        setChats((prev) => updateLastMessageInChat(prev, targetChatId, (message) => {
+          if (message?.isArena || message?.role !== 'assistant') {
+            return message;
+          }
+
+          let nextMessage = finalizeThinkTime(message);
+          const resolvedModelId = result.modelId
+            || nextMessage.responseModelId
+            || nextMessage.requestModelId
+            || null;
+
+          if (nextMessage.responseModelId !== resolvedModelId) {
+            nextMessage = {
+              ...nextMessage,
+              responseModelId: resolvedModelId,
             };
           }
-          return c;
+
+          return nextMessage;
         }));
-
-      // Find chat again since state updated
-      const currentChat = chats.find(c => c.id === targetChatId);
-      const messageHistory = [...(currentChat?.messages || []), userMessage];
-
-      await sendChatMessage(
-        messageHistory,
-        selectedModel,
-        selectedKb,
-        true, // use streaming
-        (_, fullContent) => {
-          // Update the streaming content
-          setChats(prev => prev.map(c => {
-            if (c.id === targetChatId) {
-              const msgs = [...c.messages];
-              const lastMsg = msgs[msgs.length - 1];
-
-              lastMsg.content = fullContent;
-
-              // Check if think tag just closed, to freeze thinkTime
-              if (fullContent.includes('</think>') && !lastMsg.thinkTime && lastMsg.thinkStartTime) {
-                  lastMsg.thinkTime = Math.floor((Date.now() - lastMsg.thinkStartTime) / 1000);
-              }
-
-              return { ...c, messages: msgs };
-            }
-            return c;
-          }));
-        }
-      );
-      
-      // Force calculation if stream closed without closing think tag
-      setChats(prev => prev.map(c => {
-        if (c.id === targetChatId) {
-          const msgs = [...c.messages];
-          const lastMsg = msgs[msgs.length - 1];
-          // If thinkTime is still empty, and the message actually HAS a think block
-          if (!lastMsg.thinkTime && lastMsg.thinkStartTime && lastMsg.content.includes('<think>')) {
-              lastMsg.thinkTime = Math.floor((Date.now() - lastMsg.thinkStartTime) / 1000);
-          }
-          return { ...c, messages: msgs };
-        }
-        return c;
-      }));
       }
     } catch (error) {
       console.error(error);
-      setChats(prev => prev.map(c => {
-        if (c.id === targetChatId) {
-          const msgs = [...c.messages];
-          msgs[msgs.length - 1].content = `**Error:** Failed to get response. ${error.message}`;
-          return { ...c, messages: msgs };
-        }
-        return c;
-      }));
+      setChats((prev) => applyLastMessageError(prev, targetChatId, error));
     } finally {
-      setGeneratingChats(prev => {
+      setGeneratingChats((prev) => {
         const next = new Set(prev);
         next.delete(targetChatId);
         return next;
@@ -347,18 +577,22 @@ function App() {
     }
   };
 
+  const sortedChats = [...chats].sort((a, b) => b.updatedAt - a.updatedAt);
+
   return (
     <div className="app-container">
       <Sidebar
         isOpen={isSidebarOpen}
         toggleSidebar={toggleSidebar}
-        chats={chats.sort((a, b) => b.updatedAt - a.updatedAt)}
+        chats={sortedChats}
         activeChatId={activeChatId}
-        onSelectChat={(id) => { setActiveChatId(id); setCurrentView('chat'); }}
+        onSelectChat={(id) => {
+          setActiveChatId(id);
+          setCurrentView('chat');
+        }}
         onNewChat={handleNewChat}
         onDeleteChat={handleDeleteChat}
         generatingChats={generatingChats}
-        currentView={currentView}
         setCurrentView={setCurrentView}
       />
 
@@ -369,7 +603,7 @@ function App() {
           isSidebarOpen={isSidebarOpen}
           models={models}
           selectedModel={selectedModel}
-          onModelChange={setSelectedModel}
+          onModelChange={handleModelChange}
           isArenaMode={isArenaMode}
           setIsArenaMode={setIsArenaMode}
           setCurrentView={setCurrentView}
@@ -377,12 +611,12 @@ function App() {
         {currentView === 'chat' ? (
           <ChatArea
             messages={activeChat.messages}
-            isGenerating={generatingChats.has(activeChatId)}
+            isGenerating={activeChatId ? generatingChats.has(activeChatId) : false}
             onSendMessage={handleSendMessage}
             modelsAvailable={models.length > 0}
             kbs={kbs}
             selectedKb={selectedKb}
-            onKbChange={setSelectedKb}
+            onKbChange={handleKbChange}
             chatId={activeChatId}
             setChats={setChats}
           />

@@ -34,7 +34,7 @@ export default function SettingsBar({ theme, toggleTheme, isSidebarOpen, models,
 
     const hasModels = models.length > 0;
     const currentModelName = hasModels
-        ? (models.find(m => m.id === selectedModel)?.id || selectedModel)
+        ? (models.find(m => m.id === selectedModel)?.id || selectedModel || t('model'))
         : t('noModelsAvailable');
 
     return (

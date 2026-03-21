@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Copy, Check, Bot, ChevronDown, Brain } from 'lucide-react';
+import { Copy, Check, Bot, ChevronDown, Brain, Loader, CheckCircle } from 'lucide-react';
 import { useTranslation } from '../i18n.js';
 import ChatInput from './ChatInput.jsx';
 import './ChatArea.css';
@@ -98,6 +98,76 @@ function ThinkBlock({ content, thinkTime }) {
     );
 }
 
+// ── Agent pipeline stages block ──────────────────────────────────────────────
+
+function formatDuration(ms) {
+    if (ms == null) return '';
+    if (ms < 1000) return `${Math.round(ms)}ms`;
+    return `${(ms / 1000).toFixed(1)}s`;
+}
+
+function AgentThinkingBlock({ stages, summary }) {
+    const [manualToggle, setManualToggle] = useState(null);
+    const { t } = useTranslation();
+
+    const isComplete = summary !== null
+        || (stages.length > 0 && stages.every((s) => s.status !== 'running'));
+
+    // Auto mode: open while running, closed when complete. Manual overrides.
+    const isOpen = manualToggle !== null ? manualToggle : !isComplete;
+
+    if (!stages || stages.length === 0) return null;
+
+    const totalMs = summary?.totalMs
+        ?? stages.reduce((sum, s) => sum + (s.durationMs || 0), 0);
+
+    const headerLabel = isComplete
+        ? t('agentThoughtFor').replace('{time}', (totalMs / 1000).toFixed(1))
+        : t('agentProcessing');
+
+    return (
+        <div className={`agent-thinking-block ${isOpen ? 'open' : ''} ${isComplete ? 'complete' : ''}`}>
+            <button
+                className="agent-thinking-summary"
+                onClick={() => setManualToggle((prev) => (prev !== null ? !prev : !isOpen))}
+            >
+                {isComplete
+                    ? <CheckCircle size={14} className="agent-thinking-icon complete" />
+                    : <Loader size={14} className="agent-thinking-icon spinning" />
+                }
+                <span>{headerLabel}</span>
+                <ChevronDown size={14} className="agent-thinking-chevron" />
+            </button>
+            {isOpen && (
+                <div className="agent-thinking-stages">
+                    {stages.map((s, i) => (
+                        <div key={i} className={`agent-stage-row ${s.status}`}>
+                            <span className="agent-stage-icon">
+                                {s.status === 'running'
+                                    ? <Loader size={12} className="spinning" />
+                                    : s.status === 'complete'
+                                        ? <Check size={12} />
+                                        : s.status === 'failed'
+                                            ? <span style={{ color: '#ef4444' }}>!</span>
+                                            : <span>-</span>
+                                }
+                            </span>
+                            <span className="agent-stage-label">
+                                {t(`stage_${s.stage}`) || s.stage}
+                            </span>
+                            {s.durationMs != null && (
+                                <span className="agent-stage-duration">
+                                    {formatDuration(s.durationMs)}
+                                </span>
+                            )}
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
+
 // ── Main ChatArea ────────────────────────────────────────────────────────────
 export default function ChatArea({ messages, isGenerating, onSendMessage, kbs, selectedKb, onKbChange, modelsAvailable, chatId, setChats }) {
     const { t } = useTranslation();
@@ -123,13 +193,19 @@ export default function ChatArea({ messages, isGenerating, onSendMessage, kbs, s
                           : <MessageBubble key={index} message={msg} />
                     ))}
 
-                    {isGenerating && (
-                        <div className="message-wrapper assistant generating">
-                            <div className="message-content">
-                                <LoadingPhrase />
+                    {isGenerating && (() => {
+                        const lastMsg = messages[messages.length - 1];
+                        const hasStages = lastMsg?.agentStages?.length > 0;
+                        const hasContent = lastMsg?.content?.length > 0;
+                        if (hasStages || hasContent) return null;
+                        return (
+                            <div className="message-wrapper assistant generating">
+                                <div className="message-content">
+                                    <LoadingPhrase />
+                                </div>
                             </div>
-                        </div>
-                    )}
+                        );
+                    })()}
 
                     <div ref={messagesEndRef} />
                 </div>
@@ -194,6 +270,12 @@ function MessageBubble({ message }) {
                             {t('model')}: {effectiveModelId}
                         </span>
                     </div>
+                )}
+                {message.agentStages?.length > 0 && (
+                    <AgentThinkingBlock
+                        stages={message.agentStages}
+                        summary={message.agentSummary || null}
+                    />
                 )}
                 <div className="message-markdown prose">
                     {segments.map((seg, i) =>

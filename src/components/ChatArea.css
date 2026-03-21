@@ -245,6 +245,132 @@
 }
 
 /* ══════════════════════════════════════════════════════════
+   Agent Pipeline Thinking Block
+   ══════════════════════════════════════════════════════════ */
+.agent-thinking-block {
+    border: 1px solid var(--border-color);
+    border-left: 3px solid var(--accent-primary, #3b82f6);
+    border-radius: 0.5rem;
+    margin-bottom: 0.75rem;
+    background-color: var(--bg-secondary);
+    overflow: hidden;
+    transition: border-color 0.3s ease;
+}
+
+.agent-thinking-block.complete {
+    border-left-color: var(--text-tertiary);
+}
+
+.agent-thinking-summary {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    padding: 0.55rem 0.85rem;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    transition: background-color 0.15s;
+    text-align: left;
+}
+
+.agent-thinking-summary:hover {
+    background-color: var(--bg-tertiary);
+}
+
+.agent-thinking-icon {
+    flex-shrink: 0;
+    color: var(--accent-primary, #3b82f6);
+}
+
+.agent-thinking-icon.complete {
+    color: var(--text-tertiary);
+}
+
+.agent-thinking-icon.spinning {
+    animation: agentSpin 1s linear infinite;
+}
+
+@keyframes agentSpin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.agent-thinking-chevron {
+    margin-left: auto;
+    flex-shrink: 0;
+    color: var(--text-tertiary);
+    transition: transform 0.25s ease;
+}
+
+.agent-thinking-block.open .agent-thinking-chevron {
+    transform: rotate(180deg);
+}
+
+.agent-thinking-stages {
+    padding: 0.4rem 0.85rem 0.6rem;
+    border-top: 1px solid var(--border-color);
+    animation: fadeIn 0.2s ease;
+}
+
+.agent-stage-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem 0;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    animation: fadeIn 0.25s ease;
+}
+
+.agent-stage-row.complete {
+    color: var(--text-tertiary);
+}
+
+.agent-stage-row.running {
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+.agent-stage-row.failed {
+    color: #ef4444;
+}
+
+.agent-stage-row.skipped {
+    color: var(--text-tertiary);
+    opacity: 0.6;
+}
+
+.agent-stage-icon {
+    display: flex;
+    align-items: center;
+    width: 16px;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.agent-stage-icon .spinning {
+    animation: agentSpin 1s linear infinite;
+}
+
+.agent-stage-label {
+    flex: 1;
+}
+
+.agent-stage-duration {
+    font-size: 0.72rem;
+    color: var(--text-tertiary);
+    font-variant-numeric: tabular-nums;
+    padding: 0.1rem 0.4rem;
+    background: var(--bg-tertiary);
+    border-radius: 0.25rem;
+    white-space: nowrap;
+}
+
+/* ══════════════════════════════════════════════════════════
    Loading phrase with shimmer gradient
    ══════════════════════════════════════════════════════════ */
 @keyframes shimmer {

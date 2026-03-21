@@ -18,9 +18,12 @@ function splitSseBuffer(buffer) {
 
 function parseSseEventBlock(block) {
     const dataLines = [];
+    let eventType = null;
 
     for (const line of block.split('\n')) {
-        if (line.startsWith('data:')) {
+        if (line.startsWith('event:')) {
+            eventType = line.slice(6).trim();
+        } else if (line.startsWith('data:')) {
             dataLines.push(line.slice(5).trimStart());
         }
     }
@@ -37,6 +40,7 @@ function parseSseEventBlock(block) {
     try {
         return {
             done: false,
+            eventType,
             data: JSON.parse(payload),
         };
     } catch (error) {
@@ -164,6 +168,7 @@ export async function sendChatMessage({
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'X-Pipeline-Stages': 'true',
             },
             body: JSON.stringify(payload),
         });
@@ -225,6 +230,37 @@ export async function sendChatMessage({
             }
 
             const data = parsedEvent.data;
+
+            // Handle named SSE event types (pipeline stages)
+            if (parsedEvent.eventType === 'stage' && onEvent) {
+                onEvent({
+                    type: 'stage',
+                    stage: data.stage,
+                    status: data.status,
+                    durationMs: data.duration_ms ?? null,
+                    detail: data.detail ?? null,
+                });
+                return false;
+            }
+
+            if (parsedEvent.eventType === 'thinking' && onEvent) {
+                onEvent({
+                    type: 'thinking',
+                    content: data.content,
+                });
+                return false;
+            }
+
+            if (parsedEvent.eventType === 'summary' && onEvent) {
+                onEvent({
+                    type: 'summary',
+                    totalMs: data.total_ms,
+                    stages: data.stages,
+                });
+                return false;
+            }
+
+            // Default: OpenAI-compatible content/model events
             if (data?.error?.message) {
                 throw new Error(data.error.message);
             }

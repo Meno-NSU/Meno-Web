@@ -117,11 +117,20 @@ export default function ChatArea({ messages, isGenerating, onSendMessage, kbs, s
         <div className={`chat-container ${isEmpty ? 'empty-state' : ''}`}>
             {!isEmpty && (
                 <div className="chat-messages">
-                    {messages.map((msg, index) => (
-                        msg.isArena 
-                          ? <ArenaMessageBubble key={index} message={msg} chatId={chatId} setChats={setChats} isGenerating={isGenerating} />
-                          : <MessageBubble key={index} message={msg} />
-                    ))}
+                    {messages.map((msg, index) => {
+                        if (msg.isArena) {
+                            // Find the user question that preceded this arena response
+                            let question = '';
+                            for (let i = index - 1; i >= 0; i--) {
+                                if (messages[i].role === 'user') {
+                                    question = messages[i].content || '';
+                                    break;
+                                }
+                            }
+                            return <ArenaMessageBubble key={index} message={msg} chatId={chatId} setChats={setChats} isGenerating={isGenerating} question={question} />;
+                        }
+                        return <MessageBubble key={index} message={msg} />;
+                    })}
 
                     {isGenerating && (
                         <div className="message-wrapper assistant generating">
@@ -218,7 +227,7 @@ function MessageBubble({ message }) {
 }
 
 // ── Arena Message bubble ─────────────────────────────────────────────────────
-function ArenaMessageBubble({ message, chatId, setChats, isGenerating }) {
+function ArenaMessageBubble({ message, chatId, setChats, isGenerating, question }) {
     const { t } = useTranslation();
     const { arenaData } = message;
     const [voting, setVoting] = useState(false);
@@ -235,7 +244,11 @@ function ArenaMessageBubble({ message, chatId, setChats, isGenerating }) {
                     kb_a: arenaData.a.kb,
                     model_b: arenaData.b.model,
                     kb_b: arenaData.b.kb,
-                    winner
+                    winner,
+                    response_a: arenaData.a.content || '',
+                    response_b: arenaData.b.content || '',
+                    question: question || '',
+                    session_id: chatId || '',
                 })
             });
             // Update local state to mark as voted

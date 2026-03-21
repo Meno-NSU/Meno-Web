@@ -132,6 +132,7 @@ function AgentThinkingBlock({ stages, summary, thinkingContent }) {
 
     // Complete ONLY when summary arrives (backend sends it after everything is done)
     const isComplete = summary !== null;
+    const hasRunning = stages.some((s) => s.status === 'running');
 
     // Auto mode: open while running, closed when complete. Manual overrides.
     const isOpen = manualToggle !== null ? manualToggle : !isComplete;
@@ -141,7 +142,7 @@ function AgentThinkingBlock({ stages, summary, thinkingContent }) {
     const totalMs = summary?.totalMs
         ?? stages.reduce((sum, s) => sum + (s.durationMs || 0), 0);
 
-    // Header: show current running stage, or total time when complete
+    // Header: show current running stage name, or total time when complete
     const runningStage = stages.find((s) => s.status === 'running');
     let headerLabel;
     if (isComplete) {
@@ -162,7 +163,9 @@ function AgentThinkingBlock({ stages, summary, thinkingContent }) {
                     ? <CheckCircle size={14} className="agent-thinking-icon complete" />
                     : <Loader size={14} className="agent-thinking-icon spinning" />
                 }
-                <span>{headerLabel}</span>
+                <span className={hasRunning && !isOpen ? 'agent-header-shimmer' : ''}>
+                    {headerLabel}
+                </span>
                 <ChevronDown size={14} className="agent-thinking-chevron" />
             </button>
             {isOpen && (
@@ -182,15 +185,20 @@ function AgentThinkingBlock({ stages, summary, thinkingContent }) {
                             <span className="agent-stage-label">
                                 {t(`stage_${s.stage}`) || s.stage}
                             </span>
+                            {s.status === 'running' && (
+                                <span className="agent-stage-shimmer">
+                                    <LoadingPhrase />
+                                </span>
+                            )}
                             {s.durationMs != null && (
                                 <span className="agent-stage-duration">
                                     {formatDuration(s.durationMs)}
                                 </span>
                             )}
-                            {s.detail && (
-                                <StageDetail detail={s.detail} stage={s.stage} />
-                            )}
                         </div>
+                    ))}
+                    {stages.filter(s => s.status === 'complete' && s.detail).map((s, i) => (
+                        <StageDetail key={`detail-${i}`} detail={s.detail} stage={s.stage} />
                     ))}
                     {thinkingContent && (
                         <div className="agent-thinking-content">
@@ -208,42 +216,49 @@ function AgentThinkingBlock({ stages, summary, thinkingContent }) {
 function StageDetail({ detail, stage }) {
     if (!detail || typeof detail !== 'object') return null;
 
-    const parts = [];
+    const lines = [];
 
-    if (stage === 'query_rewrite') {
-        if (detail.resolved_coreferences) parts.push(detail.resolved_coreferences);
-        if (Array.isArray(detail.search_queries) && detail.search_queries.length > 0) {
-            parts.push(`Запросы: ${detail.search_queries.join(', ')}`);
-        } else if (typeof detail.search_queries === 'number') {
-            parts.push(`${detail.search_queries} запросов`);
-        }
-    }
     if (stage === 'abbreviation_expansion' && detail.expanded && detail.expanded !== detail.original) {
-        parts.push(detail.expanded);
+        lines.push(detail.expanded);
     }
     if (stage === 'anaphora_resolution' && detail.resolved_query) {
-        parts.push(detail.resolved_query);
+        lines.push(detail.resolved_query);
+    }
+    if (stage === 'query_rewrite') {
+        if (detail.resolved_coreferences) lines.push(`Запрос: ${detail.resolved_coreferences}`);
+        if (Array.isArray(detail.search_queries) && detail.search_queries.length > 0) {
+            detail.search_queries.forEach((q, i) => lines.push(`  ${i + 1}. ${q}`));
+        }
     }
     if (stage === 'retrieval') {
+        const parts = [];
         if (detail.chunks_found != null) parts.push(`${detail.chunks_found} чанков`);
+        if (detail.multilingual) parts.push(`multilingual: ${detail.multilingual}`);
+        if (detail.russian) parts.push(`russian: ${detail.russian}`);
+        if (detail.bm25) parts.push(`BM25: ${detail.bm25}`);
+        if (parts.length) lines.push(parts.join(' · '));
     }
     if (stage === 'fusion' && detail.candidates != null) {
-        parts.push(`${detail.candidates} кандидатов`);
+        lines.push(`${detail.candidates} кандидатов после объединения`);
     }
     if (stage === 'rerank' && detail.kept != null) {
-        parts.push(`топ-${detail.kept}`);
+        lines.push(`Отобрано топ-${detail.kept} из ${detail.candidates || '?'}`);
     }
     if (stage === 'context_assembly') {
+        const parts = [];
         if (detail.sources != null) parts.push(`${detail.sources} источников`);
         if (detail.context_tokens != null) parts.push(`~${detail.context_tokens} токенов`);
+        if (parts.length) lines.push(parts.join(', '));
     }
 
-    if (parts.length === 0) return null;
+    if (lines.length === 0) return null;
 
     return (
-        <span className="agent-stage-detail">
-            {parts.join(' · ')}
-        </span>
+        <div className="agent-stage-detail-block">
+            {lines.map((line, i) => (
+                <div key={i} className="agent-stage-detail-line">{line}</div>
+            ))}
+        </div>
     );
 }
 

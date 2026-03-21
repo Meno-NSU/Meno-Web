@@ -372,7 +372,17 @@
 }
 
 .agent-stage-label {
+    flex-shrink: 0;
+}
+
+.agent-stage-shimmer {
     flex: 1;
+    min-width: 0;
+}
+
+.agent-stage-shimmer .loading-phrase {
+    font-size: 0.75rem;
+    padding-top: 0;
 }
 
 .agent-stage-duration {
@@ -383,16 +393,36 @@
     background: var(--bg-tertiary);
     border-radius: 0.25rem;
     white-space: nowrap;
+    flex-shrink: 0;
 }
 
-.agent-stage-detail {
+.agent-header-shimmer {
+    background: linear-gradient(
+        90deg,
+        var(--text-secondary) 0%,
+        var(--text-primary) 30%,
+        var(--text-secondary) 50%,
+        var(--text-secondary) 100%
+    );
+    background-size: 800px 100%;
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+    animation: shimmer 2s linear infinite;
+}
+
+.agent-stage-detail-block {
+    width: 100%;
+    padding: 0.2rem 0 0.15rem 1.6rem;
     font-size: 0.72rem;
     color: var(--text-tertiary);
-    font-style: italic;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 300px;
+    line-height: 1.45;
+}
+
+.agent-stage-detail-line {
+    white-space: pre-wrap;
+    word-break: break-word;
 }
 
 .agent-thinking-content {

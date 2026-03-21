@@ -137,11 +137,26 @@
     word-break: break-word;
 }
 
+/* Footer: actions + model label */
+.message-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 0.5rem;
+}
+
+.message-model-label {
+    font-size: 0.72rem;
+    color: var(--text-tertiary);
+    opacity: 0.6;
+    user-select: none;
+    white-space: nowrap;
+}
+
 /* Actions bar for assistant */
 .message-actions-bar {
     display: flex;
     gap: 0.35rem;
-    margin-top: 0.5rem;
     opacity: 0;
     transition: opacity 0.2s ease;
 }

@@ -121,12 +121,14 @@ function applyArenaSideContent(sideState, fullContent) {
 }
 
 function finalizeArenaSideThink(sideState) {
+  const next = { ...sideState, isStreaming: false };
+
   if (!sideState.thinkStartTime || sideState.thinkTime || !sideState.content?.includes('<think>')) {
-    return sideState;
+    return next;
   }
 
   return {
-    ...sideState,
+    ...next,
     thinkTime: Math.floor((Date.now() - sideState.thinkStartTime) / 1000),
   };
 }
@@ -448,8 +450,8 @@ function App() {
           role: 'assistant',
           isArena: true,
           arenaData: {
-            a: { ...setupA, content: '', thinkStartTime: Date.now() },
-            b: { ...setupB, content: '', thinkStartTime: Date.now() },
+            a: { ...setupA, content: '', thinkStartTime: Date.now(), isStreaming: true },
+            b: { ...setupB, content: '', thinkStartTime: Date.now(), isStreaming: true },
             voted: false,
             winner: null,
           },
@@ -502,6 +504,7 @@ function App() {
           knowledgeBaseId: requestConfig.knowledgeBaseId,
           agentStages: [],
           agentSummary: null,
+          isStreaming: true,
         };
 
         setChats((prev) => updateChatById(prev, targetChatId, (chat) => ({
@@ -620,6 +623,7 @@ function App() {
           }
 
           let nextMessage = finalizeThinkTime(message);
+          nextMessage = { ...nextMessage, isStreaming: false };
           const resolvedModelId = result.modelId
             || nextMessage.responseModelId
             || nextMessage.requestModelId

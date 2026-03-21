@@ -30,7 +30,20 @@ const translations = {
         arenaVoteBothBad: "👎 Оба плохие",
         arenaVoteRightBetter: "👉 Правый ответ лучше",
         battleArenaModeOn: "Арена: ВКЛ",
-        battleArenaModeOff: "Арена: ВЫКЛ"
+        battleArenaModeOff: "Арена: ВЫКЛ",
+        agentProcessing: "Обрабатываю запрос...",
+        agentThoughtFor: "Обработка заняла {time} сек",
+        stage_abbreviation_expansion: "Раскрытие сокращений",
+        stage_anaphora_resolution: "Разрешение ссылок",
+        stage_query_rewrite: "Переформулировка запроса",
+        stage_retrieval: "Поиск по базе знаний",
+        stage_fusion: "Объединение результатов",
+        stage_rerank: "Ранжирование",
+        stage_context_assembly: "Сборка контекста",
+        stage_generation: "Генерация ответа",
+        stage_retrieval_and_generation: "Поиск и генерация",
+        stage_link_addition: "Добавление ссылок",
+        stage_link_correction: "Проверка ссылок"
     },
     en: {
         newChat: "New Chat",
@@ -61,7 +74,20 @@ const translations = {
         arenaVoteBothBad: "👎 Both bad",
         arenaVoteRightBetter: "👉 Right is better",
         battleArenaModeOn: "Arena: ON",
-        battleArenaModeOff: "Arena: OFF"
+        battleArenaModeOff: "Arena: OFF",
+        agentProcessing: "Processing query...",
+        agentThoughtFor: "Processed in {time}s",
+        stage_abbreviation_expansion: "Expanding abbreviations",
+        stage_anaphora_resolution: "Resolving references",
+        stage_query_rewrite: "Rewriting query",
+        stage_retrieval: "Searching knowledge base",
+        stage_fusion: "Merging results",
+        stage_rerank: "Reranking",
+        stage_context_assembly: "Assembling context",
+        stage_generation: "Generating response",
+        stage_retrieval_and_generation: "Search & generation",
+        stage_link_addition: "Adding links",
+        stage_link_correction: "Verifying links"
     }
 };
 

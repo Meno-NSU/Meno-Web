@@ -502,6 +502,8 @@ function App() {
           requestModelId: requestConfig.modelId,
           responseModelId: null,
           knowledgeBaseId: requestConfig.knowledgeBaseId,
+          agentStages: [],
+          agentSummary: null,
           isStreaming: true,
         };
 
@@ -517,6 +519,74 @@ function App() {
           sessionId: requestConfig.sessionId,
           stream: true,
           onEvent: (event) => {
+            if (event.type === 'stage') {
+              setChats((prev) => updateLastMessageInChat(prev, targetChatId, (message) => {
+                if (message?.isArena || message?.role !== 'assistant') {
+                  return message;
+                }
+
+                const stages = [...(message.agentStages || [])];
+
+                if (event.status === 'started') {
+                  stages.push({
+                    stage: event.stage,
+                    status: 'running',
+                    durationMs: null,
+                    detail: event.detail,
+                  });
+                } else if (event.status === 'completed' || event.status === 'complete') {
+                  const idx = stages.findIndex(
+                    (s) => s.stage === event.stage && s.status === 'running',
+                  );
+                  if (idx >= 0) {
+                    stages[idx] = {
+                      ...stages[idx],
+                      status: 'complete',
+                      durationMs: event.durationMs,
+                      detail: event.detail || stages[idx].detail,
+                    };
+                  } else {
+                    stages.push({
+                      stage: event.stage,
+                      status: 'complete',
+                      durationMs: event.durationMs,
+                      detail: event.detail,
+                    });
+                  }
+                } else if (event.status === 'failed') {
+                  const idx = stages.findIndex(
+                    (s) => s.stage === event.stage && s.status === 'running',
+                  );
+                  if (idx >= 0) {
+                    stages[idx] = { ...stages[idx], status: 'failed', durationMs: event.durationMs };
+                  }
+                } else if (event.status === 'skipped') {
+                  stages.push({
+                    stage: event.stage,
+                    status: 'skipped',
+                    durationMs: null,
+                    detail: event.detail,
+                  });
+                }
+
+                return { ...message, agentStages: stages };
+              }));
+              return;
+            }
+
+            if (event.type === 'summary') {
+              setChats((prev) => updateLastMessageInChat(prev, targetChatId, (message) => {
+                if (message?.isArena || message?.role !== 'assistant') {
+                  return message;
+                }
+                return {
+                  ...message,
+                  agentSummary: { totalMs: event.totalMs, stages: event.stages },
+                };
+              }));
+              return;
+            }
+
             if (event.type === 'model') {
               setChats((prev) => updateLastMessageInChat(prev, targetChatId, (message) => {
                 if (message?.isArena || message?.role !== 'assistant' || message.responseModelId === event.modelId) {

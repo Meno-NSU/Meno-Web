@@ -192,7 +192,6 @@ export default function ChatArea({ messages, isGenerating, onSendMessage, kbs, s
 function MessageBubble({ message }) {
     const isUser = message.role === 'user';
     const [copied, setCopied] = useState(false);
-    const { t } = useTranslation();
 
     const handleCopy = () => {
         navigator.clipboard.writeText(message.content);

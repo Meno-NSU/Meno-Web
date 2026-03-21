@@ -385,6 +385,26 @@
     white-space: nowrap;
 }
 
+.agent-stage-detail {
+    font-size: 0.72rem;
+    color: var(--text-tertiary);
+    font-style: italic;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 300px;
+}
+
+.agent-thinking-content {
+    margin-top: 0.5rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--border-color);
+    font-size: 0.8rem;
+    line-height: 1.5;
+    color: var(--text-secondary);
+    font-style: italic;
+}
+
 /* ══════════════════════════════════════════════════════════
    Loading phrase with shimmer gradient
    ══════════════════════════════════════════════════════════ */

@@ -504,6 +504,7 @@ function App() {
           knowledgeBaseId: requestConfig.knowledgeBaseId,
           agentStages: [],
           agentSummary: null,
+          thinkingContent: '',
           isStreaming: true,
         };
 
@@ -574,13 +575,31 @@ function App() {
               return;
             }
 
-            if (event.type === 'summary') {
+            if (event.type === 'thinking') {
               setChats((prev) => updateLastMessageInChat(prev, targetChatId, (message) => {
                 if (message?.isArena || message?.role !== 'assistant') {
                   return message;
                 }
                 return {
                   ...message,
+                  thinkingContent: (message.thinkingContent || '') + event.content,
+                };
+              }));
+              return;
+            }
+
+            if (event.type === 'summary') {
+              setChats((prev) => updateLastMessageInChat(prev, targetChatId, (message) => {
+                if (message?.isArena || message?.role !== 'assistant') {
+                  return message;
+                }
+                // Mark any still-running stages as complete
+                const stages = (message.agentStages || []).map((s) =>
+                  s.status === 'running' ? { ...s, status: 'complete' } : s,
+                );
+                return {
+                  ...message,
+                  agentStages: stages,
                   agentSummary: { totalMs: event.totalMs, stages: event.stages },
                 };
               }));

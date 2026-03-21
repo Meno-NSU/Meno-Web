@@ -126,12 +126,12 @@ function formatDuration(ms) {
     return `${(ms / 1000).toFixed(1)}s`;
 }
 
-function AgentThinkingBlock({ stages, summary }) {
+function AgentThinkingBlock({ stages, summary, thinkingContent }) {
     const [manualToggle, setManualToggle] = useState(null);
     const { t } = useTranslation();
 
-    const isComplete = summary !== null
-        || (stages.length > 0 && stages.every((s) => s.status !== 'running'));
+    // Complete ONLY when summary arrives (backend sends it after everything is done)
+    const isComplete = summary !== null;
 
     // Auto mode: open while running, closed when complete. Manual overrides.
     const isOpen = manualToggle !== null ? manualToggle : !isComplete;
@@ -141,9 +141,16 @@ function AgentThinkingBlock({ stages, summary }) {
     const totalMs = summary?.totalMs
         ?? stages.reduce((sum, s) => sum + (s.durationMs || 0), 0);
 
-    const headerLabel = isComplete
-        ? t('agentThoughtFor').replace('{time}', (totalMs / 1000).toFixed(1))
-        : t('agentProcessing');
+    // Header: show current running stage, or total time when complete
+    const runningStage = stages.find((s) => s.status === 'running');
+    let headerLabel;
+    if (isComplete) {
+        headerLabel = t('agentThoughtFor').replace('{time}', (totalMs / 1000).toFixed(1));
+    } else if (runningStage) {
+        headerLabel = t(`stage_${runningStage.stage}`) || runningStage.stage;
+    } else {
+        headerLabel = t('agentProcessing');
+    }
 
     return (
         <div className={`agent-thinking-block ${isOpen ? 'open' : ''} ${isComplete ? 'complete' : ''}`}>
@@ -180,11 +187,63 @@ function AgentThinkingBlock({ stages, summary }) {
                                     {formatDuration(s.durationMs)}
                                 </span>
                             )}
+                            {s.detail && (
+                                <StageDetail detail={s.detail} stage={s.stage} />
+                            )}
                         </div>
                     ))}
+                    {thinkingContent && (
+                        <div className="agent-thinking-content">
+                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                {thinkingContent}
+                            </ReactMarkdown>
+                        </div>
+                    )}
                 </div>
             )}
         </div>
+    );
+}
+
+function StageDetail({ detail, stage }) {
+    if (!detail || typeof detail !== 'object') return null;
+
+    const parts = [];
+
+    if (stage === 'query_rewrite') {
+        if (detail.resolved_coreferences) parts.push(detail.resolved_coreferences);
+        if (Array.isArray(detail.search_queries) && detail.search_queries.length > 0) {
+            parts.push(`Запросы: ${detail.search_queries.join(', ')}`);
+        } else if (typeof detail.search_queries === 'number') {
+            parts.push(`${detail.search_queries} запросов`);
+        }
+    }
+    if (stage === 'abbreviation_expansion' && detail.expanded && detail.expanded !== detail.original) {
+        parts.push(detail.expanded);
+    }
+    if (stage === 'anaphora_resolution' && detail.resolved_query) {
+        parts.push(detail.resolved_query);
+    }
+    if (stage === 'retrieval') {
+        if (detail.chunks_found != null) parts.push(`${detail.chunks_found} чанков`);
+    }
+    if (stage === 'fusion' && detail.candidates != null) {
+        parts.push(`${detail.candidates} кандидатов`);
+    }
+    if (stage === 'rerank' && detail.kept != null) {
+        parts.push(`топ-${detail.kept}`);
+    }
+    if (stage === 'context_assembly') {
+        if (detail.sources != null) parts.push(`${detail.sources} источников`);
+        if (detail.context_tokens != null) parts.push(`~${detail.context_tokens} токенов`);
+    }
+
+    if (parts.length === 0) return null;
+
+    return (
+        <span className="agent-stage-detail">
+            {parts.join(' · ')}
+        </span>
     );
 }
 
@@ -296,6 +355,7 @@ function MessageBubble({ message }) {
                     <AgentThinkingBlock
                         stages={message.agentStages}
                         summary={message.agentSummary || null}
+                        thinkingContent={message.thinkingContent || ''}
                     />
                 )}
                 <div className="message-markdown prose">

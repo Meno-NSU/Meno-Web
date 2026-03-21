@@ -50,44 +50,64 @@ function LoadingPhrase() {
 // ── Think block parser ───────────────────────────────────────────────────────
 /**
  * Splits a raw content string into an array of segments:
- *   { type: 'think', content: string }
+ *   { type: 'think', content: string, streaming?: boolean }
  *   { type: 'text',  content: string }
+ *
+ * During streaming, an unclosed <think> tag produces a segment with
+ * streaming=true so the UI can render it as an open, live thinking block.
  */
-function parseThinkBlocks(raw, thinkTime) {
+function parseThinkBlocks(raw, thinkTime, isStreaming = false) {
     const segments = [];
     const regex = /<think>([\s\S]*?)<\/think>/gi;
     let lastIndex = 0;
     let match;
     while ((match = regex.exec(raw)) !== null) {
         if (match.index > lastIndex) {
-            segments.push({ type: 'text', content: raw.slice(lastIndex, match.index) });
+            const before = raw.slice(lastIndex, match.index).trim();
+            if (before) segments.push({ type: 'text', content: before });
         }
-        segments.push({ type: 'think', content: match[1].trim(), thinkTime });
+        segments.push({ type: 'think', content: match[1].trim(), thinkTime, streaming: false });
         lastIndex = regex.lastIndex;
     }
-    if (lastIndex < raw.length) {
-        segments.push({ type: 'text', content: raw.slice(lastIndex) });
+    // Handle remaining content after last closed </think>
+    const remainder = raw.slice(lastIndex);
+    if (remainder) {
+        // Check for an unclosed <think> tag (streaming in progress)
+        const openIdx = remainder.indexOf('<think>');
+        if (openIdx !== -1) {
+            const before = remainder.slice(0, openIdx).trim();
+            if (before) segments.push({ type: 'text', content: before });
+            const thinkContent = remainder.slice(openIdx + 7); // after '<think>'
+            segments.push({ type: 'think', content: thinkContent.trim(), thinkTime: null, streaming: isStreaming });
+        } else {
+            const trimmed = remainder.trim();
+            if (trimmed) segments.push({ type: 'text', content: trimmed });
+        }
     }
     return segments;
 }
 
-function ThinkBlock({ content, thinkTime }) {
-    const [open, setOpen] = useState(false);
+function ThinkBlock({ content, thinkTime, streaming }) {
+    const [manualToggle, setManualToggle] = useState(null);
     const { t } = useTranslation();
 
-    // Determine label: "Размышляю..." (Thinking...) if no time, else "Думал X секунд" (Thought for X seconds)
-    const label = thinkTime && thinkTime > 0 
-        ? t('thoughtFor').replace('{time}', thinkTime)
-        : t('thinking');
+    // Auto-open while streaming, auto-collapse when done; user can override
+    const isOpen = manualToggle !== null ? manualToggle : streaming;
+
+    const label = streaming
+        ? t('thinking')
+        : (thinkTime && thinkTime > 0
+            ? t('thoughtFor').replace('{time}', thinkTime)
+            : t('thinking'));
 
     return (
-        <div className={`think-block ${open ? 'open' : ''}`}>
-            <button className="think-summary" onClick={() => setOpen(o => !o)}>
+        <div className={`think-block ${isOpen ? 'open' : ''}`}>
+            <button className="think-summary" onClick={() => setManualToggle(prev => prev !== null ? !prev : !isOpen)}>
                 <Brain size={14} className="think-icon" />
                 <span>{label}</span>
                 <ChevronDown size={14} className="think-chevron" />
             </button>
-            {open && (
+            {isOpen && (
                 <div className="think-content">
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>
                         {content}
@@ -172,7 +192,6 @@ export default function ChatArea({ messages, isGenerating, onSendMessage, kbs, s
 function MessageBubble({ message }) {
     const isUser = message.role === 'user';
     const [copied, setCopied] = useState(false);
-    const { t } = useTranslation();
 
     const handleCopy = () => {
         navigator.clipboard.writeText(message.content);
@@ -191,23 +210,16 @@ function MessageBubble({ message }) {
     }
 
     // Parse think blocks out of raw content, passing along thinkTime
-    const segments = parseThinkBlocks(message.content || '', message.thinkTime);
+    const segments = parseThinkBlocks(message.content || '', message.thinkTime, message.isStreaming);
     const effectiveModelId = message.responseModelId || message.requestModelId;
 
     return (
         <div className="message-wrapper assistant">
             <div className="message-content">
-                {effectiveModelId && (
-                    <div className="message-meta-row">
-                        <span className="message-model-chip">
-                            {t('model')}: {effectiveModelId}
-                        </span>
-                    </div>
-                )}
                 <div className="message-markdown prose">
                     {segments.map((seg, i) =>
                         seg.type === 'think' ? (
-                            <ThinkBlock key={i} content={seg.content} thinkTime={seg.thinkTime} />
+                            <ThinkBlock key={i} content={seg.content} thinkTime={seg.thinkTime} streaming={seg.streaming} />
                         ) : (
                             <ReactMarkdown key={i} remarkPlugins={[remarkGfm]}>
                                 {seg.content}
@@ -216,10 +228,15 @@ function MessageBubble({ message }) {
                     )}
                 </div>
 
-                <div className="message-actions-bar">
-                    <button className="copy-btn" onClick={handleCopy} title="Copy message">
-                        {copied ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
-                    </button>
+                <div className="message-footer">
+                    <div className="message-actions-bar">
+                        <button className="copy-btn" onClick={handleCopy} title="Copy message">
+                            {copied ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
+                        </button>
+                    </div>
+                    {effectiveModelId && (
+                        <span className="message-model-label">{effectiveModelId}</span>
+                    )}
                 </div>
             </div>
         </div>
@@ -271,8 +288,8 @@ function ArenaMessageBubble({ message, chatId, setChats, isGenerating, question 
         }
     };
 
-    const segmentsA = parseThinkBlocks(arenaData.a.content || '', arenaData.a.thinkTime);
-    const segmentsB = parseThinkBlocks(arenaData.b.content || '', arenaData.b.thinkTime);
+    const segmentsA = parseThinkBlocks(arenaData.a.content || '', arenaData.a.thinkTime, arenaData.a.isStreaming);
+    const segmentsB = parseThinkBlocks(arenaData.b.content || '', arenaData.b.thinkTime, arenaData.b.isStreaming);
 
     // Apply primary colors to the voted column if a/b
     const bgA = arenaData.winner === 'a' ? 'rgba(var(--primary-rgb), 0.1)' : 'transparent';
@@ -291,7 +308,7 @@ function ArenaMessageBubble({ message, chatId, setChats, isGenerating, question 
                     <div className="message-markdown prose" style={{ flex: 1, paddingBottom: isGenerating ? '2rem' : '0' }}>
                         {segmentsA.map((seg, i) =>
                             seg.type === 'think' ? (
-                                <ThinkBlock key={i} content={seg.content} thinkTime={seg.thinkTime} />
+                                <ThinkBlock key={i} content={seg.content} thinkTime={seg.thinkTime} streaming={seg.streaming} />
                             ) : (
                                 <ReactMarkdown key={i} remarkPlugins={[remarkGfm]}>{seg.content}</ReactMarkdown>
                             )
@@ -315,7 +332,7 @@ function ArenaMessageBubble({ message, chatId, setChats, isGenerating, question 
                     <div className="message-markdown prose" style={{ flex: 1, paddingBottom: isGenerating ? '2rem' : '0' }}>
                         {segmentsB.map((seg, i) =>
                             seg.type === 'think' ? (
-                                <ThinkBlock key={i} content={seg.content} thinkTime={seg.thinkTime} />
+                                <ThinkBlock key={i} content={seg.content} thinkTime={seg.thinkTime} streaming={seg.streaming} />
                             ) : (
                                 <ReactMarkdown key={i} remarkPlugins={[remarkGfm]}>{seg.content}</ReactMarkdown>
                             )

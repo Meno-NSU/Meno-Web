@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Copy, Check, Bot, ChevronDown, Brain, Loader, CheckCircle } from 'lucide-react';
+import { Copy, Check, Bot, ChevronDown, Brain, Loader, CheckCircle, ExternalLink } from 'lucide-react';
 import { useTranslation } from '../i18n.js';
 import ChatInput from './ChatInput.jsx';
 import './ChatArea.css';
@@ -338,6 +338,27 @@ export default function ChatArea({ messages, isGenerating, onSendMessage, kbs, s
     );
 }
 
+// ── Sources block ────────────────────────────────────────────────────────────
+function SourcesBlock({ sources }) {
+    const { t } = useTranslation();
+    if (!sources || sources.length === 0) return null;
+    return (
+        <div className="sources-block">
+            <div className="sources-header">{t('sources')}</div>
+            <ul className="sources-list">
+                {sources.map((s, i) => (
+                    <li key={i}>
+                        <ExternalLink size={12} className="sources-link-icon" />
+                        <a href={s.source_url} target="_blank" rel="noopener noreferrer">
+                            {s.document_title || s.source_url}
+                        </a>
+                    </li>
+                ))}
+            </ul>
+        </div>
+    );
+}
+
 // ── Message bubble ───────────────────────────────────────────────────────────
 function MessageBubble({ message }) {
     const isUser = message.role === 'user';
@@ -384,6 +405,8 @@ function MessageBubble({ message }) {
                         )
                     )}
                 </div>
+
+                {message.sources?.length > 0 && <SourcesBlock sources={message.sources} />}
 
                 <div className="message-footer">
                     <div className="message-actions-bar">

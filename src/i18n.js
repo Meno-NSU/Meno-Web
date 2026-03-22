@@ -42,8 +42,7 @@ const translations = {
         stage_context_assembly: "Сборка контекста",
         stage_generation: "Генерация ответа",
         stage_retrieval_and_generation: "Поиск и генерация",
-        stage_link_addition: "Добавление ссылок",
-        stage_link_correction: "Проверка ссылок"
+        sources: "Источники"
     },
     en: {
         newChat: "New Chat",
@@ -86,8 +85,7 @@ const translations = {
         stage_context_assembly: "Assembling context",
         stage_generation: "Generating response",
         stage_retrieval_and_generation: "Search & generation",
-        stage_link_addition: "Adding links",
-        stage_link_correction: "Verifying links"
+        sources: "Sources"
     }
 };
 

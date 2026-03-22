@@ -260,6 +260,14 @@ export async function sendChatMessage({
                 return false;
             }
 
+            if (parsedEvent.eventType === 'sources' && onEvent) {
+                onEvent({
+                    type: 'sources',
+                    sources: data.sources || [],
+                });
+                return false;
+            }
+
             // Default: OpenAI-compatible content/model events
             if (data?.error?.message) {
                 throw new Error(data.error.message);

@@ -606,6 +606,14 @@ function App() {
               return;
             }
 
+            if (event.type === 'sources') {
+              setChats((prev) => updateLastMessageInChat(prev, targetChatId, (message) => {
+                if (message?.isArena || message?.role !== 'assistant') return message;
+                return { ...message, sources: event.sources };
+              }));
+              return;
+            }
+
             if (event.type === 'model') {
               setChats((prev) => updateLastMessageInChat(prev, targetChatId, (message) => {
                 if (message?.isArena || message?.role !== 'assistant' || message.responseModelId === event.modelId) {

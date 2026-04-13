@@ -104,6 +104,22 @@ export async function fetchModels() {
     }
 }
 
+export async function refreshModels() {
+    apiLogger.debug('refreshModels called (force refresh)');
+    try {
+        const res = await fetchWithLogging(`${API_BASE_URL}/v1/models/refresh`, { method: 'POST' });
+        if (!res.ok) {
+            apiLogger.warn('refreshModels failed, falling back to fetchModels');
+            return fetchModels();
+        }
+        const data = await res.json();
+        return data.data || [];
+    } catch (error) {
+        apiLogger.error('Error in refreshModels:', error);
+        return fetchModels();
+    }
+}
+
 export async function fetchKnowledgeBases() {
     apiLogger.debug('fetchKnowledgeBases called');
     try {

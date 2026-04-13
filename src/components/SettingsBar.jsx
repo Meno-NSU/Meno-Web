@@ -3,7 +3,7 @@ import { Trophy, Moon, Sun, ChevronDown, AlertCircle } from 'lucide-react';
 import { useTranslation } from '../i18n.js';
 import './SettingsBar.css';
 
-export default function SettingsBar({ theme, toggleTheme, isSidebarOpen, models, selectedModel, onModelChange, isArenaMode, setIsArenaMode, setCurrentView }) {
+export default function SettingsBar({ theme, toggleTheme, isSidebarOpen, models, selectedModel, onModelChange, onDropdownOpen, isArenaMode, setIsArenaMode, setCurrentView }) {
     const { t, lang, setLanguage } = useTranslation();
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const dropdownRef = useRef(null);
@@ -46,17 +46,21 @@ export default function SettingsBar({ theme, toggleTheme, isSidebarOpen, models,
                 <div className="model-dropdown" ref={dropdownRef}>
                     <button
                         className={`model-dropdown-trigger ${!hasModels ? 'no-models' : ''}`}
-                        onClick={() => hasModels && setIsDropdownOpen(prev => !prev)}
+                        onClick={() => {
+                            const willOpen = !isDropdownOpen;
+                            setIsDropdownOpen(willOpen);
+                            if (willOpen && onDropdownOpen) onDropdownOpen();
+                        }}
                         type="button"
                     >
                         {!hasModels && <AlertCircle size={16} className="no-models-icon" />}
                         <span className="model-dropdown-label">{currentModelName}</span>
-                        {hasModels && <ChevronDown size={16} className={`model-dropdown-chevron ${isDropdownOpen ? 'open' : ''}`} />}
+                        <ChevronDown size={16} className={`model-dropdown-chevron ${isDropdownOpen ? 'open' : ''}`} />
                     </button>
 
-                    {isDropdownOpen && hasModels && (
+                    {isDropdownOpen && (
                         <div className="model-dropdown-menu">
-                            {models.map(m => (
+                            {hasModels ? models.map(m => (
                                 <button
                                     key={m.id}
                                     className={`model-dropdown-item ${m.id === selectedModel ? 'active' : ''}`}
@@ -66,7 +70,11 @@ export default function SettingsBar({ theme, toggleTheme, isSidebarOpen, models,
                                     <span className="model-item-name">{m.id}</span>
                                     {m.id === selectedModel && <span className="model-item-check">✓</span>}
                                 </button>
-                            ))}
+                            )) : (
+                                <div className="model-dropdown-item no-models-hint">
+                                    {t('noModelsAvailable')}
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>

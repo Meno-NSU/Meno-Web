@@ -7,6 +7,7 @@ import {
   clearChatHistory,
   fetchKnowledgeBases,
   fetchModels,
+  refreshModels,
   sendChatMessage,
 } from './services/api.js';
 import {
@@ -382,6 +383,15 @@ function App() {
     updateActiveChatRuntimeConfig({ modelId });
   };
 
+  const handleModelsDropdownOpen = async () => {
+    const freshModels = await refreshModels();
+    setModels((prev) => {
+      const prevIds = prev.map((m) => m.id).sort().join(',');
+      const nextIds = freshModels.map((m) => m.id).sort().join(',');
+      return prevIds === nextIds ? prev : freshModels;
+    });
+  };
+
   const handleKbChange = (knowledgeBaseId) => {
     updateActiveChatRuntimeConfig({ knowledgeBaseId });
   };
@@ -754,6 +764,7 @@ function App() {
           models={models}
           selectedModel={selectedModel}
           onModelChange={handleModelChange}
+          onDropdownOpen={handleModelsDropdownOpen}
           isArenaMode={isArenaMode}
           setIsArenaMode={setIsArenaMode}
           setCurrentView={setCurrentView}

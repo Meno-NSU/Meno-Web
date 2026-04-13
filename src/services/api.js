@@ -117,7 +117,7 @@ export async function fetchKnowledgeBases() {
         return data.data || [];
     } catch (error) {
         apiLogger.error('Error fetching KBs in API client:', error);
-        return [{ id: 'default-kb', name: 'Default Knowledge Base' }]; // Fallback
+        return []; // No fallback — let UI show actual state
     }
 }
 

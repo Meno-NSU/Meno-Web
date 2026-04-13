@@ -72,7 +72,13 @@ export default function ChatInput({ onSend, disabled, modelsAvailable = true, kb
                                 title={t("knowledgeBase")}
                             >
                                 {kbs.map(kb => (
-                                    <option key={kb.id} value={kb.id}>{kb.name || kb.id}</option>
+                                    <option
+                                        key={kb.id}
+                                        value={kb.id}
+                                        disabled={kb.available === false}
+                                    >
+                                        {kb.name || kb.id}{kb.available === false ? ` (${t('kbUnavailable')})` : ''}
+                                    </option>
                                 ))}
                             </select>
                             <Database size={16} className="kb-icon" />

@@ -42,7 +42,8 @@ const translations = {
         stage_context_assembly: "Сборка контекста",
         stage_generation: "Генерация ответа",
         stage_retrieval_and_generation: "Поиск и генерация",
-        sources: "Источники"
+        sources: "Источники",
+        kbUnavailable: "недоступно"
     },
     en: {
         newChat: "New Chat",
@@ -85,7 +86,8 @@ const translations = {
         stage_context_assembly: "Assembling context",
         stage_generation: "Generating response",
         stage_retrieval_and_generation: "Search & generation",
-        sources: "Sources"
+        sources: "Sources",
+        kbUnavailable: "unavailable"
     }
 };
 

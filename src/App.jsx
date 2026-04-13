@@ -273,6 +273,33 @@ function App() {
     initData();
   }, []);
 
+  // Periodically poll models and knowledge bases to keep lists fresh.
+  useEffect(() => {
+    const POLL_INTERVAL_MS = 30_000;
+    let intervalId = null;
+
+    const poll = async () => {
+      if (document.hidden) return;
+      const [freshModels, freshKbs] = await Promise.all([
+        fetchModels(),
+        fetchKnowledgeBases(),
+      ]);
+      setModels((prev) => {
+        const prevIds = prev.map((m) => m.id).sort().join(',');
+        const nextIds = freshModels.map((m) => m.id).sort().join(',');
+        return prevIds === nextIds ? prev : freshModels;
+      });
+      setKbs((prev) => {
+        const prevKey = JSON.stringify(prev.map((kb) => ({ id: kb.id, available: kb.available })));
+        const nextKey = JSON.stringify(freshKbs.map((kb) => ({ id: kb.id, available: kb.available })));
+        return prevKey === nextKey ? prev : freshKbs;
+      });
+    };
+
+    intervalId = setInterval(poll, POLL_INTERVAL_MS);
+    return () => clearInterval(intervalId);
+  }, []);
+
   useEffect(() => {
     saveChats(chats);
   }, [chats]);
@@ -296,6 +323,28 @@ function App() {
   const activeChat = chats.find((chat) => chat.id === activeChatId) || EMPTY_CHAT;
   const selectedModel = activeChat.runtimeConfig?.modelId || '';
   const selectedKb = activeChat.runtimeConfig?.knowledgeBaseId || '';
+
+  // Auto-fallback when the selected model disappears from the available list.
+  useEffect(() => {
+    if (models.length === 0 || !activeChatId) return;
+    if (selectedModel && models.some((m) => m.id === selectedModel)) return;
+    const fallback = models[0]?.id || '';
+    if (fallback) {
+      updateActiveChatRuntimeConfig({ modelId: fallback });
+    }
+  }, [models, selectedModel, activeChatId]);
+
+  // Auto-fallback when the selected KB becomes unavailable.
+  useEffect(() => {
+    if (kbs.length === 0 || !activeChatId) return;
+    const availableKbs = kbs.filter((kb) => kb.available !== false);
+    if (availableKbs.length === 0) return;
+    if (selectedKb && availableKbs.some((kb) => kb.id === selectedKb)) return;
+    const fallback = availableKbs[0]?.id || '';
+    if (fallback) {
+      updateActiveChatRuntimeConfig({ knowledgeBaseId: fallback });
+    }
+  }, [kbs, selectedKb, activeChatId]);
 
   useEffect(() => {
     if (selectedModel) {

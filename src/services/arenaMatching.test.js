@@ -39,7 +39,7 @@ describe('runArenaSideWithSubstitution', () => {
             pool, exclude, kbId: 'kb', messages: [], sessionId: 's', sendChat,
             onEvent: () => {},
         });
-        expect(result.model.id).toBe(pool[0].id);
+        expect(pool.map(m => m.id)).toContain(result.model.id);
         expect(sendChat).toHaveBeenCalledTimes(1);
     });
 

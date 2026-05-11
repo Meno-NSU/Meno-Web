@@ -11,6 +11,11 @@ import {
   sendChatMessage,
 } from './services/api.js';
 import {
+  buildArenaPool,
+  runArenaSideWithSubstitution,
+  ArenaPoolExhaustedError,
+} from './services/arenaMatching.js';
+import {
   createNewChat,
   generateTitle,
   loadChats,
@@ -508,76 +513,63 @@ function App() {
 
     try {
       if (isArenaMode) {
-        const combinations = [];
-        for (const model of models) {
-          for (const kb of kbs) {
-            combinations.push({ model: model.id, kb: kb.id });
-          }
+        const pool = buildArenaPool(models);
+        if (pool.length < 2) {
+          setChats((prev) => updateChatById(prev, targetChatId, (chat) => ({
+            ...chat,
+            messages: [
+              ...chat.messages,
+              {
+                role: 'assistant',
+                isArena: false,
+                content: '⚠ No available models for arena right now. Refresh to retry.',
+              },
+            ],
+          })));
+          return;
         }
-
-        let setupA;
-        let setupB;
-        if (combinations.length < 2) {
-          setupA = { model: requestConfig.modelId, kb: requestConfig.knowledgeBaseId };
-          setupB = { model: requestConfig.modelId, kb: requestConfig.knowledgeBaseId };
-        } else {
-          const idxA = Math.floor(Math.random() * combinations.length);
-          let idxB;
-          do {
-            idxB = Math.floor(Math.random() * combinations.length);
-          } while (idxB === idxA);
-
-          setupA = combinations[idxA];
-          setupB = combinations[idxB];
-        }
+        const exclude = new Set();
+        const kbId = requestConfig.knowledgeBaseId;
 
         const arenaMessage = {
-          role: 'assistant',
-          isArena: true,
+          role: 'assistant', isArena: true,
           arenaData: {
-            a: { ...setupA, content: '', thinkStartTime: Date.now(), isStreaming: true },
-            b: { ...setupB, content: '', thinkStartTime: Date.now(), isStreaming: true },
-            voted: false,
-            winner: null,
+            a: { model: null, kb: kbId, content: '', thinkStartTime: Date.now(), isStreaming: true },
+            b: { model: null, kb: kbId, content: '', thinkStartTime: Date.now(), isStreaming: true },
+            voted: false, winner: null,
           },
         };
-
         setChats((prev) => updateChatById(prev, targetChatId, (chat) => ({
-          ...chat,
-          messages: [...chat.messages, arenaMessage],
+          ...chat, messages: [...chat.messages, arenaMessage],
         })));
 
-        const runArenaSide = async (sideKey, setup) => {
+        const runSide = async (sideKey) => {
           try {
-            await sendChatMessage({
-              messages: messageHistory,
-              modelId: setup.model,
-              knowledgeBaseId: setup.kb,
-              sessionId: requestConfig.sessionId,
-              stream: true,
+            const { model } = await runArenaSideWithSubstitution({
+              pool, exclude, kbId, messages: messageHistory, sessionId: requestConfig.sessionId,
+              sendChat: sendChatMessage,
               onEvent: (event) => {
-                if (event.type !== 'content') {
-                  return;
-                }
-
+                if (event.type !== 'content') return;
                 setChats((prev) => updateLastArenaMessageSide(prev, targetChatId, sideKey, (sideState) => (
                   applyArenaSideContent(sideState, event.fullContent)
                 )));
               },
             });
-          } catch (error) {
             setChats((prev) => updateLastArenaMessageSide(prev, targetChatId, sideKey, (sideState) => ({
-              ...sideState,
-              content: buildErrorMessage(error),
+              ...sideState, model: model.id,
             })));
+          } catch (error) {
+            const errorMessage = error instanceof ArenaPoolExhaustedError
+              ? '⚠ Could not find an available model after several attempts.'
+              : buildErrorMessage(error);
+            setChats((prev) => updateLastArenaMessageSide(prev, targetChatId, sideKey, (sideState) => ({
+              ...sideState, content: sideState.content || errorMessage,
+            })));
+            refreshModelsAndApplyState();
           }
         };
 
-        await Promise.all([
-          runArenaSide('a', setupA),
-          runArenaSide('b', setupB),
-        ]);
-
+        await Promise.all([runSide('a'), runSide('b')]);
         setChats((prev) => finalizeLastArenaMessage(prev, targetChatId));
       } else {
         const assistantMessage = {

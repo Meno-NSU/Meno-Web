@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Sidebar from './components/Sidebar.jsx';
 import ChatArea from './components/ChatArea.jsx';
 import SettingsBar from './components/SettingsBar.jsx';
@@ -10,6 +10,11 @@ import {
   refreshModels,
   sendChatMessage,
 } from './services/api.js';
+import {
+  buildArenaPool,
+  runArenaSideWithSubstitution,
+  ArenaPoolExhaustedError,
+} from './services/arenaMatching.js';
 import {
   createNewChat,
   generateTitle,
@@ -32,8 +37,20 @@ const EMPTY_CHAT = {
 };
 
 function buildErrorMessage(error) {
-  const details = error instanceof Error ? error.message : String(error);
-  return `${SERVER_ERROR_TEXT}\n\n*(Детали: ${details})*`;
+  if (error.code === 'model_rate_limited') {
+    const until = error.until ? new Date(error.until) : null;
+    const hh = until ? String(until.getHours()).padStart(2, '0') : '??';
+    const mm = until ? String(until.getMinutes()).padStart(2, '0') : '??';
+    const mins = until ? Math.max(0, Math.round((until.getTime() - Date.now()) / 60000)) : null;
+    return `⚠ Model is rate-limited until ${hh}:${mm}${mins !== null ? ` (~${mins} min)` : ''}. Try another model.`;
+  }
+  if (error.code === 'model_unreachable') {
+    return `⚠ Model is currently unreachable. Try another model.`;
+  }
+  if (error.code === 'core_model_unavailable') {
+    return `⚠ Internal RAG model unavailable — backend cannot run retrieval.`;
+  }
+  return `⚠ ${error.message || 'Request failed.'}`;
 }
 
 function resolveValidId(items, candidateId, fallbackId = '') {
@@ -223,15 +240,19 @@ function App() {
   // Arena Mode
   const [isArenaMode, setIsArenaMode] = useState(false);
 
+  // Core model annotation from /v1/models response
+  const [coreModelId, setCoreModelId] = useState(null);
+
   // Initialize data and migrate stored chats to the chat-scoped config shape.
   useEffect(() => {
     const initData = async () => {
-      const [fetchedModels, fetchedKbs] = await Promise.all([
+      const [{ models: fetchedModels, coreModelId: fetchedCoreModelId }, fetchedKbs] = await Promise.all([
         fetchModels(),
         fetchKnowledgeBases(),
       ]);
 
       setModels(fetchedModels);
+      setCoreModelId(fetchedCoreModelId);
       setKbs(fetchedKbs);
 
       const defaultModelId = resolveValidId(
@@ -281,10 +302,11 @@ function App() {
 
     const poll = async () => {
       if (document.hidden) return;
-      const [freshModels, freshKbs] = await Promise.all([
+      const [{ models: freshModels, coreModelId: freshCoreModelId }, freshKbs] = await Promise.all([
         fetchModels(),
         fetchKnowledgeBases(),
       ]);
+      setCoreModelId(freshCoreModelId);
       setModels((prev) => {
         const prevIds = prev.map((m) => m.id).sort().join(',');
         const nextIds = freshModels.map((m) => m.id).sort().join(',');
@@ -384,13 +406,22 @@ function App() {
   };
 
   const handleModelsDropdownOpen = async () => {
-    const freshModels = await refreshModels();
+    const { models: freshModels, coreModelId: freshCoreModelId } = await refreshModels();
+    setCoreModelId(freshCoreModelId);
     setModels((prev) => {
       const prevIds = prev.map((m) => m.id).sort().join(',');
       const nextIds = freshModels.map((m) => m.id).sort().join(',');
       return prevIds === nextIds ? prev : freshModels;
     });
   };
+
+  const refreshModelsAndApplyState = useCallback(async () => {
+    try {
+      const { models: freshModels, coreModelId: freshCoreModelId } = await refreshModels();
+      setModels(freshModels);
+      setCoreModelId(freshCoreModelId);
+    } catch { /* ignore */ }
+  }, []);
 
   const handleKbChange = (knowledgeBaseId) => {
     updateActiveChatRuntimeConfig({ knowledgeBaseId });
@@ -482,76 +513,63 @@ function App() {
 
     try {
       if (isArenaMode) {
-        const combinations = [];
-        for (const model of models) {
-          for (const kb of kbs) {
-            combinations.push({ model: model.id, kb: kb.id });
-          }
+        const pool = buildArenaPool(models);
+        if (pool.length < 2) {
+          setChats((prev) => updateChatById(prev, targetChatId, (chat) => ({
+            ...chat,
+            messages: [
+              ...chat.messages,
+              {
+                role: 'assistant',
+                isArena: false,
+                content: '⚠ No available models for arena right now. Refresh to retry.',
+              },
+            ],
+          })));
+          return;
         }
-
-        let setupA;
-        let setupB;
-        if (combinations.length < 2) {
-          setupA = { model: requestConfig.modelId, kb: requestConfig.knowledgeBaseId };
-          setupB = { model: requestConfig.modelId, kb: requestConfig.knowledgeBaseId };
-        } else {
-          const idxA = Math.floor(Math.random() * combinations.length);
-          let idxB;
-          do {
-            idxB = Math.floor(Math.random() * combinations.length);
-          } while (idxB === idxA);
-
-          setupA = combinations[idxA];
-          setupB = combinations[idxB];
-        }
+        const exclude = new Set();
+        const kbId = requestConfig.knowledgeBaseId;
 
         const arenaMessage = {
-          role: 'assistant',
-          isArena: true,
+          role: 'assistant', isArena: true,
           arenaData: {
-            a: { ...setupA, content: '', thinkStartTime: Date.now(), isStreaming: true },
-            b: { ...setupB, content: '', thinkStartTime: Date.now(), isStreaming: true },
-            voted: false,
-            winner: null,
+            a: { model: null, kb: kbId, content: '', thinkStartTime: Date.now(), isStreaming: true },
+            b: { model: null, kb: kbId, content: '', thinkStartTime: Date.now(), isStreaming: true },
+            voted: false, winner: null,
           },
         };
-
         setChats((prev) => updateChatById(prev, targetChatId, (chat) => ({
-          ...chat,
-          messages: [...chat.messages, arenaMessage],
+          ...chat, messages: [...chat.messages, arenaMessage],
         })));
 
-        const runArenaSide = async (sideKey, setup) => {
+        const runSide = async (sideKey) => {
           try {
-            await sendChatMessage({
-              messages: messageHistory,
-              modelId: setup.model,
-              knowledgeBaseId: setup.kb,
-              sessionId: requestConfig.sessionId,
-              stream: true,
+            const { model } = await runArenaSideWithSubstitution({
+              pool, exclude, kbId, messages: messageHistory, sessionId: requestConfig.sessionId,
+              sendChat: sendChatMessage,
               onEvent: (event) => {
-                if (event.type !== 'content') {
-                  return;
-                }
-
+                if (event.type !== 'content') return;
                 setChats((prev) => updateLastArenaMessageSide(prev, targetChatId, sideKey, (sideState) => (
                   applyArenaSideContent(sideState, event.fullContent)
                 )));
               },
             });
-          } catch (error) {
             setChats((prev) => updateLastArenaMessageSide(prev, targetChatId, sideKey, (sideState) => ({
-              ...sideState,
-              content: buildErrorMessage(error),
+              ...sideState, model: model.id,
             })));
+          } catch (error) {
+            const errorMessage = error instanceof ArenaPoolExhaustedError
+              ? '⚠ Could not find an available model after several attempts.'
+              : buildErrorMessage(error);
+            setChats((prev) => updateLastArenaMessageSide(prev, targetChatId, sideKey, (sideState) => ({
+              ...sideState, content: sideState.content || errorMessage,
+            })));
+            refreshModelsAndApplyState();
           }
         };
 
-        await Promise.all([
-          runArenaSide('a', setupA),
-          runArenaSide('b', setupB),
-        ]);
-
+        await Promise.all([runSide('a'), runSide('b')]);
         setChats((prev) => finalizeLastArenaMessage(prev, targetChatId));
       } else {
         const assistantMessage = {
@@ -728,6 +746,7 @@ function App() {
     } catch (error) {
       console.error(error);
       setChats((prev) => applyLastMessageError(prev, targetChatId, error));
+      refreshModelsAndApplyState();
     } finally {
       setGeneratingChats((prev) => {
         const next = new Set(prev);
@@ -768,6 +787,7 @@ function App() {
           isArenaMode={isArenaMode}
           setIsArenaMode={setIsArenaMode}
           setCurrentView={setCurrentView}
+          coreModelId={coreModelId}
         />
         {currentView === 'chat' ? (
           <ChatArea

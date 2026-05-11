@@ -97,10 +97,13 @@ export async function fetchModels() {
             throw new Error(`Failed to fetch models: HTTP ${res.status}`);
         }
         const data = await res.json();
-        return data.data || [];
+        return {
+            models: data.data || [],
+            coreModelId: data.core_model_id ?? null,
+        };
     } catch (error) {
         apiLogger.error('Error fetching models in API client:', error);
-        return []; // No fallback — let UI show "no models" state
+        return { models: [], coreModelId: null }; // No fallback — let UI show "no models" state
     }
 }
 
@@ -113,7 +116,10 @@ export async function refreshModels() {
             return fetchModels();
         }
         const data = await res.json();
-        return data.data || [];
+        return {
+            models: data.data || [],
+            coreModelId: data.core_model_id ?? null,
+        };
     } catch (error) {
         apiLogger.error('Error in refreshModels:', error);
         return fetchModels();
@@ -191,12 +197,15 @@ export async function sendChatMessage({
 
         if (!res.ok) {
             let errorData = await res.text();
+            let parsed = null;
+            try { parsed = JSON.parse(errorData); } catch { /* ignore */ }
             apiLogger.error(`sendChatMessage failed with HTTP ${res.status}`, { rawError: errorData });
-            try {
-                const parsed = JSON.parse(errorData);
-                errorData = parsed.error?.message || errorData;
-            } catch { /* ignore */ }
-            throw new Error(errorData || 'Failed to send message');
+            const err = new Error(parsed?.error?.message || errorData || 'Failed to send message');
+            err.code = parsed?.error?.code;
+            err.until = parsed?.error?.until;
+            err.retryAfterSec = parsed?.error?.retry_after_sec;
+            err.httpStatus = res.status;
+            throw err;
         }
 
         if (!stream) {

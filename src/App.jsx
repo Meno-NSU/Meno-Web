@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Sidebar from './components/Sidebar.jsx';
 import ChatArea from './components/ChatArea.jsx';
 import SettingsBar from './components/SettingsBar.jsx';
@@ -32,8 +32,20 @@ const EMPTY_CHAT = {
 };
 
 function buildErrorMessage(error) {
-  const details = error instanceof Error ? error.message : String(error);
-  return `${SERVER_ERROR_TEXT}\n\n*(Детали: ${details})*`;
+  if (error.code === 'model_rate_limited') {
+    const until = error.until ? new Date(error.until) : null;
+    const hh = until ? String(until.getHours()).padStart(2, '0') : '??';
+    const mm = until ? String(until.getMinutes()).padStart(2, '0') : '??';
+    const mins = until ? Math.max(0, Math.round((until.getTime() - Date.now()) / 60000)) : null;
+    return `⚠ Model is rate-limited until ${hh}:${mm}${mins !== null ? ` (~${mins} min)` : ''}. Try another model.`;
+  }
+  if (error.code === 'model_unreachable') {
+    return `⚠ Model is currently unreachable. Try another model.`;
+  }
+  if (error.code === 'core_model_unavailable') {
+    return `⚠ Internal RAG model unavailable — backend cannot run retrieval.`;
+  }
+  return `⚠ ${error.message || 'Request failed.'}`;
 }
 
 function resolveValidId(items, candidateId, fallbackId = '') {
@@ -398,6 +410,14 @@ function App() {
     });
   };
 
+  const refreshModelsAndApplyState = useCallback(async () => {
+    try {
+      const { models: freshModels, coreModelId: freshCoreModelId } = await refreshModels();
+      setModels(freshModels);
+      setCoreModelId(freshCoreModelId);
+    } catch { /* ignore */ }
+  }, []);
+
   const handleKbChange = (knowledgeBaseId) => {
     updateActiveChatRuntimeConfig({ knowledgeBaseId });
   };
@@ -734,6 +754,7 @@ function App() {
     } catch (error) {
       console.error(error);
       setChats((prev) => applyLastMessageError(prev, targetChatId, error));
+      refreshModelsAndApplyState();
     } finally {
       setGeneratingChats((prev) => {
         const next = new Set(prev);

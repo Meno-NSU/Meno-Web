@@ -203,3 +203,40 @@
 .btn-icon.leaderboard-toggle:hover {
     color: var(--primary);
 }
+
+/* Grouped model dropdown */
+.model-dropdown-group { padding: 4px 0; border-top: 1px solid var(--divider, #eee); }
+.model-dropdown-group:first-child { border-top: none; }
+.model-dropdown-group-header {
+    padding: 4px 12px;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    color: var(--text-secondary, #888);
+    display: flex; justify-content: space-between; align-items: baseline;
+}
+.model-dropdown-group-sub { font-size: 0.7rem; text-transform: none; color: var(--text-tertiary, #aaa); }
+.model-dropdown-group-expander {
+    padding: 6px 12px;
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: none;
+    color: var(--text-secondary, #888);
+    cursor: pointer;
+    font-size: 0.85rem;
+}
+.model-dropdown-item.disabled {
+    color: var(--text-disabled, #ccc);
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+.model-status-icon { margin-right: 6px; font-size: 0.7rem; }
+.model-item-state {
+    margin-left: auto;
+    font-size: 0.7rem;
+    color: var(--text-tertiary, #aaa);
+}
+
+/* Trigger label with OR sublabel */
+.model-dropdown-label { display: flex; flex-direction: column; align-items: flex-start; }
+.model-dropdown-sublabel { font-size: 0.7rem; color: var(--text-tertiary, #aaa); }

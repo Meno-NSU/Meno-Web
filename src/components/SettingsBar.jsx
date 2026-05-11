@@ -3,7 +3,81 @@ import { Trophy, Moon, Sun, ChevronDown, AlertCircle } from 'lucide-react';
 import { useTranslation } from '../i18n.js';
 import './SettingsBar.css';
 
-export default function SettingsBar({ theme, toggleTheme, isSidebarOpen, models, selectedModel, onModelChange, onDropdownOpen, isArenaMode, setIsArenaMode, setCurrentView }) {
+function statusIcon(state) {
+    if (state === 'rate_limited') return '◐';
+    if (state === 'unreachable') return '○';
+    return '●';
+}
+
+function formatUntil(untilIso) {
+    if (!untilIso) return null;
+    const until = new Date(untilIso);
+    const diffMin = Math.round((until.getTime() - Date.now()) / 60000);
+    if (diffMin <= 0) return 'soon';
+    const hh = String(until.getHours()).padStart(2, '0');
+    const mm = String(until.getMinutes()).padStart(2, '0');
+    return `until ${hh}:${mm} (~${diffMin} min)`;
+}
+
+function ModelItem({ model, selected, onSelect }) {
+    const isAvailable = (model.status?.state ?? 'available') === 'available';
+    const stateLabel = model.status?.state === 'rate_limited'
+        ? `Rate-limited ${formatUntil(model.status.until)}`
+        : model.status?.state === 'unreachable'
+            ? `Unreachable ${formatUntil(model.status.until)}`
+            : null;
+    return (
+        <button
+            key={model.id}
+            className={`model-dropdown-item ${selected ? 'active' : ''} ${!isAvailable ? 'disabled' : ''}`}
+            onClick={() => isAvailable && onSelect(model.id)}
+            disabled={!isAvailable}
+            type="button"
+            title={stateLabel || ''}
+        >
+            <span className="model-status-icon">{statusIcon(model.status?.state)}</span>
+            <span className="model-item-name">{model.display_name || model.id}</span>
+            {selected && <span className="model-item-check">✓</span>}
+            {stateLabel && <span className="model-item-state">{stateLabel}</span>}
+        </button>
+    );
+}
+
+function ModelGroup({ title, subtitle, items, selectedModel, onSelect }) {
+    if (items.length === 0) return null;
+    return (
+        <div className="model-dropdown-group">
+            <div className="model-dropdown-group-header">
+                <span>{title}</span>
+                {subtitle && <span className="model-dropdown-group-sub">{subtitle}</span>}
+            </div>
+            {items.map(m => (
+                <ModelItem key={m.id} model={m} selected={m.id === selectedModel} onSelect={onSelect} />
+            ))}
+        </div>
+    );
+}
+
+function AllFreeModelsExpander({ items, selectedModel, onSelect }) {
+    const [open, setOpen] = useState(false);
+    if (items.length === 0) return null;
+    return (
+        <div className="model-dropdown-group">
+            <button
+                className="model-dropdown-group-expander"
+                onClick={() => setOpen(!open)}
+                type="button"
+            >
+                {open ? '▾' : '▸'} All free models ({items.length})
+            </button>
+            {open && items.map(m => (
+                <ModelItem key={m.id} model={m} selected={m.id === selectedModel} onSelect={onSelect} />
+            ))}
+        </div>
+    );
+}
+
+export default function SettingsBar({ theme, toggleTheme, isSidebarOpen, models, selectedModel, onModelChange, onDropdownOpen, isArenaMode, setIsArenaMode, setCurrentView, coreModelId }) {
     const { t, lang, setLanguage } = useTranslation();
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const dropdownRef = useRef(null);
@@ -33,9 +107,11 @@ export default function SettingsBar({ theme, toggleTheme, isSidebarOpen, models,
     };
 
     const hasModels = models.length > 0;
+    const currentModelMeta = hasModels ? models.find(m => m.id === selectedModel) : null;
     const currentModelName = hasModels
-        ? (models.find(m => m.id === selectedModel)?.id || selectedModel || t('model'))
+        ? (currentModelMeta?.display_name || currentModelMeta?.id || selectedModel || t('model'))
         : t('noModelsAvailable');
+    const currentIsOr = currentModelMeta?.provider === 'openrouter';
 
     return (
         <header className="settings-bar">
@@ -54,23 +130,41 @@ export default function SettingsBar({ theme, toggleTheme, isSidebarOpen, models,
                         type="button"
                     >
                         {!hasModels && <AlertCircle size={16} className="no-models-icon" />}
-                        <span className="model-dropdown-label">{currentModelName}</span>
+                        <span className="model-dropdown-label">
+                            {currentModelName}
+                            {currentIsOr && coreModelId && (
+                                <span className="model-dropdown-sublabel">gen only · {coreModelId} for retrieval</span>
+                            )}
+                        </span>
                         <ChevronDown size={16} className={`model-dropdown-chevron ${isDropdownOpen ? 'open' : ''}`} />
                     </button>
 
                     {isDropdownOpen && (
                         <div className="model-dropdown-menu">
-                            {hasModels ? models.map(m => (
-                                <button
-                                    key={m.id}
-                                    className={`model-dropdown-item ${m.id === selectedModel ? 'active' : ''}`}
-                                    onClick={() => handleSelectModel(m.id)}
-                                    type="button"
-                                >
-                                    <span className="model-item-name">{m.id}</span>
-                                    {m.id === selectedModel && <span className="model-item-check">✓</span>}
-                                </button>
-                            )) : (
+                            {hasModels ? (
+                                <>
+                                    <ModelGroup
+                                        title="vLLM — all stages"
+                                        items={models.filter(m => m.provider === 'vllm')}
+                                        selectedModel={selectedModel}
+                                        onSelect={handleSelectModel}
+                                        coreModelId={coreModelId}
+                                    />
+                                    <ModelGroup
+                                        title="OpenRouter — generation only"
+                                        subtitle={coreModelId ? `rewrite/rerank: ${coreModelId}` : null}
+                                        items={models.filter(m => m.provider === 'openrouter' && m.featured)}
+                                        selectedModel={selectedModel}
+                                        onSelect={handleSelectModel}
+                                        coreModelId={coreModelId}
+                                    />
+                                    <AllFreeModelsExpander
+                                        items={models.filter(m => m.provider === 'openrouter' && !m.featured)}
+                                        selectedModel={selectedModel}
+                                        onSelect={handleSelectModel}
+                                    />
+                                </>
+                            ) : (
                                 <div className="model-dropdown-item no-models-hint">
                                     {t('noModelsAvailable')}
                                 </div>

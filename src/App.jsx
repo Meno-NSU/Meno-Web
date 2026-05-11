@@ -223,15 +223,19 @@ function App() {
   // Arena Mode
   const [isArenaMode, setIsArenaMode] = useState(false);
 
+  // Core model annotation from /v1/models response
+  const [coreModelId, setCoreModelId] = useState(null);
+
   // Initialize data and migrate stored chats to the chat-scoped config shape.
   useEffect(() => {
     const initData = async () => {
-      const [fetchedModels, fetchedKbs] = await Promise.all([
+      const [{ models: fetchedModels, coreModelId: fetchedCoreModelId }, fetchedKbs] = await Promise.all([
         fetchModels(),
         fetchKnowledgeBases(),
       ]);
 
       setModels(fetchedModels);
+      setCoreModelId(fetchedCoreModelId);
       setKbs(fetchedKbs);
 
       const defaultModelId = resolveValidId(
@@ -281,10 +285,11 @@ function App() {
 
     const poll = async () => {
       if (document.hidden) return;
-      const [freshModels, freshKbs] = await Promise.all([
+      const [{ models: freshModels, coreModelId: freshCoreModelId }, freshKbs] = await Promise.all([
         fetchModels(),
         fetchKnowledgeBases(),
       ]);
+      setCoreModelId(freshCoreModelId);
       setModels((prev) => {
         const prevIds = prev.map((m) => m.id).sort().join(',');
         const nextIds = freshModels.map((m) => m.id).sort().join(',');
@@ -384,7 +389,8 @@ function App() {
   };
 
   const handleModelsDropdownOpen = async () => {
-    const freshModels = await refreshModels();
+    const { models: freshModels, coreModelId: freshCoreModelId } = await refreshModels();
+    setCoreModelId(freshCoreModelId);
     setModels((prev) => {
       const prevIds = prev.map((m) => m.id).sort().join(',');
       const nextIds = freshModels.map((m) => m.id).sort().join(',');
@@ -768,6 +774,7 @@ function App() {
           isArenaMode={isArenaMode}
           setIsArenaMode={setIsArenaMode}
           setCurrentView={setCurrentView}
+          coreModelId={coreModelId}
         />
         {currentView === 'chat' ? (
           <ChatArea

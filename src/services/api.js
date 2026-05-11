@@ -97,10 +97,13 @@ export async function fetchModels() {
             throw new Error(`Failed to fetch models: HTTP ${res.status}`);
         }
         const data = await res.json();
-        return data.data || [];
+        return {
+            models: data.data || [],
+            coreModelId: data.core_model_id ?? null,
+        };
     } catch (error) {
         apiLogger.error('Error fetching models in API client:', error);
-        return []; // No fallback — let UI show "no models" state
+        return { models: [], coreModelId: null }; // No fallback — let UI show "no models" state
     }
 }
 
@@ -113,7 +116,10 @@ export async function refreshModels() {
             return fetchModels();
         }
         const data = await res.json();
-        return data.data || [];
+        return {
+            models: data.data || [],
+            coreModelId: data.core_model_id ?? null,
+        };
     } catch (error) {
         apiLogger.error('Error in refreshModels:', error);
         return fetchModels();

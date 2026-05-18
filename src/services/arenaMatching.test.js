@@ -104,4 +104,53 @@ describe('runArenaSideWithSubstitution', () => {
         ).rejects.toThrow(/exhausted/i);
         expect(sendChat).toHaveBeenCalledTimes(3);
     });
+
+    // Real-stand symptoms: OR proxy returned 200 OK then sent an error chunk
+    // ("JAX does not support per-request seed"), and our backend mapped it
+    // to invalid_upstream_request. With the old `code !== rate_limited &&
+    // code !== unreachable → throw` logic the arena side died silently and
+    // the frontend then sent a vote with a null model_b → backend 422.
+    it.each([
+        'invalid_upstream_request',
+        'context_length_exceeded',
+        'transient_timeout',
+        'transient_upstream_5xx',
+        'transient_network',
+        'internal_error',
+    ])('substitutes on pre-stream %s failure', async (code) => {
+        const pool = [{ id: 'a' }, { id: 'b' }];
+        const exclude = new Set();
+        const calls = [];
+        const sendChat = vi.fn().mockImplementation(async ({ modelId, onEvent }) => {
+            calls.push(modelId);
+            if (calls.length === 1) {
+                const err = new Error('first model rejects'); err.code = code; throw err;
+            }
+            onEvent({ type: 'content', textChunk: 'hi' });
+            return { content: 'hi' };
+        });
+        const result = await runArenaSideWithSubstitution({
+            pool, exclude, kbId: 'kb', messages: [], sessionId: 's', sendChat, onEvent: () => {},
+        });
+        expect(calls.length).toBe(2);
+        expect(exclude.has(calls[0])).toBe(true);
+        expect(result.model.id).toBe(calls[1]);
+    });
+
+    it('substitutes even on totally unknown error code (no code at all)', async () => {
+        const pool = [{ id: 'a' }, { id: 'b' }];
+        const exclude = new Set();
+        let calls = 0;
+        const sendChat = vi.fn().mockImplementation(async ({ onEvent }) => {
+            calls += 1;
+            if (calls === 1) throw new Error('something weird');
+            onEvent({ type: 'content', textChunk: 'hi' });
+            return { content: 'hi' };
+        });
+        const result = await runArenaSideWithSubstitution({
+            pool, exclude, kbId: 'kb', messages: [], sessionId: 's', sendChat, onEvent: () => {},
+        });
+        expect(calls).toBe(2);
+        expect(result.model).toBeDefined();
+    });
 });

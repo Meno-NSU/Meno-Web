@@ -39,8 +39,15 @@ export async function runArenaSideWithSubstitution({
             return { model: candidate, result };
         } catch (err) {
             exclude.add(candidate.id);
+            // Once partial output is on screen, do NOT substitute — the user
+            // is already seeing tokens from this model. Substituting now
+            // would replace a partial answer mid-render and look broken.
             if (firstTokenReceived) throw err;
-            if (err.code !== 'model_rate_limited' && err.code !== 'model_unreachable') throw err;
+            // Otherwise: substitute on ANY pre-stream failure (rate-limited,
+            // unreachable, invalid_upstream_request from e.g. JAX rejecting
+            // `seed`, transient_timeout, even internal_error). A single bad
+            // model in a 28-model pool used to kill the whole round; arena
+            // is only meaningful with two complete answers.
         }
     }
     throw new ArenaPoolExhaustedError();

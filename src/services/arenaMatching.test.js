@@ -2,15 +2,28 @@ import { describe, it, expect, vi } from 'vitest';
 import { buildArenaPool, pickRandomFromPool, runArenaSideWithSubstitution } from './arenaMatching.js';
 
 describe('buildArenaPool', () => {
-    it('keeps only available models', () => {
+    it('keeps every available model, regardless of provider or featured flag', () => {
         const models = [
             { id: 'a', provider: 'vllm', status: { state: 'available' } },
             { id: 'b', provider: 'openrouter', featured: true, status: { state: 'available' } },
             { id: 'c', provider: 'openrouter', featured: true, status: { state: 'rate_limited' } },
             { id: 'd', provider: 'openrouter', featured: false, status: { state: 'available' } },
+            { id: 'e', provider: 'openrouter', status: { state: 'unreachable' } },
         ];
         const pool = buildArenaPool(models);
-        expect(pool.map(m => m.id).sort()).toEqual(['a', 'b']);
+        // a (vllm avail), b (or featured avail), d (or non-featured avail) — kept.
+        // c (rate_limited), e (unreachable) — dropped.
+        expect(pool.map((m) => m.id).sort()).toEqual(['a', 'b', 'd']);
+    });
+
+    it('treats missing status as available', () => {
+        const pool = buildArenaPool([{ id: 'x', provider: 'openrouter' }]);
+        expect(pool.map((m) => m.id)).toEqual(['x']);
+    });
+
+    it('returns empty for null/undefined input', () => {
+        expect(buildArenaPool(null)).toEqual([]);
+        expect(buildArenaPool(undefined)).toEqual([]);
     });
 });
 

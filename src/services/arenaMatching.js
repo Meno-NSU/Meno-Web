@@ -1,7 +1,11 @@
 export function buildArenaPool(models) {
-    return (models || []).filter(m =>
-        (m.status?.state ?? 'available') === 'available' &&
-        (m.provider !== 'openrouter' || m.featured === true)
+    // Any model that the backend reports as available — vLLM or OpenRouter —
+    // is eligible for arena. We previously required OR models to be
+    // `featured`, but with an empty OPENROUTER_FEATURED_MODELS env (the
+    // default) zero OR models pass that check, so arena ended up with
+    // only 1 vLLM in the pool and showed "no available models" forever.
+    return (models || []).filter(
+        (m) => (m.status?.state ?? 'available') === 'available'
     );
 }
 

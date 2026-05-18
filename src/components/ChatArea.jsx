@@ -429,8 +429,20 @@ function ArenaMessageBubble({ message, chatId, setChats, isGenerating, question 
     const { arenaData } = message;
     const [voting, setVoting] = useState(false);
 
+    // The arena round is only meaningful when BOTH sides actually produced a
+    // response from a real model. If a side died (substitution exhausted or
+    // any pre-stream error during streaming) its `model` stays null — voting
+    // in that state would either poison the Elo store or hit the backend's
+    // VoteRequest min_length=1 guard with a 422.
+    const bothSidesReady = Boolean(arenaData?.a?.model && arenaData?.b?.model);
+    const canVote = !arenaData.voted && !isGenerating && bothSidesReady;
+
     const handleVote = async (winner) => {
         if (arenaData.voted || voting) return;
+        if (!bothSidesReady) {
+            console.warn('Arena vote suppressed: one or both sides have no model.');
+            return;
+        }
         setVoting(true);
         try {
             await fetch('/v1/arena/vote', {
@@ -495,7 +507,7 @@ function ArenaMessageBubble({ message, chatId, setChats, isGenerating, question 
                         )}
                         {isGenerating && <LoadingPhrase />}
                     </div>
-                    {!arenaData.voted && !isGenerating && (
+                    {canVote && (
                         <div className="arena-vote-primary">
                             <button className="vote-btn vote-btn-primary" onClick={() => handleVote('a')} disabled={voting}>
                                 {t('arenaVoteLeftBetter')}
@@ -503,7 +515,7 @@ function ArenaMessageBubble({ message, chatId, setChats, isGenerating, question 
                         </div>
                     )}
                 </div>
-                
+
                 <div className="arena-column b" style={{ flex: 1, backgroundColor: bgB, border: borderB, borderRadius: '12px', padding: '1rem', overflowX: 'auto', display: 'flex', flexDirection: 'column' }}>
                     <div className="arena-header" style={{ marginBottom: '1rem', fontWeight: 'bold', display: 'flex', justifyContent: 'space-between' }}>
                         <span>{arenaData.voted ? `B: ${arenaData.b.model} (${arenaData.b.kb})` : 'Model B'}</span>
@@ -519,7 +531,7 @@ function ArenaMessageBubble({ message, chatId, setChats, isGenerating, question 
                         )}
                         {isGenerating && <LoadingPhrase />}
                     </div>
-                    {!arenaData.voted && !isGenerating && (
+                    {canVote && (
                         <div className="arena-vote-primary">
                             <button className="vote-btn vote-btn-primary" onClick={() => handleVote('b')} disabled={voting}>
                                 {t('arenaVoteRightBetter')}
@@ -529,7 +541,24 @@ function ArenaMessageBubble({ message, chatId, setChats, isGenerating, question 
                 </div>
             </div>
 
-            {!arenaData.voted && !isGenerating && (
+            {!arenaData.voted && !isGenerating && !bothSidesReady && (
+                <div
+                    className="arena-round-invalid"
+                    style={{
+                        marginTop: '1rem',
+                        padding: '0.75rem 1rem',
+                        borderRadius: '0.5rem',
+                        background: 'rgba(var(--warning-rgb, 220, 130, 0), 0.1)',
+                        border: '1px solid rgba(var(--warning-rgb, 220, 130, 0), 0.4)',
+                        textAlign: 'center',
+                        fontSize: '0.9rem',
+                    }}
+                >
+                    {t('arenaRoundIncomplete')}
+                </div>
+            )}
+
+            {canVote && (
                 <div className="arena-vote-secondary" style={{ display: 'flex', justifyContent: 'center', gap: '1rem', marginTop: '1rem' }}>
                     <button className="vote-btn vote-btn-secondary" onClick={() => handleVote('tie')} disabled={voting}>{t('arenaVoteTie')}</button>
                     <button className="vote-btn vote-btn-secondary" onClick={() => handleVote('both_bad')} disabled={voting}>{t('arenaVoteBothBad')}</button>

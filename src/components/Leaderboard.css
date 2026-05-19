@@ -3,6 +3,15 @@
     max-width: 1000px;
     margin: 0 auto;
     width: 100%;
+    /* The parent `.main-content` is a flex container with overflow clipped
+       at the app shell, so without local scroll the leaderboard's long
+       table is truncated under the viewport with no way to reach the rest.
+       `height: 100%` makes the container fill the available main pane,
+       `overflow-y: auto` lets users scroll the table inside it,
+       `box-sizing: border-box` keeps the padding inside the height budget. */
+    height: 100%;
+    overflow-y: auto;
+    box-sizing: border-box;
 }
 
 .leaderboard-header {

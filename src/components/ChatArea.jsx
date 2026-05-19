@@ -271,9 +271,16 @@ export default function ChatArea({ messages, isGenerating, onSendMessage, kbs, s
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     };
 
+    // Snap to the bottom ONLY when a new message appears (user submit or
+    // assistant placeholder added). Don't follow streaming token-by-token —
+    // the previous `[messages, isGenerating]` deps re-fired on every chunk
+    // update and yanked the viewport away from anything the user was reading
+    // mid-generation. `messages.length` only changes when the chat actually
+    // grows by an entry; in-place content updates during streaming leave
+    // length untouched and so the scroll position stays where the user put it.
     useEffect(() => {
         scrollToBottom();
-    }, [messages, isGenerating]);
+    }, [messages.length]);
 
     const isEmpty = messages.length === 0;
 
@@ -298,6 +305,14 @@ export default function ChatArea({ messages, isGenerating, onSendMessage, kbs, s
 
                     {isGenerating && (() => {
                         const lastMsg = messages[messages.length - 1];
+                        // Arena bubbles render their own per-column spinner
+                        // (one inside the "A" column and one inside the "B"
+                        // column). The top-level fallback below otherwise
+                        // produced a THIRD spinner outside the two columns
+                        // because `lastMsg.content` and `agentStages` are
+                        // both empty on the arena wrapper — content lives in
+                        // arenaData.{a,b}, which this check doesn't look at.
+                        if (lastMsg?.isArena) return null;
                         const hasStages = lastMsg?.agentStages?.length > 0;
                         const hasContent = lastMsg?.content?.length > 0;
                         if (hasStages || hasContent) return null;

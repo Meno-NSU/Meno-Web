@@ -111,7 +111,15 @@ body {
      for browsers that don't support `dvh` (very old). */
   height: 100vh;
   height: 100dvh;
-  width: 100vw;
+  /* `width: 100vw` is the wrong choice on iOS Safari: when any inner
+     content triggers a vertical layout that nudges the visual viewport
+     (address bar collapse, keyboard, etc), 100vw stays at the full visual
+     viewport width even when the document's usable width is smaller — so
+     the page extends past the right edge a moment after first paint and
+     buttons in the top-right (Send, arena toggle) become untappable.
+     `width: 100%` follows the body's actual layout width, which is what
+     we want. */
+  width: 100%;
   overflow: hidden;
 }
 

@@ -576,10 +576,9 @@ function App() {
               ...sideState, model: model.id,
             })));
           } catch (error) {
-            if (error instanceof ArenaPoolExhaustedError) {
-              sideFailedExhaustion[sideKey] = true;
-            }
-            const errorMessage = error instanceof ArenaPoolExhaustedError
+            const isExhausted = error instanceof ArenaPoolExhaustedError;
+            if (isExhausted) sideFailedExhaustion[sideKey] = true;
+            const errorMessage = isExhausted
               ? '⚠ Could not find an available model after several attempts.'
               : buildErrorMessage(error);
             setChats((prev) => updateLastArenaMessageSide(prev, targetChatId, sideKey, (sideState) => ({

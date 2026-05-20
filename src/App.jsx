@@ -15,7 +15,7 @@ import {
   runArenaSideWithSubstitution,
   ArenaPoolExhaustedError,
 } from './services/arenaMatching.js';
-import { buildArenaHistories, arenaTurnIndex } from './services/arenaHistory.js';
+import { buildArenaHistories } from './services/arenaHistory.js';
 import {
   createNewChat,
   generateTitle,

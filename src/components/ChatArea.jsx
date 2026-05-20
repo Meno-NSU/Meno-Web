@@ -448,13 +448,19 @@ function MessageBubble({ message }) {
 }
 
 // ── Arena Message bubble ─────────────────────────────────────────────────────
-function ArenaMessageBubble({ message, chatId, setChats, isGenerating, question, messagesBeforeRound }) {
+export function ArenaMessageBubble({ message, chatId, setChats, isGenerating, question, messagesBeforeRound }) {
     const { t } = useTranslation();
     const { arenaData } = message;
     const [voting, setVoting] = useState(false);
     const [activeDot, setActiveDot] = useState(0);
     const scrollRef = useRef(null);
     const [hintVisible, setHintVisible] = useState(true);
+    // Synchronous guard: setState is async (state updates are batched, the
+    // closure-captured `voting` stays false across rapid clicks within the
+    // same microtask). A ref's `.current` reads/writes synchronously, so this
+    // closes the race where a spammed click sneaks in before React re-renders
+    // the disabled button. Reset to false on POST failure to permit retry.
+    const submittedRef = useRef(false);
 
     useEffect(() => {
         if (!hintVisible) return;
@@ -483,29 +489,50 @@ function ArenaMessageBubble({ message, chatId, setChats, isGenerating, question,
     const canVote = !arenaData.voted && !isGenerating && bothSidesReady;
 
     const handleVote = async (winner) => {
+        // Sync ref guard — wins the race against rapid clicks. `voting` from
+        // useState lags by a render cycle and is unreliable here.
+        if (submittedRef.current) return;
         if (arenaData.voted || voting) return;
         if (!bothSidesReady) {
             console.warn('Arena vote suppressed: one or both sides have no model.');
             return;
         }
+        submittedRef.current = true;
         setVoting(true);
 
-        // Reveal names immediately (optimistic) — even if the POST fails, the user
-        // has already seen the identities and hiding them again would feel like a
-        // glitch. But DON'T mark `voted: true` yet — that gates the vote buttons,
-        // and we want the user to be able to retry if the POST fails. We finalise
-        // `voted: true` only after a successful POST.
-        setChats(prev => prev.map(c => {
+        // Stable bubble id (assigned at creation in App.jsx). Used in BOTH
+        // setChats calls below so the success-path update finds the bubble
+        // regardless of how many times the message object reference was
+        // replaced by intervening optimistic updates. Previously we matched
+        // by `m === message` which broke after the first setChats and caused
+        // `voted: true` to never land — that bug let users spam-vote.
+        const bubbleId = arenaData.bubbleId;
+        if (!bubbleId) {
+            // Legacy bubble (older session with no id). Block voting entirely
+            // rather than risk the silent-no-op bug.
+            console.error('Arena vote refused: bubble has no bubbleId.');
+            submittedRef.current = false;
+            setVoting(false);
+            return;
+        }
+        const updateBubble = (patch) => setChats(prev => prev.map(c => {
             if (c.id !== chatId) return c;
             return {
                 ...c,
-                messages: c.messages.map(m =>
-                    m === message
-                        ? { ...m, arenaData: { ...m.arenaData, namesRevealed: true, winner } }
+                messages: c.messages.map(m => (
+                    m?.isArena && m?.arenaData?.bubbleId === bubbleId
+                        ? { ...m, arenaData: { ...m.arenaData, ...patch } }
                         : m
-                ),
+                )),
             };
         }));
+
+        // Reveal names immediately (optimistic) — even if the POST fails, the
+        // user has already seen the identities and hiding them again would
+        // feel like a glitch. But DON'T mark `voted: true` yet — that gates
+        // the vote buttons, and we want the user to be able to retry if the
+        // POST fails. We finalise `voted: true` only after a successful POST.
+        updateBubble({ namesRevealed: true, winner });
 
         const turnIndex = arenaTurnIndex(messagesBeforeRound || []);
         const { historyA, historyB } = buildArenaHistories(messagesBeforeRound || []);
@@ -533,19 +560,12 @@ function ArenaMessageBubble({ message, chatId, setChats, isGenerating, question,
             });
             if (!resp.ok) throw new Error(`Vote POST ${resp.status}`);
             // Vote recorded: finalise voted=true so the bubble locks in.
-            setChats(prev => prev.map(c => {
-                if (c.id !== chatId) return c;
-                return {
-                    ...c,
-                    messages: c.messages.map(m =>
-                        m === message
-                            ? { ...m, arenaData: { ...m.arenaData, voted: true, winner } }
-                            : m
-                    ),
-                };
-            }));
+            updateBubble({ voted: true, winner });
         } catch (e) {
             console.error('Vote failed:', e);
+            // Allow retry — but keep names revealed (no rollback of
+            // namesRevealed/winner) so the UI doesn't visually flicker.
+            submittedRef.current = false;
             if (typeof window !== 'undefined') {
                 // No toast library is wired up yet — fall back to console.warn so
                 // the user can notice in devtools. Replace with a real toast when

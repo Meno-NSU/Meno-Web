@@ -15,6 +15,7 @@ import {
   runArenaSideWithSubstitution,
   ArenaPoolExhaustedError,
 } from './services/arenaMatching.js';
+import { buildArenaHistories, arenaTurnIndex } from './services/arenaHistory.js';
 import {
   createNewChat,
   generateTitle,
@@ -528,8 +529,15 @@ function App() {
           })));
           return;
         }
-        const exclude = new Set();
         const kbId = requestConfig.knowledgeBaseId;
+
+        // messageHistory currently ends with the new user message; histories must
+        // be derived from everything BEFORE that tail.
+        const userMessage = messageHistory[messageHistory.length - 1];
+        const historyBefore = messageHistory.slice(0, -1);
+        const { historyA, historyB } = buildArenaHistories(historyBefore);
+        const messagesA = [...historyA, userMessage];
+        const messagesB = [...historyB, userMessage];
 
         const arenaMessage = {
           role: 'assistant', isArena: true,
@@ -543,10 +551,18 @@ function App() {
           ...chat, messages: [...chat.messages, arenaMessage],
         })));
 
+        // Independent exclude per side: per the spec, the random pool is sampled
+        // independently for L and R, and the same model legitimately appearing on
+        // both sides is a valid (rare) self-comparison.
+        const excludeA = new Set();
+        const excludeB = new Set();
+
         const runSide = async (sideKey) => {
+          const sideExclude = sideKey === 'a' ? excludeA : excludeB;
+          const sideMessages = sideKey === 'a' ? messagesA : messagesB;
           try {
             const { model } = await runArenaSideWithSubstitution({
-              pool, exclude, kbId, messages: messageHistory, sessionId: requestConfig.sessionId,
+              pool, exclude: sideExclude, kbId, messages: sideMessages, sessionId: requestConfig.sessionId,
               sendChat: sendChatMessage,
               onEvent: (event) => {
                 if (event.type !== 'content') return;

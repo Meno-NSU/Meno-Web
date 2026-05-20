@@ -542,9 +542,18 @@ function App() {
         const messagesA = [...historyA, userMessage];
         const messagesB = [...historyB, userMessage];
 
+        // Stable id for the bubble. ArenaMessageBubble.handleVote uses this to
+        // re-locate the bubble after the optimistic setChats has replaced the
+        // message object reference — without it, the success-path setChats
+        // matches nothing (m === message is stale), `voted` is never set to
+        // true, and the user can spam-click the vote buttons.
+        const bubbleId = (typeof crypto !== 'undefined' && crypto.randomUUID)
+          ? crypto.randomUUID()
+          : `bubble-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
         const arenaMessage = {
           role: 'assistant', isArena: true,
           arenaData: {
+            bubbleId,
             a: { model: null, kb: kbId, content: '', thinkStartTime: Date.now(), isStreaming: true },
             b: { model: null, kb: kbId, content: '', thinkStartTime: Date.now(), isStreaming: true },
             voted: false, winner: null,

@@ -861,7 +861,12 @@ function App() {
         onNewChat={handleNewChat}
         onDeleteChat={handleDeleteChat}
         generatingChats={generatingChats}
+        currentView={currentView}
         setCurrentView={setCurrentView}
+        theme={theme}
+        toggleTheme={toggleTheme}
+        isArenaMode={isArenaMode}
+        setIsArenaMode={setIsArenaMode}
       />
 
       <main className="main-content">

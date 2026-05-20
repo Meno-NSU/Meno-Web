@@ -294,10 +294,11 @@
         padding: 0.4rem 0.6rem;
     }
 
+    /* Action buttons (lang / leaderboard / arena toggle / theme) move into
+       the sidebar overlay on mobile so they always fit and don't get pushed
+       off the right edge of a narrow viewport. */
     .settings-actions {
-        gap: 0.4rem;
-        flex-wrap: wrap;
-        justify-content: flex-end;
+        display: none;
     }
 
     .settings-controls {

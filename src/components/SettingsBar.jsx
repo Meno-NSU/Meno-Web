@@ -77,7 +77,14 @@ function AllFreeModelsExpander({ items, selectedModel, onSelect }) {
     );
 }
 
-export default function SettingsBar({ theme, toggleTheme, isSidebarOpen, models, selectedModel, onModelChange, onDropdownOpen, isArenaMode, setIsArenaMode, setCurrentView, coreModelId }) {
+export default function SettingsBar({
+    theme, toggleTheme, isSidebarOpen,
+    models, selectedModel, onModelChange, onDropdownOpen,
+    isArenaMode, setIsArenaMode,
+    currentView, setCurrentView,
+    coreModelId,
+    onOpenSidebar,
+}) {
     const { t, lang, setLanguage } = useTranslation();
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const dropdownRef = useRef(null);
@@ -103,7 +110,7 @@ export default function SettingsBar({ theme, toggleTheme, isSidebarOpen, models,
     };
 
     const handleLeaderboardClick = () => {
-        setCurrentView('leaderboard');
+        setCurrentView(currentView === 'leaderboard' ? 'chat' : 'leaderboard');
     };
 
     const hasModels = models.length > 0;
@@ -184,7 +191,7 @@ export default function SettingsBar({ theme, toggleTheme, isSidebarOpen, models,
                     {lang.toUpperCase()}
                 </button>
                 <button
-                    className="btn-icon leaderboard-toggle"
+                    className={`btn-icon leaderboard-toggle ${currentView === 'leaderboard' ? 'active' : ''}`}
                     onClick={handleLeaderboardClick}
                     title={t('arenaLeaderboardTitle')}
                 >

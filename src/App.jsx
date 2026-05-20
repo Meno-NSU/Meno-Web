@@ -824,8 +824,10 @@ function App() {
           onDropdownOpen={handleModelsDropdownOpen}
           isArenaMode={isArenaMode}
           setIsArenaMode={setIsArenaMode}
+          currentView={currentView}
           setCurrentView={setCurrentView}
           coreModelId={coreModelId}
+          onOpenSidebar={() => setIsSidebarOpen(true)}
         />
         {currentView === 'chat' ? (
           (() => {
@@ -857,7 +859,7 @@ function App() {
             );
           })()
         ) : (
-          <Leaderboard />
+          <Leaderboard onClose={() => setCurrentView('chat')} />
         )}
       </main>
     </div>

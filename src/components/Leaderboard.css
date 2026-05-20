@@ -1,4 +1,5 @@
 .leaderboard-container {
+    position: relative;
     padding: 2rem;
     max-width: 1000px;
     margin: 0 auto;
@@ -94,4 +95,27 @@
     align-items: center;
     height: 100%;
     color: var(--text-2);
+}
+
+.leaderboard-close-btn {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 0.5rem;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: var(--text-2);
+    transition: background-color 0.2s, color 0.2s;
+}
+
+.leaderboard-close-btn:hover {
+    background-color: var(--surface-3);
+    color: var(--text-1);
 }

@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Trophy } from 'lucide-react';
+import { Trophy, X } from 'lucide-react';
 import { useTranslation } from '../i18n.js';
 import './Leaderboard.css';
 
-export default function Leaderboard() {
+export default function Leaderboard({ onClose }) {
     const { t } = useTranslation();
     const [data, setData] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -27,6 +27,16 @@ export default function Leaderboard() {
 
     return (
         <div className="leaderboard-container">
+            {onClose && (
+                <button
+                    className="leaderboard-close-btn"
+                    onClick={onClose}
+                    title={t('closeLeaderboard')}
+                    aria-label={t('closeLeaderboard')}
+                >
+                    <X size={20} />
+                </button>
+            )}
             <div className="leaderboard-header">
                 <Trophy size={48} className="trophy-icon" />
                 <h1>{t('arenaLeaderboardTitle')}</h1>

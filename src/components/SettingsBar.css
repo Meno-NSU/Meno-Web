@@ -209,6 +209,11 @@
     color: var(--primary);
 }
 
+.leaderboard-toggle.active {
+    background-color: var(--bg-tertiary);
+    color: var(--primary);
+}
+
 /* Grouped model dropdown */
 .model-dropdown-group { padding: 4px 0; border-top: 1px solid var(--divider, #eee); }
 .model-dropdown-group:first-child { border-top: none; }

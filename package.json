@@ -8,6 +8,7 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
+    "prestart:prod": "vite build",
     "start:prod": "node server.js",
     "test": "vitest run",
     "test:watch": "vitest"

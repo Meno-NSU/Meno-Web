@@ -154,3 +154,19 @@
     color: var(--text-tertiary);
     margin-top: 0.75rem;
 }
+
+@media (max-width: 768px) {
+    .input-container {
+        padding: 0.5rem;
+    }
+
+    .input-container .kb-selector-wrapper {
+        max-width: 140px;
+    }
+
+    .input-container .kb-selector-wrapper > * {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+}

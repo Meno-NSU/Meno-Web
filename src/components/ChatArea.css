@@ -4,7 +4,10 @@
     flex-direction: column;
     position: relative;
     overflow: hidden;
+    /* iOS Safari quirk: 100vh includes the address bar so the chat input
+       gets pushed off-screen. `dvh` tracks the actual visible viewport. */
     height: calc(100vh - 60px);
+    height: calc(100dvh - 60px);
 }
 
 .chat-container.empty-state {

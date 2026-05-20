@@ -263,7 +263,7 @@ function StageDetail({ detail, stage }) {
 }
 
 // ── Main ChatArea ────────────────────────────────────────────────────────────
-export default function ChatArea({ messages, isGenerating, onSendMessage, kbs, selectedKb, onKbChange, modelsAvailable, chatId, setChats }) {
+export default function ChatArea({ messages, isGenerating, onSendMessage, kbs, selectedKb, onKbChange, modelsAvailable, chatId, setChats, voteIsPending }) {
     const { t } = useTranslation();
     const messagesEndRef = useRef(null);
 
@@ -342,11 +342,12 @@ export default function ChatArea({ messages, isGenerating, onSendMessage, kbs, s
             <div className={`chat-input-wrapper ${isEmpty ? 'centered' : ''}`}>
                 <ChatInput
                     onSend={onSendMessage}
-                    disabled={isGenerating}
+                    disabled={isGenerating || voteIsPending}
                     modelsAvailable={modelsAvailable}
                     kbs={kbs}
                     selectedKb={selectedKb}
                     onKbChange={onKbChange}
+                    voteIsPending={voteIsPending}
                 />
             </div>
         </div>

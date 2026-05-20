@@ -3,7 +3,7 @@ import { SendHorizontal, Database } from 'lucide-react';
 import { useTranslation } from '../i18n.js';
 import './ChatInput.css';
 
-export default function ChatInput({ onSend, disabled, modelsAvailable = true, kbs = [], selectedKb = '', onKbChange }) {
+export default function ChatInput({ onSend, disabled, modelsAvailable = true, kbs = [], selectedKb = '', onKbChange, voteIsPending = false }) {
     const { t } = useTranslation();
     const [input, setInput] = useState('');
     const textareaRef = useRef(null);
@@ -56,7 +56,11 @@ export default function ChatInput({ onSend, disabled, modelsAvailable = true, kb
                     value={input}
                     onChange={handleInput}
                     onKeyDown={handleKeyDown}
-                    placeholder={isSendBlocked ? t('noModelsSendBlocked') : t("placeholder")}
+                    placeholder={
+                        isSendBlocked ? t('noModelsSendBlocked')
+                        : voteIsPending ? t('arenaVotePromptPending')
+                        : t('placeholder')
+                    }
                     className="chat-textarea"
                     rows={1}
                     disabled={isDisabled}

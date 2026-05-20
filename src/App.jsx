@@ -806,17 +806,32 @@ function App() {
           coreModelId={coreModelId}
         />
         {currentView === 'chat' ? (
-          <ChatArea
-            messages={activeChat.messages}
-            isGenerating={activeChatId ? generatingChats.has(activeChatId) : false}
-            onSendMessage={handleSendMessage}
-            modelsAvailable={models.length > 0}
-            kbs={kbs}
-            selectedKb={selectedKb}
-            onKbChange={handleKbChange}
-            chatId={activeChatId}
-            setChats={setChats}
-          />
+          (() => {
+            const activeChatMessages = activeChat?.messages || [];
+            const lastMessage = activeChatMessages[activeChatMessages.length - 1];
+            const isGeneratingNow = activeChatId ? generatingChats.has(activeChatId) : false;
+            const voteIsPending = Boolean(
+              isArenaMode &&
+              lastMessage?.isArena &&
+              lastMessage?.arenaData &&
+              lastMessage.arenaData.voted === false &&
+              !isGeneratingNow
+            );
+            return (
+              <ChatArea
+                messages={activeChat.messages}
+                isGenerating={isGeneratingNow}
+                onSendMessage={handleSendMessage}
+                modelsAvailable={models.length > 0}
+                kbs={kbs}
+                selectedKb={selectedKb}
+                onKbChange={handleKbChange}
+                chatId={activeChatId}
+                setChats={setChats}
+                voteIsPending={voteIsPending}
+              />
+            );
+          })()
         ) : (
           <Leaderboard />
         )}

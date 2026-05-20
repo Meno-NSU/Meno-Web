@@ -224,7 +224,10 @@ function applyLastMessageError(chats, chatId, error) {
 
 function App() {
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'light');
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    return window.innerWidth > 768;
+  });
 
   // Data state
   const [models, setModels] = useState([]);

@@ -15,6 +15,7 @@ import {
   runArenaSideWithSubstitution,
   ArenaPoolExhaustedError,
 } from './services/arenaMatching.js';
+import { buildArenaHistories } from './services/arenaHistory.js';
 import {
   createNewChat,
   generateTitle,
@@ -528,8 +529,15 @@ function App() {
           })));
           return;
         }
-        const exclude = new Set();
         const kbId = requestConfig.knowledgeBaseId;
+
+        // messageHistory currently ends with the new user message; histories must
+        // be derived from everything BEFORE that tail.
+        const userMessage = messageHistory[messageHistory.length - 1];
+        const historyBefore = messageHistory.slice(0, -1);
+        const { historyA, historyB } = buildArenaHistories(historyBefore);
+        const messagesA = [...historyA, userMessage];
+        const messagesB = [...historyB, userMessage];
 
         const arenaMessage = {
           role: 'assistant', isArena: true,
@@ -543,10 +551,19 @@ function App() {
           ...chat, messages: [...chat.messages, arenaMessage],
         })));
 
+        // Independent exclude per side: per the spec, the random pool is sampled
+        // independently for L and R, and the same model legitimately appearing on
+        // both sides is a valid (rare) self-comparison.
+        const excludeA = new Set();
+        const excludeB = new Set();
+        const sideFailedExhaustion = { a: false, b: false };
+
         const runSide = async (sideKey) => {
+          const sideExclude = sideKey === 'a' ? excludeA : excludeB;
+          const sideMessages = sideKey === 'a' ? messagesA : messagesB;
           try {
             const { model } = await runArenaSideWithSubstitution({
-              pool, exclude, kbId, messages: messageHistory, sessionId: requestConfig.sessionId,
+              pool, exclude: sideExclude, kbId, messages: sideMessages, sessionId: requestConfig.sessionId,
               sendChat: sendChatMessage,
               onEvent: (event) => {
                 if (event.type !== 'content') return;
@@ -559,7 +576,9 @@ function App() {
               ...sideState, model: model.id,
             })));
           } catch (error) {
-            const errorMessage = error instanceof ArenaPoolExhaustedError
+            const isExhausted = error instanceof ArenaPoolExhaustedError;
+            if (isExhausted) sideFailedExhaustion[sideKey] = true;
+            const errorMessage = isExhausted
               ? '⚠ Could not find an available model after several attempts.'
               : buildErrorMessage(error);
             setChats((prev) => updateLastArenaMessageSide(prev, targetChatId, sideKey, (sideState) => ({
@@ -570,6 +589,25 @@ function App() {
         };
 
         await Promise.all([runSide('a'), runSide('b')]);
+
+        if (sideFailedExhaustion.a || sideFailedExhaustion.b) {
+          // Strip the unvotable arena bubble and leave a non-arena notice so
+          // input unlocks and the chat history walker doesn't see a pending
+          // arena round forever.
+          setChats((prev) => updateChatById(prev, targetChatId, (chat) => ({
+            ...chat,
+            messages: [
+              ...chat.messages.slice(0, -1),
+              {
+                role: 'assistant',
+                isArena: false,
+                content: '⚠ Could not run an arena round (pool exhausted). Try again in a moment.',
+              },
+            ],
+          })));
+          return;
+        }
+
         setChats((prev) => finalizeLastArenaMessage(prev, targetChatId));
       } else {
         const assistantMessage = {
@@ -790,17 +828,34 @@ function App() {
           coreModelId={coreModelId}
         />
         {currentView === 'chat' ? (
-          <ChatArea
-            messages={activeChat.messages}
-            isGenerating={activeChatId ? generatingChats.has(activeChatId) : false}
-            onSendMessage={handleSendMessage}
-            modelsAvailable={models.length > 0}
-            kbs={kbs}
-            selectedKb={selectedKb}
-            onKbChange={handleKbChange}
-            chatId={activeChatId}
-            setChats={setChats}
-          />
+          (() => {
+            const activeChatMessages = activeChat?.messages || [];
+            const lastMessage = activeChatMessages[activeChatMessages.length - 1];
+            const isGeneratingNow = activeChatId ? generatingChats.has(activeChatId) : false;
+            // Couples to the live isArenaMode toggle: turning arena off unblocks the
+            // input even on an unvoted bubble (intentional — user explicitly left arena).
+            const voteIsPending = Boolean(
+              isArenaMode &&
+              lastMessage?.isArena &&
+              lastMessage?.arenaData &&
+              lastMessage.arenaData.voted === false &&
+              !isGeneratingNow
+            );
+            return (
+              <ChatArea
+                messages={activeChat.messages}
+                isGenerating={isGeneratingNow}
+                onSendMessage={handleSendMessage}
+                modelsAvailable={models.length > 0}
+                kbs={kbs}
+                selectedKb={selectedKb}
+                onKbChange={handleKbChange}
+                chatId={activeChatId}
+                setChats={setChats}
+                voteIsPending={voteIsPending}
+              />
+            );
+          })()
         ) : (
           <Leaderboard />
         )}

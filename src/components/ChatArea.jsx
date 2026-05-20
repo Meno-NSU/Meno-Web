@@ -4,6 +4,7 @@ import remarkGfm from 'remark-gfm';
 import { Copy, Check, Bot, ChevronDown, Brain, Loader, CheckCircle, ExternalLink } from 'lucide-react';
 import { useTranslation } from '../i18n.js';
 import ChatInput from './ChatInput.jsx';
+import { buildArenaHistories, arenaTurnIndex } from '../services/arenaHistory.js';
 import './ChatArea.css';
 
 // ── Loading phrases ──────────────────────────────────────────────────────────
@@ -263,7 +264,7 @@ function StageDetail({ detail, stage }) {
 }
 
 // ── Main ChatArea ────────────────────────────────────────────────────────────
-export default function ChatArea({ messages, isGenerating, onSendMessage, kbs, selectedKb, onKbChange, modelsAvailable, chatId, setChats }) {
+export default function ChatArea({ messages, isGenerating, onSendMessage, kbs, selectedKb, onKbChange, modelsAvailable, chatId, setChats, voteIsPending }) {
     const { t } = useTranslation();
     const messagesEndRef = useRef(null);
 
@@ -291,14 +292,21 @@ export default function ChatArea({ messages, isGenerating, onSendMessage, kbs, s
                     {messages.map((msg, index) => {
                         if (msg.isArena) {
                             // Find the user question that preceded this arena response
+                            let questionIndex = -1;
                             let question = '';
                             for (let i = index - 1; i >= 0; i--) {
                                 if (messages[i].role === 'user') {
+                                    questionIndex = i;
                                     question = messages[i].content || '';
                                     break;
                                 }
                             }
-                            return <ArenaMessageBubble key={index} message={msg} chatId={chatId} setChats={setChats} isGenerating={isGenerating} question={question} />;
+                            // history_len_* must reflect the conversation BEFORE this turn's
+                            // user question, so we slice up to (but not including) questionIndex.
+                            const messagesBeforeRound = questionIndex >= 0
+                                ? messages.slice(0, questionIndex)
+                                : messages.slice(0, index);
+                            return <ArenaMessageBubble key={index} message={msg} chatId={chatId} setChats={setChats} isGenerating={isGenerating} question={question} messagesBeforeRound={messagesBeforeRound} />;
                         }
                         return <MessageBubble key={index} message={msg} />;
                     })}
@@ -342,11 +350,12 @@ export default function ChatArea({ messages, isGenerating, onSendMessage, kbs, s
             <div className={`chat-input-wrapper ${isEmpty ? 'centered' : ''}`}>
                 <ChatInput
                     onSend={onSendMessage}
-                    disabled={isGenerating}
+                    disabled={isGenerating || voteIsPending}
                     modelsAvailable={modelsAvailable}
                     kbs={kbs}
                     selectedKb={selectedKb}
                     onKbChange={onKbChange}
+                    voteIsPending={voteIsPending}
                 />
             </div>
         </div>
@@ -439,7 +448,7 @@ function MessageBubble({ message }) {
 }
 
 // ── Arena Message bubble ─────────────────────────────────────────────────────
-function ArenaMessageBubble({ message, chatId, setChats, isGenerating, question }) {
+function ArenaMessageBubble({ message, chatId, setChats, isGenerating, question, messagesBeforeRound }) {
     const { t } = useTranslation();
     const { arenaData } = message;
     const [voting, setVoting] = useState(false);
@@ -459,8 +468,31 @@ function ArenaMessageBubble({ message, chatId, setChats, isGenerating, question 
             return;
         }
         setVoting(true);
+
+        // Reveal names immediately (optimistic) — even if the POST fails, the user
+        // has already seen the identities and hiding them again would feel like a
+        // glitch. But DON'T mark `voted: true` yet — that gates the vote buttons,
+        // and we want the user to be able to retry if the POST fails. We finalise
+        // `voted: true` only after a successful POST.
+        setChats(prev => prev.map(c => {
+            if (c.id !== chatId) return c;
+            return {
+                ...c,
+                messages: c.messages.map(m =>
+                    m === message
+                        ? { ...m, arenaData: { ...m.arenaData, namesRevealed: true, winner } }
+                        : m
+                ),
+            };
+        }));
+
+        const turnIndex = arenaTurnIndex(messagesBeforeRound || []);
+        const { historyA, historyB } = buildArenaHistories(messagesBeforeRound || []);
+        const historyLenA = historyA.length;
+        const historyLenB = historyB.length;
+
         try {
-            await fetch('/v1/arena/vote', {
+            const resp = await fetch('/v1/arena/vote', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -473,23 +505,32 @@ function ArenaMessageBubble({ message, chatId, setChats, isGenerating, question 
                     response_b: arenaData.b.content || '',
                     question: question || '',
                     session_id: chatId || '',
-                })
+                    turn_index: turnIndex,
+                    history_len_a: historyLenA,
+                    history_len_b: historyLenB,
+                }),
             });
-            // Update local state to mark as voted
+            if (!resp.ok) throw new Error(`Vote POST ${resp.status}`);
+            // Vote recorded: finalise voted=true so the bubble locks in.
             setChats(prev => prev.map(c => {
-                if (c.id === chatId) {
-                    const newMsgs = c.messages.map(m => {
-                        if (m === message) {
-                            return { ...m, arenaData: { ...m.arenaData, voted: true, winner } };
-                        }
-                        return m;
-                    });
-                    return { ...c, messages: newMsgs };
-                }
-                return c;
+                if (c.id !== chatId) return c;
+                return {
+                    ...c,
+                    messages: c.messages.map(m =>
+                        m === message
+                            ? { ...m, arenaData: { ...m.arenaData, voted: true, winner } }
+                            : m
+                    ),
+                };
             }));
         } catch (e) {
             console.error('Vote failed:', e);
+            if (typeof window !== 'undefined') {
+                // No toast library is wired up yet — fall back to console.warn so
+                // the user can notice in devtools. Replace with a real toast when
+                // one lands in the project.
+                console.warn('Arena vote not recorded; please vote again to retry.');
+            }
         } finally {
             setVoting(false);
         }
@@ -498,19 +539,20 @@ function ArenaMessageBubble({ message, chatId, setChats, isGenerating, question 
     const segmentsA = parseThinkBlocks(arenaData.a.content || '', arenaData.a.thinkTime, arenaData.a.isStreaming);
     const segmentsB = parseThinkBlocks(arenaData.b.content || '', arenaData.b.thinkTime, arenaData.b.isStreaming);
 
-    // Apply primary colors to the voted column if a/b
-    const bgA = arenaData.winner === 'a' ? 'rgba(var(--primary-rgb), 0.1)' : 'transparent';
-    const borderA = arenaData.winner === 'a' ? '2px solid var(--primary)' : '1px solid var(--border)';
-    const bgB = arenaData.winner === 'b' ? 'rgba(var(--primary-rgb), 0.1)' : 'transparent';
-    const borderB = arenaData.winner === 'b' ? '2px solid var(--primary)' : '1px solid var(--border)';
+    // Apply primary colors to the voted column if a/b — only after vote is
+    // finalised (voted===true) so a failed POST doesn't leave phantom highlighting.
+    const bgA = arenaData.voted && arenaData.winner === 'a' ? 'rgba(var(--primary-rgb), 0.1)' : 'transparent';
+    const borderA = arenaData.voted && arenaData.winner === 'a' ? '2px solid var(--primary)' : '1px solid var(--border)';
+    const bgB = arenaData.voted && arenaData.winner === 'b' ? 'rgba(var(--primary-rgb), 0.1)' : 'transparent';
+    const borderB = arenaData.voted && arenaData.winner === 'b' ? '2px solid var(--primary)' : '1px solid var(--border)';
 
     return (
         <div className="message-wrapper assistant arena" style={{ maxWidth: '100%', marginBottom: '2rem' }}>
             <div className="arena-container" style={{ display: 'flex', gap: '1rem', width: '100%' }}>
                 <div className="arena-column a" style={{ flex: 1, backgroundColor: bgA, border: borderA, borderRadius: '12px', padding: '1rem', overflowX: 'auto', display: 'flex', flexDirection: 'column' }}>
                     <div className="arena-header" style={{ marginBottom: '1rem', fontWeight: 'bold', display: 'flex', justifyContent: 'space-between' }}>
-                        <span>{arenaData.voted ? `A: ${arenaData.a.model} (${arenaData.a.kb})` : 'Model A'}</span>
-                        {arenaData.winner === 'a' && <span style={{ color: 'var(--primary)' }}>🏆 Winner</span>}
+                        <span>{(arenaData.voted || arenaData.namesRevealed) ? `A: ${arenaData.a.model} (${arenaData.a.kb})` : 'Model A'}</span>
+                        {arenaData.voted && arenaData.winner === 'a' && <span style={{ color: 'var(--primary)' }}>🏆 Winner</span>}
                     </div>
                     <div className="message-markdown prose" style={{ flex: 1, paddingBottom: isGenerating ? '2rem' : '0' }}>
                         {segmentsA.map((seg, i) =>
@@ -533,8 +575,8 @@ function ArenaMessageBubble({ message, chatId, setChats, isGenerating, question 
 
                 <div className="arena-column b" style={{ flex: 1, backgroundColor: bgB, border: borderB, borderRadius: '12px', padding: '1rem', overflowX: 'auto', display: 'flex', flexDirection: 'column' }}>
                     <div className="arena-header" style={{ marginBottom: '1rem', fontWeight: 'bold', display: 'flex', justifyContent: 'space-between' }}>
-                        <span>{arenaData.voted ? `B: ${arenaData.b.model} (${arenaData.b.kb})` : 'Model B'}</span>
-                        {arenaData.winner === 'b' && <span style={{ color: 'var(--primary)' }}>🏆 Winner</span>}
+                        <span>{(arenaData.voted || arenaData.namesRevealed) ? `B: ${arenaData.b.model} (${arenaData.b.kb})` : 'Model B'}</span>
+                        {arenaData.voted && arenaData.winner === 'b' && <span style={{ color: 'var(--primary)' }}>🏆 Winner</span>}
                     </div>
                     <div className="message-markdown prose" style={{ flex: 1, paddingBottom: isGenerating ? '2rem' : '0' }}>
                         {segmentsB.map((seg, i) =>

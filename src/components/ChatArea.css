@@ -601,3 +601,46 @@
     background-color: var(--sidebar-hover);
     transform: translateY(-1px);
 }
+
+/* ══════════════════════════════════════════════════════════
+   Arena swipe carousel (mobile)
+   ══════════════════════════════════════════════════════════ */
+.arena-container {
+    display: flex;
+    gap: 1rem;
+    width: 100%;
+}
+
+.arena-scroll {
+    display: contents;
+}
+
+@media (max-width: 768px) {
+    .arena-container {
+        display: block;
+        width: 100%;
+    }
+
+    .arena-scroll {
+        display: flex;
+        gap: 0.5rem;
+        overflow-x: auto;
+        scroll-snap-type: x mandatory;
+        scroll-behavior: smooth;
+        scrollbar-width: none;
+        padding-inline: 5%;
+        margin-inline: -5%;
+        width: 100vw;
+        max-width: calc(100% + 10vw);
+    }
+
+    .arena-scroll::-webkit-scrollbar {
+        display: none;
+    }
+
+    .arena-scroll .arena-column {
+        flex: 0 0 90% !important;
+        scroll-snap-align: center;
+        min-width: 0;
+    }
+}

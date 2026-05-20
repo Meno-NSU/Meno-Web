@@ -548,7 +548,8 @@ function ArenaMessageBubble({ message, chatId, setChats, isGenerating, question,
 
     return (
         <div className="message-wrapper assistant arena" style={{ maxWidth: '100%', marginBottom: '2rem' }}>
-            <div className="arena-container" style={{ display: 'flex', gap: '1rem', width: '100%' }}>
+            <div className="arena-container">
+                <div className="arena-scroll">
                 <div className="arena-column a" style={{ flex: 1, backgroundColor: bgA, border: borderA, borderRadius: '12px', padding: '1rem', overflowX: 'auto', display: 'flex', flexDirection: 'column' }}>
                     <div className="arena-header" style={{ marginBottom: '1rem', fontWeight: 'bold', display: 'flex', justifyContent: 'space-between' }}>
                         <span>{(arenaData.voted || arenaData.namesRevealed) ? `A: ${arenaData.a.model} (${arenaData.a.kb})` : 'Model A'}</span>
@@ -595,6 +596,7 @@ function ArenaMessageBubble({ message, chatId, setChats, isGenerating, question,
                             </button>
                         </div>
                     )}
+                </div>
                 </div>
             </div>
 

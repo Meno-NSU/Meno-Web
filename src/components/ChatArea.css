@@ -670,3 +670,24 @@
         transform: scale(1.3);
     }
 }
+
+.arena-swipe-hint {
+    display: none;
+}
+
+@media (max-width: 768px) {
+    .arena-swipe-hint {
+        display: inline-block;
+        font-size: 0.7rem;
+        color: var(--text-secondary, var(--text-2));
+        opacity: 0.85;
+        margin-left: 0.5rem;
+        animation: arenaSwipeWiggle 1.5s ease-in-out;
+    }
+
+    @keyframes arenaSwipeWiggle {
+        0%, 100% { transform: translateX(0); opacity: 0.85; }
+        25% { transform: translateX(-4px); opacity: 1; }
+        75% { transform: translateX(4px); opacity: 1; }
+    }
+}

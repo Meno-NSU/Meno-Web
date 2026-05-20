@@ -4,6 +4,7 @@ import remarkGfm from 'remark-gfm';
 import { Copy, Check, Bot, ChevronDown, Brain, Loader, CheckCircle, ExternalLink } from 'lucide-react';
 import { useTranslation } from '../i18n.js';
 import ChatInput from './ChatInput.jsx';
+import { buildArenaHistories, arenaTurnIndex } from '../services/arenaHistory.js';
 import './ChatArea.css';
 
 // ── Loading phrases ──────────────────────────────────────────────────────────
@@ -291,14 +292,21 @@ export default function ChatArea({ messages, isGenerating, onSendMessage, kbs, s
                     {messages.map((msg, index) => {
                         if (msg.isArena) {
                             // Find the user question that preceded this arena response
+                            let questionIndex = -1;
                             let question = '';
                             for (let i = index - 1; i >= 0; i--) {
                                 if (messages[i].role === 'user') {
+                                    questionIndex = i;
                                     question = messages[i].content || '';
                                     break;
                                 }
                             }
-                            return <ArenaMessageBubble key={index} message={msg} chatId={chatId} setChats={setChats} isGenerating={isGenerating} question={question} />;
+                            // history_len_* must reflect the conversation BEFORE this turn's
+                            // user question, so we slice up to (but not including) questionIndex.
+                            const messagesBeforeRound = questionIndex >= 0
+                                ? messages.slice(0, questionIndex)
+                                : messages.slice(0, index);
+                            return <ArenaMessageBubble key={index} message={msg} chatId={chatId} setChats={setChats} isGenerating={isGenerating} question={question} messagesBeforeRound={messagesBeforeRound} />;
                         }
                         return <MessageBubble key={index} message={msg} />;
                     })}
@@ -440,7 +448,7 @@ function MessageBubble({ message }) {
 }
 
 // ── Arena Message bubble ─────────────────────────────────────────────────────
-function ArenaMessageBubble({ message, chatId, setChats, isGenerating, question }) {
+function ArenaMessageBubble({ message, chatId, setChats, isGenerating, question, messagesBeforeRound }) {
     const { t } = useTranslation();
     const { arenaData } = message;
     const [voting, setVoting] = useState(false);
@@ -476,6 +484,11 @@ function ArenaMessageBubble({ message, chatId, setChats, isGenerating, question 
             };
         }));
 
+        const turnIndex = arenaTurnIndex(messagesBeforeRound || []);
+        const { historyA, historyB } = buildArenaHistories(messagesBeforeRound || []);
+        const historyLenA = historyA.length;
+        const historyLenB = historyB.length;
+
         try {
             const resp = await fetch('/v1/arena/vote', {
                 method: 'POST',
@@ -490,6 +503,9 @@ function ArenaMessageBubble({ message, chatId, setChats, isGenerating, question 
                     response_b: arenaData.b.content || '',
                     question: question || '',
                     session_id: chatId || '',
+                    turn_index: turnIndex,
+                    history_len_a: historyLenA,
+                    history_len_b: historyLenB,
                 }),
             });
             if (!resp.ok) throw new Error(`Vote POST ${resp.status}`);

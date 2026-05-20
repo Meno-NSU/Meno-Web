@@ -556,6 +556,7 @@ function App() {
         // both sides is a valid (rare) self-comparison.
         const excludeA = new Set();
         const excludeB = new Set();
+        const sideFailedExhaustion = { a: false, b: false };
 
         const runSide = async (sideKey) => {
           const sideExclude = sideKey === 'a' ? excludeA : excludeB;
@@ -575,6 +576,9 @@ function App() {
               ...sideState, model: model.id,
             })));
           } catch (error) {
+            if (error instanceof ArenaPoolExhaustedError) {
+              sideFailedExhaustion[sideKey] = true;
+            }
             const errorMessage = error instanceof ArenaPoolExhaustedError
               ? '⚠ Could not find an available model after several attempts.'
               : buildErrorMessage(error);
@@ -586,6 +590,25 @@ function App() {
         };
 
         await Promise.all([runSide('a'), runSide('b')]);
+
+        if (sideFailedExhaustion.a || sideFailedExhaustion.b) {
+          // Strip the unvotable arena bubble and leave a non-arena notice so
+          // input unlocks and the chat history walker doesn't see a pending
+          // arena round forever.
+          setChats((prev) => updateChatById(prev, targetChatId, (chat) => ({
+            ...chat,
+            messages: [
+              ...chat.messages.slice(0, -1),
+              {
+                role: 'assistant',
+                isArena: false,
+                content: '⚠ Could not run an arena round (pool exhausted). Try again in a moment.',
+              },
+            ],
+          })));
+          return;
+        }
+
         setChats((prev) => finalizeLastArenaMessage(prev, targetChatId));
       } else {
         const assistantMessage = {

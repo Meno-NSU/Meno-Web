@@ -471,14 +471,16 @@ function ArenaMessageBubble({ message, chatId, setChats, isGenerating, question,
 
         // Reveal names immediately (optimistic) — even if the POST fails, the user
         // has already seen the identities and hiding them again would feel like a
-        // glitch.
+        // glitch. But DON'T mark `voted: true` yet — that gates the vote buttons,
+        // and we want the user to be able to retry if the POST fails. We finalise
+        // `voted: true` only after a successful POST.
         setChats(prev => prev.map(c => {
             if (c.id !== chatId) return c;
             return {
                 ...c,
                 messages: c.messages.map(m =>
                     m === message
-                        ? { ...m, arenaData: { ...m.arenaData, voted: true, winner } }
+                        ? { ...m, arenaData: { ...m.arenaData, namesRevealed: true, winner } }
                         : m
                 ),
             };
@@ -509,13 +511,25 @@ function ArenaMessageBubble({ message, chatId, setChats, isGenerating, question,
                 }),
             });
             if (!resp.ok) throw new Error(`Vote POST ${resp.status}`);
+            // Vote recorded: finalise voted=true so the bubble locks in.
+            setChats(prev => prev.map(c => {
+                if (c.id !== chatId) return c;
+                return {
+                    ...c,
+                    messages: c.messages.map(m =>
+                        m === message
+                            ? { ...m, arenaData: { ...m.arenaData, voted: true, winner } }
+                            : m
+                    ),
+                };
+            }));
         } catch (e) {
             console.error('Vote failed:', e);
             if (typeof window !== 'undefined') {
                 // No toast library is wired up yet — fall back to console.warn so
                 // the user can notice in devtools. Replace with a real toast when
                 // one lands in the project.
-                console.warn('Arena vote not recorded; please retry by voting again.');
+                console.warn('Arena vote not recorded; please vote again to retry.');
             }
         } finally {
             setVoting(false);
@@ -525,19 +539,20 @@ function ArenaMessageBubble({ message, chatId, setChats, isGenerating, question,
     const segmentsA = parseThinkBlocks(arenaData.a.content || '', arenaData.a.thinkTime, arenaData.a.isStreaming);
     const segmentsB = parseThinkBlocks(arenaData.b.content || '', arenaData.b.thinkTime, arenaData.b.isStreaming);
 
-    // Apply primary colors to the voted column if a/b
-    const bgA = arenaData.winner === 'a' ? 'rgba(var(--primary-rgb), 0.1)' : 'transparent';
-    const borderA = arenaData.winner === 'a' ? '2px solid var(--primary)' : '1px solid var(--border)';
-    const bgB = arenaData.winner === 'b' ? 'rgba(var(--primary-rgb), 0.1)' : 'transparent';
-    const borderB = arenaData.winner === 'b' ? '2px solid var(--primary)' : '1px solid var(--border)';
+    // Apply primary colors to the voted column if a/b — only after vote is
+    // finalised (voted===true) so a failed POST doesn't leave phantom highlighting.
+    const bgA = arenaData.voted && arenaData.winner === 'a' ? 'rgba(var(--primary-rgb), 0.1)' : 'transparent';
+    const borderA = arenaData.voted && arenaData.winner === 'a' ? '2px solid var(--primary)' : '1px solid var(--border)';
+    const bgB = arenaData.voted && arenaData.winner === 'b' ? 'rgba(var(--primary-rgb), 0.1)' : 'transparent';
+    const borderB = arenaData.voted && arenaData.winner === 'b' ? '2px solid var(--primary)' : '1px solid var(--border)';
 
     return (
         <div className="message-wrapper assistant arena" style={{ maxWidth: '100%', marginBottom: '2rem' }}>
             <div className="arena-container" style={{ display: 'flex', gap: '1rem', width: '100%' }}>
                 <div className="arena-column a" style={{ flex: 1, backgroundColor: bgA, border: borderA, borderRadius: '12px', padding: '1rem', overflowX: 'auto', display: 'flex', flexDirection: 'column' }}>
                     <div className="arena-header" style={{ marginBottom: '1rem', fontWeight: 'bold', display: 'flex', justifyContent: 'space-between' }}>
-                        <span>{arenaData.voted ? `A: ${arenaData.a.model} (${arenaData.a.kb})` : 'Model A'}</span>
-                        {arenaData.winner === 'a' && <span style={{ color: 'var(--primary)' }}>🏆 Winner</span>}
+                        <span>{(arenaData.voted || arenaData.namesRevealed) ? `A: ${arenaData.a.model} (${arenaData.a.kb})` : 'Model A'}</span>
+                        {arenaData.voted && arenaData.winner === 'a' && <span style={{ color: 'var(--primary)' }}>🏆 Winner</span>}
                     </div>
                     <div className="message-markdown prose" style={{ flex: 1, paddingBottom: isGenerating ? '2rem' : '0' }}>
                         {segmentsA.map((seg, i) =>
@@ -560,8 +575,8 @@ function ArenaMessageBubble({ message, chatId, setChats, isGenerating, question,
 
                 <div className="arena-column b" style={{ flex: 1, backgroundColor: bgB, border: borderB, borderRadius: '12px', padding: '1rem', overflowX: 'auto', display: 'flex', flexDirection: 'column' }}>
                     <div className="arena-header" style={{ marginBottom: '1rem', fontWeight: 'bold', display: 'flex', justifyContent: 'space-between' }}>
-                        <span>{arenaData.voted ? `B: ${arenaData.b.model} (${arenaData.b.kb})` : 'Model B'}</span>
-                        {arenaData.winner === 'b' && <span style={{ color: 'var(--primary)' }}>🏆 Winner</span>}
+                        <span>{(arenaData.voted || arenaData.namesRevealed) ? `B: ${arenaData.b.model} (${arenaData.b.kb})` : 'Model B'}</span>
+                        {arenaData.voted && arenaData.winner === 'b' && <span style={{ color: 'var(--primary)' }}>🏆 Winner</span>}
                     </div>
                     <div className="message-markdown prose" style={{ flex: 1, paddingBottom: isGenerating ? '2rem' : '0' }}>
                         {segmentsB.map((seg, i) =>

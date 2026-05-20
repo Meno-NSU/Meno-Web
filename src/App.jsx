@@ -832,6 +832,8 @@ function App() {
             const activeChatMessages = activeChat?.messages || [];
             const lastMessage = activeChatMessages[activeChatMessages.length - 1];
             const isGeneratingNow = activeChatId ? generatingChats.has(activeChatId) : false;
+            // Couples to the live isArenaMode toggle: turning arena off unblocks the
+            // input even on an unvoted bubble (intentional — user explicitly left arena).
             const voteIsPending = Boolean(
               isArenaMode &&
               lastMessage?.isArena &&

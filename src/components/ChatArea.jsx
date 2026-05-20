@@ -452,6 +452,19 @@ function ArenaMessageBubble({ message, chatId, setChats, isGenerating, question,
     const { t } = useTranslation();
     const { arenaData } = message;
     const [voting, setVoting] = useState(false);
+    const [activeDot, setActiveDot] = useState(0);
+    const scrollRef = useRef(null);
+
+    useEffect(() => {
+        const el = scrollRef.current;
+        if (!el) return;
+        const onScroll = () => {
+            const idx = Math.round(el.scrollLeft / Math.max(el.clientWidth, 1));
+            setActiveDot(Math.max(0, Math.min(1, idx)));
+        };
+        el.addEventListener('scroll', onScroll, { passive: true });
+        return () => el.removeEventListener('scroll', onScroll);
+    }, []);
 
     // The arena round is only meaningful when BOTH sides actually produced a
     // response from a real model. If a side died (substitution exhausted or
@@ -549,7 +562,11 @@ function ArenaMessageBubble({ message, chatId, setChats, isGenerating, question,
     return (
         <div className="message-wrapper assistant arena" style={{ maxWidth: '100%', marginBottom: '2rem' }}>
             <div className="arena-container">
-                <div className="arena-scroll">
+                <div className="arena-dots" aria-hidden="true">
+                    <span className={`arena-dot ${activeDot === 0 ? 'active' : ''}`} />
+                    <span className={`arena-dot ${activeDot === 1 ? 'active' : ''}`} />
+                </div>
+                <div className="arena-scroll" ref={scrollRef}>
                 <div className="arena-column a" style={{ flex: 1, backgroundColor: bgA, border: borderA, borderRadius: '12px', padding: '1rem', overflowX: 'auto', display: 'flex', flexDirection: 'column' }}>
                     <div className="arena-header" style={{ marginBottom: '1rem', fontWeight: 'bold', display: 'flex', justifyContent: 'space-between' }}>
                         <span>{(arenaData.voted || arenaData.namesRevealed) ? `A: ${arenaData.a.model} (${arenaData.a.kb})` : 'Model A'}</span>

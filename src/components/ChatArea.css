@@ -644,3 +644,29 @@
         min-width: 0;
     }
 }
+
+.arena-dots {
+    display: none;
+}
+
+@media (max-width: 768px) {
+    .arena-dots {
+        display: flex;
+        justify-content: center;
+        gap: 0.5rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .arena-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background-color: var(--border);
+        transition: background-color 0.2s, transform 0.2s;
+    }
+
+    .arena-dot.active {
+        background-color: var(--primary);
+        transform: scale(1.3);
+    }
+}

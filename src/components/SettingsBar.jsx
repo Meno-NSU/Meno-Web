@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Trophy, Moon, Sun, ChevronDown, AlertCircle } from 'lucide-react';
+import { Trophy, Moon, Sun, ChevronDown, AlertCircle, Menu } from 'lucide-react';
 import { useTranslation } from '../i18n.js';
 import './SettingsBar.css';
 
@@ -124,6 +124,15 @@ export default function SettingsBar({
         <header className="settings-bar">
             {/* Spacer to align content nicely when sidebar is collapsed */}
             <div className={`settings-spacer ${!isSidebarOpen ? 'spaced' : ''}`}></div>
+
+            <button
+                className="btn-icon sidebar-hamburger"
+                onClick={onOpenSidebar}
+                title={t('openSidebar')}
+                aria-label={t('openSidebar')}
+            >
+                <Menu size={20} />
+            </button>
 
             <div className="settings-controls">
                 <div className="model-dropdown" ref={dropdownRef}>

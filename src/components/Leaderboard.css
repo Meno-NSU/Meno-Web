@@ -119,3 +119,87 @@
     background-color: var(--surface-3);
     color: var(--text-1);
 }
+
+@media (max-width: 768px) {
+    .leaderboard-container {
+        padding: 1rem 0.75rem;
+    }
+
+    .leaderboard-header h1 {
+        font-size: 1.5rem;
+    }
+
+    .table-wrapper {
+        background: transparent;
+        border: none;
+        border-radius: 0;
+        overflow: visible;
+    }
+
+    .leaderboard-table,
+    .leaderboard-table thead,
+    .leaderboard-table tbody,
+    .leaderboard-table tr,
+    .leaderboard-table th,
+    .leaderboard-table td {
+        display: block;
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    .leaderboard-table thead {
+        display: none;
+    }
+
+    .leaderboard-table tr {
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 0.75rem 1rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .leaderboard-table td {
+        padding: 0.25rem 0;
+        border-bottom: none;
+        text-align: left;
+        font-size: 0.85rem;
+    }
+
+    .leaderboard-table td::before {
+        content: attr(data-label);
+        font-weight: 600;
+        color: var(--text-2);
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        margin-right: 0.4rem;
+    }
+
+    /* Rank gets prominent treatment — full-width header line, no inline label. */
+    .leaderboard-table td.rank-col {
+        font-size: 1rem;
+        font-weight: bold;
+        margin-bottom: 0.25rem;
+    }
+    .leaderboard-table td.rank-col::before {
+        display: none;
+    }
+
+    /* Model name (second cell): also more prominent, no inline label. */
+    .leaderboard-table td:nth-child(2) {
+        margin-bottom: 0.4rem;
+    }
+    .leaderboard-table td:nth-child(2)::before {
+        display: none;
+    }
+
+    .setup-name {
+        font-size: 0.95rem;
+    }
+
+    /* Hover state on touch is meaningless and looks broken — disable. */
+    .leaderboard-table tbody tr:hover {
+        background: var(--surface-2);
+    }
+}

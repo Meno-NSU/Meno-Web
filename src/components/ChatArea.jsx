@@ -452,6 +452,27 @@ function ArenaMessageBubble({ message, chatId, setChats, isGenerating, question,
     const { t } = useTranslation();
     const { arenaData } = message;
     const [voting, setVoting] = useState(false);
+    const [activeDot, setActiveDot] = useState(0);
+    const scrollRef = useRef(null);
+    const [hintVisible, setHintVisible] = useState(true);
+
+    useEffect(() => {
+        if (!hintVisible) return;
+        const t = setTimeout(() => setHintVisible(false), 1500);
+        return () => clearTimeout(t);
+    }, [hintVisible]);
+
+    useEffect(() => {
+        const el = scrollRef.current;
+        if (!el) return;
+        const onScroll = () => {
+            const idx = Math.round(el.scrollLeft / Math.max(el.clientWidth, 1));
+            setActiveDot(Math.max(0, Math.min(1, idx)));
+            setHintVisible(false);    // <- added line
+        };
+        el.addEventListener('scroll', onScroll, { passive: true });
+        return () => el.removeEventListener('scroll', onScroll);
+    }, []);
 
     // The arena round is only meaningful when BOTH sides actually produced a
     // response from a real model. If a side died (substitution exhausted or
@@ -548,7 +569,13 @@ function ArenaMessageBubble({ message, chatId, setChats, isGenerating, question,
 
     return (
         <div className="message-wrapper assistant arena" style={{ maxWidth: '100%', marginBottom: '2rem' }}>
-            <div className="arena-container" style={{ display: 'flex', gap: '1rem', width: '100%' }}>
+            <div className="arena-container">
+                <div className="arena-dots" aria-hidden="true">
+                    <span className={`arena-dot ${activeDot === 0 ? 'active' : ''}`} />
+                    <span className={`arena-dot ${activeDot === 1 ? 'active' : ''}`} />
+                    {hintVisible && <span className="arena-swipe-hint">{t('arenaSwipeHint')}</span>}
+                </div>
+                <div className="arena-scroll" ref={scrollRef}>
                 <div className="arena-column a" style={{ flex: 1, backgroundColor: bgA, border: borderA, borderRadius: '12px', padding: '1rem', overflowX: 'auto', display: 'flex', flexDirection: 'column' }}>
                     <div className="arena-header" style={{ marginBottom: '1rem', fontWeight: 'bold', display: 'flex', justifyContent: 'space-between' }}>
                         <span>{(arenaData.voted || arenaData.namesRevealed) ? `A: ${arenaData.a.model} (${arenaData.a.kb})` : 'Model A'}</span>
@@ -595,6 +622,7 @@ function ArenaMessageBubble({ message, chatId, setChats, isGenerating, question,
                             </button>
                         </div>
                     )}
+                </div>
                 </div>
             </div>
 

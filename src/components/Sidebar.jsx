@@ -13,49 +13,52 @@ export default function Sidebar({ isOpen, toggleSidebar, chats, activeChatId, on
     }
 
     return (
-        <aside className="sidebar">
-            <div className="sidebar-header">
-                <button className="sidebar-toggle-btn" onClick={toggleSidebar} title={t("closeSidebar")}>
-                    <PanelLeftClose size={20} />
-                </button>
-                <div style={{display: 'flex', gap: '0.5rem', flex: 1}}>
-                    <button className="new-chat-btn" onClick={() => { setCurrentView('chat'); onNewChat(); }} style={{ flex: 1 }}>
-                        <Plus size={20} />
-                        <span>{t("newChat")}</span>
+        <>
+            <div className="sidebar-backdrop" onClick={toggleSidebar} aria-hidden="true" />
+            <aside className="sidebar">
+                <div className="sidebar-header">
+                    <button className="sidebar-toggle-btn" onClick={toggleSidebar} title={t("closeSidebar")}>
+                        <PanelLeftClose size={20} />
                     </button>
+                    <div style={{display: 'flex', gap: '0.5rem', flex: 1}}>
+                        <button className="new-chat-btn" onClick={() => { setCurrentView('chat'); onNewChat(); }} style={{ flex: 1 }}>
+                            <Plus size={20} />
+                            <span>{t("newChat")}</span>
+                        </button>
+                    </div>
                 </div>
-            </div>
 
-            <div className="sidebar-content">
-                <div className="sidebar-section-title">{t("recentChats")}</div>
-                {chats && chats.length > 0 ? (
-                    <ul className="chat-list">
-                        {chats.map(chat => (
-                            <li
-                                key={chat.id}
-                                className={`chat-list-item ${activeChatId === chat.id ? 'active' : ''} ${(generatingChats && generatingChats.has(chat.id)) ? 'generating' : ''}`}
-                                onClick={() => onSelectChat(chat.id)}
-                            >
-                                <MessageSquare size={18} className="chat-icon" />
-                                <span className="chat-title">{chat.title || t("newChat")}</span>
-
-                                <button
-                                    className="delete-chat-btn"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        onDeleteChat(chat.id);
-                                    }}
-                                    title={t("deleteChat")}
+                <div className="sidebar-content">
+                    <div className="sidebar-section-title">{t("recentChats")}</div>
+                    {chats && chats.length > 0 ? (
+                        <ul className="chat-list">
+                            {chats.map(chat => (
+                                <li
+                                    key={chat.id}
+                                    className={`chat-list-item ${activeChatId === chat.id ? 'active' : ''} ${(generatingChats && generatingChats.has(chat.id)) ? 'generating' : ''}`}
+                                    onClick={() => onSelectChat(chat.id)}
                                 >
-                                    <Trash2 size={14} />
-                                </button>
-                            </li>
-                        ))}
-                    </ul>
-                ) : (
-                    <div className="no-chats-msg">{t("noRecentChats")}</div>
-                )}
-            </div>
-        </aside>
+                                    <MessageSquare size={18} className="chat-icon" />
+                                    <span className="chat-title">{chat.title || t("newChat")}</span>
+
+                                    <button
+                                        className="delete-chat-btn"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onDeleteChat(chat.id);
+                                        }}
+                                        title={t("deleteChat")}
+                                    >
+                                        <Trash2 size={14} />
+                                    </button>
+                                </li>
+                            ))}
+                        </ul>
+                    ) : (
+                        <div className="no-chats-msg">{t("noRecentChats")}</div>
+                    )}
+                </div>
+            </aside>
+        </>
     );
 }

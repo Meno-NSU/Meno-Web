@@ -209,6 +209,11 @@
     color: var(--primary);
 }
 
+.leaderboard-toggle.active {
+    background-color: var(--bg-tertiary);
+    color: var(--primary);
+}
+
 /* Grouped model dropdown */
 .model-dropdown-group { padding: 4px 0; border-top: 1px solid var(--divider, #eee); }
 .model-dropdown-group:first-child { border-top: none; }
@@ -245,3 +250,57 @@
 /* Trigger label with OR sublabel */
 .model-dropdown-label { display: flex; flex-direction: column; align-items: flex-start; }
 .model-dropdown-sublabel { font-size: 0.7rem; color: var(--text-tertiary, #aaa); }
+
+.sidebar-hamburger {
+    display: none;
+}
+
+@media (max-width: 768px) {
+    .sidebar-hamburger {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 36px;
+        height: 36px;
+        margin-right: 0.5rem;
+    }
+
+    .settings-bar {
+        padding: 0.5rem 0.75rem;
+    }
+
+    .settings-spacer,
+    .settings-spacer.spaced {
+        display: none;
+    }
+
+    .model-dropdown-trigger {
+        min-width: 0;
+        max-width: 50vw;
+    }
+
+    .model-dropdown-label {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* Hide the "Arena: ВКЛ/ВЫКЛ" text label; keep the ⚔️ icon and active styling. */
+    .arena-toggle .arena-text {
+        display: none;
+    }
+
+    .arena-toggle {
+        padding: 0.4rem 0.6rem;
+    }
+
+    .settings-actions {
+        gap: 0.4rem;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+    }
+
+    .settings-controls {
+        gap: 0.5rem;
+    }
+}

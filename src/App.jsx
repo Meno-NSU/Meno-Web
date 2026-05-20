@@ -224,7 +224,10 @@ function applyLastMessageError(chats, chatId, error) {
 
 function App() {
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'light');
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    return window.innerWidth > 768;
+  });
 
   // Data state
   const [models, setModels] = useState([]);
@@ -824,8 +827,10 @@ function App() {
           onDropdownOpen={handleModelsDropdownOpen}
           isArenaMode={isArenaMode}
           setIsArenaMode={setIsArenaMode}
+          currentView={currentView}
           setCurrentView={setCurrentView}
           coreModelId={coreModelId}
+          onOpenSidebar={() => setIsSidebarOpen(true)}
         />
         {currentView === 'chat' ? (
           (() => {
@@ -857,7 +862,7 @@ function App() {
             );
           })()
         ) : (
-          <Leaderboard />
+          <Leaderboard onClose={() => setCurrentView('chat')} />
         )}
       </main>
     </div>

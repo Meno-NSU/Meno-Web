@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Trophy, Moon, Sun, ChevronDown, AlertCircle } from 'lucide-react';
+import { Trophy, Moon, Sun, ChevronDown, AlertCircle, Menu } from 'lucide-react';
 import { useTranslation } from '../i18n.js';
 import './SettingsBar.css';
 
@@ -77,7 +77,14 @@ function AllFreeModelsExpander({ items, selectedModel, onSelect }) {
     );
 }
 
-export default function SettingsBar({ theme, toggleTheme, isSidebarOpen, models, selectedModel, onModelChange, onDropdownOpen, isArenaMode, setIsArenaMode, setCurrentView, coreModelId }) {
+export default function SettingsBar({
+    theme, toggleTheme, isSidebarOpen,
+    models, selectedModel, onModelChange, onDropdownOpen,
+    isArenaMode, setIsArenaMode,
+    currentView, setCurrentView,
+    coreModelId,
+    onOpenSidebar,
+}) {
     const { t, lang, setLanguage } = useTranslation();
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const dropdownRef = useRef(null);
@@ -103,7 +110,7 @@ export default function SettingsBar({ theme, toggleTheme, isSidebarOpen, models,
     };
 
     const handleLeaderboardClick = () => {
-        setCurrentView('leaderboard');
+        setCurrentView(currentView === 'leaderboard' ? 'chat' : 'leaderboard');
     };
 
     const hasModels = models.length > 0;
@@ -117,6 +124,15 @@ export default function SettingsBar({ theme, toggleTheme, isSidebarOpen, models,
         <header className="settings-bar">
             {/* Spacer to align content nicely when sidebar is collapsed */}
             <div className={`settings-spacer ${!isSidebarOpen ? 'spaced' : ''}`}></div>
+
+            <button
+                className="btn-icon sidebar-hamburger"
+                onClick={onOpenSidebar}
+                title={t('openSidebar')}
+                aria-label={t('openSidebar')}
+            >
+                <Menu size={20} />
+            </button>
 
             <div className="settings-controls">
                 <div className="model-dropdown" ref={dropdownRef}>
@@ -184,7 +200,7 @@ export default function SettingsBar({ theme, toggleTheme, isSidebarOpen, models,
                     {lang.toUpperCase()}
                 </button>
                 <button
-                    className="btn-icon leaderboard-toggle"
+                    className={`btn-icon leaderboard-toggle ${currentView === 'leaderboard' ? 'active' : ''}`}
                     onClick={handleLeaderboardClick}
                     title={t('arenaLeaderboardTitle')}
                 >

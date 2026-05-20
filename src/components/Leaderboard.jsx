@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Trophy } from 'lucide-react';
+import { Trophy, X } from 'lucide-react';
 import { useTranslation } from '../i18n.js';
 import './Leaderboard.css';
 
-export default function Leaderboard() {
+export default function Leaderboard({ onClose }) {
     const { t } = useTranslation();
     const [data, setData] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -27,6 +27,16 @@ export default function Leaderboard() {
 
     return (
         <div className="leaderboard-container">
+            {onClose && (
+                <button
+                    className="leaderboard-close-btn"
+                    onClick={onClose}
+                    title={t('closeLeaderboard')}
+                    aria-label={t('closeLeaderboard')}
+                >
+                    <X size={20} />
+                </button>
+            )}
             <div className="leaderboard-header">
                 <Trophy size={48} className="trophy-icon" />
                 <h1>{t('arenaLeaderboardTitle')}</h1>
@@ -47,14 +57,14 @@ export default function Leaderboard() {
                     <tbody>
                         {data.map((row, i) => (
                             <tr key={i} className={i < 3 ? `rank-${i + 1}` : ''}>
-                                <td className="rank-col">#{i + 1}</td>
-                                <td>
+                                <td className="rank-col" data-label={t('arenaRank')}>#{i + 1}</td>
+                                <td data-label={t('arenaSetup')}>
                                     <div className="setup-name">{row.model}</div>
                                     <div className="setup-kb" style={{fontSize: '0.85em', color: 'var(--text-2)'}}>{row.knowledge_base}</div>
                                 </td>
-                                <td className="elo-col" style={{fontWeight: 'bold', color: 'var(--primary)'}}>{row.elo}</td>
-                                <td>{row.win_rate}%</td>
-                                <td>{row.matches}</td>
+                                <td className="elo-col" data-label={t('arenaEloRating')} style={{fontWeight: 'bold', color: 'var(--primary)'}}>{row.elo}</td>
+                                <td data-label={t('arenaWinRate')}>{row.win_rate}%</td>
+                                <td data-label={t('arenaMatches')}>{row.matches}</td>
                             </tr>
                         ))}
                         {data.length === 0 && (

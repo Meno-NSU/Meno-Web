@@ -460,8 +460,24 @@ function ArenaMessageBubble({ message, chatId, setChats, isGenerating, question 
             return;
         }
         setVoting(true);
+
+        // Reveal names immediately (optimistic) — even if the POST fails, the user
+        // has already seen the identities and hiding them again would feel like a
+        // glitch.
+        setChats(prev => prev.map(c => {
+            if (c.id !== chatId) return c;
+            return {
+                ...c,
+                messages: c.messages.map(m =>
+                    m === message
+                        ? { ...m, arenaData: { ...m.arenaData, voted: true, winner } }
+                        : m
+                ),
+            };
+        }));
+
         try {
-            await fetch('/v1/arena/vote', {
+            const resp = await fetch('/v1/arena/vote', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -474,23 +490,17 @@ function ArenaMessageBubble({ message, chatId, setChats, isGenerating, question 
                     response_b: arenaData.b.content || '',
                     question: question || '',
                     session_id: chatId || '',
-                })
+                }),
             });
-            // Update local state to mark as voted
-            setChats(prev => prev.map(c => {
-                if (c.id === chatId) {
-                    const newMsgs = c.messages.map(m => {
-                        if (m === message) {
-                            return { ...m, arenaData: { ...m.arenaData, voted: true, winner } };
-                        }
-                        return m;
-                    });
-                    return { ...c, messages: newMsgs };
-                }
-                return c;
-            }));
+            if (!resp.ok) throw new Error(`Vote POST ${resp.status}`);
         } catch (e) {
             console.error('Vote failed:', e);
+            if (typeof window !== 'undefined') {
+                // No toast library is wired up yet — fall back to console.warn so
+                // the user can notice in devtools. Replace with a real toast when
+                // one lands in the project.
+                console.warn('Arena vote not recorded; please retry by voting again.');
+            }
         } finally {
             setVoting(false);
         }

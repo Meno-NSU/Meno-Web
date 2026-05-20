@@ -105,7 +105,12 @@ body {
 /* Base Layout */
 .app-container {
   display: flex;
+  /* iOS Safari quirk: 100vh includes the address bar so the bottom of the
+     viewport (where the chat input sits) ends up below the visible area.
+     `dvh` adapts to the actual visible viewport. `100vh` is the fallback
+     for browsers that don't support `dvh` (very old). */
   height: 100vh;
+  height: 100dvh;
   width: 100vw;
   overflow: hidden;
 }

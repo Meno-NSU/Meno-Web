@@ -592,6 +592,11 @@ function App() {
           const sideExclude = sideKey === 'a' ? excludeA : excludeB;
           const sideMessages = sideKey === 'a' ? messagesA : messagesB;
           const sideInitial = sideKey === 'a' ? pair.a : pair.b;
+          // Track whether any content event actually delivered a non-empty
+          // payload. Without this, a model that streams a clean 200 with zero
+          // tokens lands in the success branch and the bubble becomes
+          // votable on a blank response — user reported exactly this.
+          let receivedContent = false;
           try {
             const { model } = await runArenaSideWithSubstitution({
               pool, exclude: sideExclude, kbId, messages: sideMessages, sessionId: requestConfig.sessionId,
@@ -599,11 +604,25 @@ function App() {
               sendChat: sendChatMessage,
               onEvent: (event) => {
                 if (event.type !== 'content') return;
+                if (event.fullContent && event.fullContent.length > 0) {
+                  receivedContent = true;
+                }
                 setChats((prev) => updateLastArenaMessageSide(prev, targetChatId, sideKey, (sideState) => (
                   applyArenaSideContent(sideState, event.fullContent)
                 )));
               },
             });
+            if (!receivedContent) {
+              // Blank response: keep `model: null` so `bothSidesReady` stays
+              // false in ArenaMessageBubble and the user can't vote on a
+              // missing answer.
+              setChats((prev) => updateLastArenaMessageSide(prev, targetChatId, sideKey, (sideState) => ({
+                ...sideState,
+                model: null,
+                content: sideState.content || '⚠ Модель не вернула ответ. Попробуйте новый вопрос.',
+              })));
+              return;
+            }
             setChats((prev) => updateLastArenaMessageSide(prev, targetChatId, sideKey, (sideState) => ({
               ...sideState, model: model.id,
             })));

@@ -1,9 +1,26 @@
-import { Plus, MessageSquare, PanelLeftClose, PanelLeft, MoreHorizontal, Trash2, Trophy } from 'lucide-react';
+import {
+    Plus,
+    MessageSquare,
+    PanelLeftClose,
+    PanelLeft,
+    Trash2,
+    Trophy,
+    Moon,
+    Sun,
+} from 'lucide-react';
 import { useTranslation } from '../i18n.js';
 import './Sidebar.css';
 
-export default function Sidebar({ isOpen, toggleSidebar, chats, activeChatId, onSelectChat, onNewChat, onDeleteChat, generatingChats, setCurrentView }) {
-    const { t } = useTranslation();
+export default function Sidebar({
+    isOpen, toggleSidebar,
+    chats, activeChatId, onSelectChat, onNewChat, onDeleteChat, generatingChats,
+    // Mobile-only: the top-right actions in SettingsBar move into the sidebar
+    // overlay on ≤768px. Desktop never sees `.sidebar-actions` (hidden via CSS).
+    currentView, setCurrentView,
+    theme, toggleTheme,
+    isArenaMode, setIsArenaMode,
+}) {
+    const { t, lang, setLanguage } = useTranslation();
     if (!isOpen) {
         return (
             <button className="sidebar-toggle-btn collapsed" onClick={toggleSidebar} title="Open sidebar">
@@ -11,6 +28,22 @@ export default function Sidebar({ isOpen, toggleSidebar, chats, activeChatId, on
             </button>
         );
     }
+
+    // On mobile, every action that changes the main view (or a global setting
+    // the user wants to see take effect) auto-closes the sidebar overlay so
+    // they can see what they just did. On desktop the sidebar is in-flow and
+    // these handlers aren't reachable (the mobile rendering is hidden via CSS).
+    const closeAfter = (fn) => () => {
+        fn();
+        toggleSidebar();
+    };
+
+    const handleLeaderboard = closeAfter(() => {
+        setCurrentView?.(currentView === 'leaderboard' ? 'chat' : 'leaderboard');
+    });
+    const handleArena = closeAfter(() => setIsArenaMode?.(!isArenaMode));
+    const handleTheme = closeAfter(() => toggleTheme?.());
+    const handleLang = closeAfter(() => setLanguage(lang === 'ru' ? 'en' : 'ru'));
 
     return (
         <>
@@ -21,7 +54,7 @@ export default function Sidebar({ isOpen, toggleSidebar, chats, activeChatId, on
                         <PanelLeftClose size={20} />
                     </button>
                     <div style={{display: 'flex', gap: '0.5rem', flex: 1}}>
-                        <button className="new-chat-btn" onClick={() => { setCurrentView('chat'); onNewChat(); }} style={{ flex: 1 }}>
+                        <button className="new-chat-btn" onClick={() => { setCurrentView?.('chat'); onNewChat(); }} style={{ flex: 1 }}>
                             <Plus size={20} />
                             <span>{t("newChat")}</span>
                         </button>
@@ -57,6 +90,50 @@ export default function Sidebar({ isOpen, toggleSidebar, chats, activeChatId, on
                     ) : (
                         <div className="no-chats-msg">{t("noRecentChats")}</div>
                     )}
+                </div>
+
+                {/* Mobile-only action panel — hidden via CSS on desktop. */}
+                <div className="sidebar-actions" role="group">
+                    <button
+                        className="sidebar-action-btn"
+                        onClick={handleLang}
+                        title="Switch language"
+                    >
+                        <span className="sidebar-action-icon" style={{ fontWeight: 600 }}>{lang.toUpperCase()}</span>
+                        <span className="sidebar-action-label">{lang === 'ru' ? 'Язык' : 'Language'}</span>
+                    </button>
+                    <button
+                        className={`sidebar-action-btn ${currentView === 'leaderboard' ? 'active' : ''}`}
+                        onClick={handleLeaderboard}
+                        title={t('arenaLeaderboardTitle')}
+                    >
+                        <Trophy size={20} className="sidebar-action-icon" />
+                        <span className="sidebar-action-label">{t('arenaLeaderboardTitle') || 'Leaderboard'}</span>
+                    </button>
+                    <button
+                        className={`sidebar-action-btn arena ${isArenaMode ? 'active' : ''}`}
+                        onClick={handleArena}
+                        title={`Arena Mode is ${isArenaMode ? 'ON' : 'OFF'}`}
+                    >
+                        <span className="sidebar-action-icon" aria-hidden="true">⚔️</span>
+                        <span className="sidebar-action-label">
+                            {isArenaMode ? t('battleArenaModeOn') : t('battleArenaModeOff')}
+                        </span>
+                    </button>
+                    <button
+                        className="sidebar-action-btn"
+                        onClick={handleTheme}
+                        title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+                    >
+                        {theme === 'light'
+                            ? <Moon size={20} className="sidebar-action-icon" />
+                            : <Sun size={20} className="sidebar-action-icon" />}
+                        <span className="sidebar-action-label">
+                            {theme === 'light'
+                                ? (lang === 'ru' ? 'Тёмная тема' : 'Dark theme')
+                                : (lang === 'ru' ? 'Светлая тема' : 'Light theme')}
+                        </span>
+                    </button>
                 </div>
             </aside>
         </>

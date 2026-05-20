@@ -12,6 +12,7 @@ import {
 } from './services/api.js';
 import {
   buildArenaPool,
+  pickArenaPair,
   runArenaSideWithSubstitution,
   ArenaPoolExhaustedError,
 } from './services/arenaMatching.js';
@@ -563,19 +564,38 @@ function App() {
           ...chat, messages: [...chat.messages, arenaMessage],
         })));
 
-        // Independent exclude per side: per the spec, the random pool is sampled
-        // independently for L and R, and the same model legitimately appearing on
-        // both sides is a valid (rare) self-comparison.
-        const excludeA = new Set();
-        const excludeB = new Set();
+        // Pick the two models up front so the pair is always disjoint —
+        // users explicitly do not want the arena to compare a model with
+        // itself. Each side's substitution pool starts pre-seeded with the
+        // other side's pick, so retries also can't collide.
+        // pickArenaPair internally weighs vLLM models higher than OpenRouter.
+        const pair = pickArenaPair(pool);
+        if (!pair) {
+          setChats((prev) => updateChatById(prev, targetChatId, (chat) => ({
+            ...chat,
+            messages: [
+              ...chat.messages.slice(0, -1),
+              {
+                role: 'assistant',
+                isArena: false,
+                content: '⚠ Need at least two distinct models for an arena round. Try again in a moment.',
+              },
+            ],
+          })));
+          return;
+        }
+        const excludeA = new Set([pair.b.id]);
+        const excludeB = new Set([pair.a.id]);
         const sideFailedExhaustion = { a: false, b: false };
 
         const runSide = async (sideKey) => {
           const sideExclude = sideKey === 'a' ? excludeA : excludeB;
           const sideMessages = sideKey === 'a' ? messagesA : messagesB;
+          const sideInitial = sideKey === 'a' ? pair.a : pair.b;
           try {
             const { model } = await runArenaSideWithSubstitution({
               pool, exclude: sideExclude, kbId, messages: sideMessages, sessionId: requestConfig.sessionId,
+              initialCandidate: sideInitial,
               sendChat: sendChatMessage,
               onEvent: (event) => {
                 if (event.type !== 'content') return;

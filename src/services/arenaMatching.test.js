@@ -1,5 +1,12 @@
-import { describe, it, expect, vi } from 'vitest';
-import { buildArenaPool, pickRandomFromPool, runArenaSideWithSubstitution } from './arenaMatching.js';
+import { afterEach, describe, it, expect, vi } from 'vitest';
+import {
+    buildArenaPool,
+    pickArenaPair,
+    pickRandomFromPool,
+    POOL_WEIGHT_OPENROUTER,
+    POOL_WEIGHT_VLLM,
+    runArenaSideWithSubstitution,
+} from './arenaMatching.js';
 
 describe('buildArenaPool', () => {
     it('keeps every available model, regardless of provider or featured flag', () => {
@@ -152,5 +159,125 @@ describe('runArenaSideWithSubstitution', () => {
         });
         expect(calls).toBe(2);
         expect(result.model).toBeDefined();
+    });
+
+    it('uses the initialCandidate on the first attempt when provided', async () => {
+        const pool = [
+            { id: 'a', provider: 'vllm' },
+            { id: 'b', provider: 'vllm' },
+            { id: 'c', provider: 'openrouter' },
+        ];
+        const exclude = new Set();
+        const seen = [];
+        const sendChat = vi.fn().mockImplementation(async ({ modelId, onEvent }) => {
+            seen.push(modelId);
+            onEvent({ type: 'content', textChunk: 'hi' });
+            return { content: 'hi' };
+        });
+        const result = await runArenaSideWithSubstitution({
+            pool, exclude, kbId: 'kb', messages: [], sessionId: 's',
+            sendChat, onEvent: () => {},
+            initialCandidate: pool[2],
+        });
+        expect(result.model.id).toBe('c');
+        expect(seen[0]).toBe('c');
+    });
+
+    it('falls back to weighted pick when initialCandidate is already excluded', async () => {
+        const pool = [
+            { id: 'a', provider: 'vllm' },
+            { id: 'b', provider: 'vllm' },
+        ];
+        // pre-exclude the initial candidate (other side picked it first)
+        const exclude = new Set(['a']);
+        const sendChat = vi.fn().mockImplementation(async ({ onEvent }) => {
+            onEvent({ type: 'content', textChunk: 'hi' });
+            return { content: 'hi' };
+        });
+        const result = await runArenaSideWithSubstitution({
+            pool, exclude, kbId: 'kb', messages: [], sessionId: 's',
+            sendChat, onEvent: () => {},
+            initialCandidate: pool[0],
+        });
+        expect(result.model.id).toBe('b');
+    });
+});
+
+describe('pickRandomFromPool — weighted', () => {
+    afterEach(() => { vi.restoreAllMocks(); });
+
+    it('returns the only vLLM candidate when randomness falls in its slot', () => {
+        // Two candidates: vLLM weight 3, OpenRouter weight 1, total = 4.
+        // Math.random() = 0.1 → r = 0.4, which lands inside the vLLM slot (0..3).
+        const pool = [
+            { id: 'v', provider: 'vllm' },
+            { id: 'o', provider: 'openrouter' },
+        ];
+        vi.spyOn(Math, 'random').mockReturnValue(0.1);
+        expect(pickRandomFromPool(pool, new Set()).id).toBe('v');
+    });
+
+    it('returns the OpenRouter candidate when randomness lands in the tail slot', () => {
+        // Same pool, weights [3, 1], total 4. Math.random() = 0.9 → r = 3.6,
+        // which lands AFTER the vLLM slot (>3) → openrouter wins.
+        const pool = [
+            { id: 'v', provider: 'vllm' },
+            { id: 'o', provider: 'openrouter' },
+        ];
+        vi.spyOn(Math, 'random').mockReturnValue(0.9);
+        expect(pickRandomFromPool(pool, new Set()).id).toBe('o');
+    });
+
+    it('biases the empirical distribution towards vLLM over many trials', () => {
+        const pool = [
+            { id: 'v', provider: 'vllm' },
+            { id: 'o', provider: 'openrouter' },
+        ];
+        let vllmHits = 0;
+        const N = 4000;
+        for (let i = 0; i < N; i++) {
+            if (pickRandomFromPool(pool, new Set()).id === 'v') vllmHits++;
+        }
+        // Expected vLLM share: WEIGHT_V / (WEIGHT_V + WEIGHT_OR) = 3 / 4 = 0.75.
+        // Loose bounds to avoid flaky tests on real RNG.
+        const share = vllmHits / N;
+        const expected = POOL_WEIGHT_VLLM / (POOL_WEIGHT_VLLM + POOL_WEIGHT_OPENROUTER);
+        expect(share).toBeGreaterThan(expected - 0.04);
+        expect(share).toBeLessThan(expected + 0.04);
+    });
+});
+
+describe('pickArenaPair', () => {
+    it('returns two distinct candidates', () => {
+        const pool = [
+            { id: 'a', provider: 'vllm' },
+            { id: 'b', provider: 'vllm' },
+            { id: 'c', provider: 'openrouter' },
+        ];
+        for (let i = 0; i < 200; i++) {
+            const pair = pickArenaPair(pool);
+            expect(pair).not.toBeNull();
+            expect(pair.a.id).not.toBe(pair.b.id);
+        }
+    });
+
+    it('returns null when the pool has fewer than 2 eligible candidates', () => {
+        expect(pickArenaPair([])).toBeNull();
+        expect(pickArenaPair([{ id: 'only', provider: 'vllm' }])).toBeNull();
+        expect(pickArenaPair([{ id: 'only', provider: 'vllm' }, { id: 'gone', provider: 'vllm' }], new Set(['only', 'gone']))).toBeNull();
+    });
+
+    it('honours the caller-provided exclude set', () => {
+        const pool = [
+            { id: 'a', provider: 'vllm' },
+            { id: 'b', provider: 'vllm' },
+            { id: 'c', provider: 'openrouter' },
+        ];
+        for (let i = 0; i < 50; i++) {
+            const pair = pickArenaPair(pool, new Set(['a']));
+            expect(pair.a.id).not.toBe('a');
+            expect(pair.b.id).not.toBe('a');
+            expect(pair.a.id).not.toBe(pair.b.id);
+        }
     });
 });

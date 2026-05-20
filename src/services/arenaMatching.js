@@ -9,11 +9,43 @@ export function buildArenaPool(models) {
     );
 }
 
+// vLLM models are local, fast, free to run, and the ones we ship — bias the
+// random pick towards them. OpenRouter free models are still in the pool but
+// surface less often, so most rounds compare two locals or one local vs one
+// remote. Tweak via these constants if the mix feels off.
+export const POOL_WEIGHT_VLLM = 3;
+export const POOL_WEIGHT_OPENROUTER = 1;
+
+function modelWeight(model) {
+    return model?.provider === 'vllm' ? POOL_WEIGHT_VLLM : POOL_WEIGHT_OPENROUTER;
+}
+
 export function pickRandomFromPool(pool, exclude) {
     const candidates = pool.filter(m => !exclude.has(m.id));
     if (candidates.length === 0) return null;
-    const idx = Math.floor(Math.random() * candidates.length);
-    return candidates[idx];
+    const weights = candidates.map(modelWeight);
+    const total = weights.reduce((s, w) => s + w, 0);
+    let r = Math.random() * total;
+    for (let i = 0; i < candidates.length; i++) {
+        r -= weights[i];
+        if (r < 0) return candidates[i];
+    }
+    return candidates[candidates.length - 1];
+}
+
+// Pick two distinct candidates from the pool, weighted towards vLLM. Used by
+// App.jsx to fix the arena pair up front so both sides never start on the
+// same model. If the pool has fewer than 2 candidates after applying
+// `exclude`, returns null — the caller is expected to handle this with the
+// existing "not enough available models" path.
+export function pickArenaPair(pool, exclude = new Set()) {
+    const first = pickRandomFromPool(pool, exclude);
+    if (!first) return null;
+    const excludeForSecond = new Set(exclude);
+    excludeForSecond.add(first.id);
+    const second = pickRandomFromPool(pool, excludeForSecond);
+    if (!second) return null;
+    return { a: first, b: second };
 }
 
 export class ArenaPoolExhaustedError extends Error {
@@ -22,10 +54,20 @@ export class ArenaPoolExhaustedError extends Error {
 
 export async function runArenaSideWithSubstitution({
     pool, exclude, kbId, messages, sessionId, sendChat, onEvent,
+    initialCandidate = null,
 }) {
     const MAX_ATTEMPTS = 3;
     for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-        const candidate = pickRandomFromPool(pool, exclude);
+        // First attempt prefers the pre-picked candidate (so App.jsx can
+        // guarantee the two sides start on disjoint models). On retry, or
+        // if the pre-pick is already in the exclude set (substitution
+        // already burned it), fall back to a fresh weighted pick.
+        let candidate;
+        if (attempt === 0 && initialCandidate && !exclude.has(initialCandidate.id)) {
+            candidate = initialCandidate;
+        } else {
+            candidate = pickRandomFromPool(pool, exclude);
+        }
         if (!candidate) throw new ArenaPoolExhaustedError();
         let firstTokenReceived = false;
         try {

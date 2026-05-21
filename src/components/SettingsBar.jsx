@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Trophy, Moon, Sun, ChevronDown, AlertCircle, Menu } from 'lucide-react';
+import { Trophy, Moon, Sun, ChevronDown, AlertCircle, Menu, MessageSquarePlus } from 'lucide-react';
 import { useTranslation } from '../i18n.js';
 import './SettingsBar.css';
 
@@ -84,6 +84,7 @@ export default function SettingsBar({
     currentView, setCurrentView,
     coreModelId,
     onOpenSidebar,
+    onNewChat,
 }) {
     const { t, lang, setLanguage } = useTranslation();
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -189,6 +190,15 @@ export default function SettingsBar({
                     )}
                 </div>
             </div>
+
+            <button
+                className="btn-icon new-chat-btn-icon"
+                onClick={onNewChat}
+                title={t('newChat')}
+                aria-label={t('newChat')}
+            >
+                <MessageSquarePlus size={22} />
+            </button>
 
             <div className="settings-actions">
                 <button

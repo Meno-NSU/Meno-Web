@@ -67,7 +67,11 @@ export default function ChatInput({ onSend, disabled, modelsAvailable = true, kb
                 />
 
                 <div className="input-actions-right">
-                    {kbs.length > 0 && (
+                    {/* KB selector hidden while there's only one knowledge base —
+                        it just takes space without offering a choice. Re-enable
+                        once multiple KBs land by flipping this guard back to
+                        `kbs.length > 0`. */}
+                    {kbs.length > 1 && (
                         <div className="kb-selector-wrapper">
                             <select
                                 className="kb-selector"

@@ -1,6 +1,6 @@
 import {
-    Plus,
     MessageSquare,
+    MessageSquarePlus,
     PanelLeftClose,
     PanelLeft,
     Trash2,
@@ -53,10 +53,17 @@ export default function Sidebar({
                     <button className="sidebar-toggle-btn" onClick={toggleSidebar} title={t("closeSidebar")}>
                         <PanelLeftClose size={20} />
                     </button>
-                    <div style={{display: 'flex', gap: '0.5rem', flex: 1}}>
-                        <button className="new-chat-btn" onClick={() => { setCurrentView?.('chat'); onNewChat(); }} style={{ flex: 1 }}>
-                            <Plus size={20} />
+                    <div style={{display: 'flex', gap: '0.5rem', flex: 1, minWidth: 0}}>
+                        <button className="new-chat-btn" onClick={() => { setCurrentView?.('chat'); onNewChat(); }} style={{ flex: 1, minWidth: 0 }}>
                             <span>{t("newChat")}</span>
+                        </button>
+                        <button
+                            className="btn-icon new-chat-icon-btn-sidebar"
+                            onClick={() => { setCurrentView?.('chat'); onNewChat(); }}
+                            title={t("newChat")}
+                            aria-label={t("newChat")}
+                        >
+                            <MessageSquarePlus size={20} />
                         </button>
                     </div>
                 </div>

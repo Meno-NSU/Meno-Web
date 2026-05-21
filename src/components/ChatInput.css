@@ -20,6 +20,15 @@
 
 .chat-textarea {
     flex: 1;
+    /* iOS WebKit computes a textarea's intrinsic min width from its
+       placeholder + default `cols` attribute. Without `min-width: 0` the
+       flex item refuses to shrink past that intrinsic min, which on a
+       375px viewport with our long placeholder pushes the .input-form
+       (and the surrounding chat layout) past the right edge a moment
+       after mount — Chrome DevTools mobile emulation doesn't reproduce
+       this because Blink uses different default form-control sizing. */
+    min-width: 0;
+    width: 100%;
     max-height: 200px;
     min-height: 24px;
     background: transparent;

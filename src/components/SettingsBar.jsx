@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Trophy, Moon, Sun, ChevronDown, AlertCircle, Menu, Plus } from 'lucide-react';
+import { Trophy, Moon, Sun, ChevronDown, AlertCircle, Menu, MessageSquarePlus } from 'lucide-react';
 import { useTranslation } from '../i18n.js';
 import './SettingsBar.css';
 
@@ -197,7 +197,7 @@ export default function SettingsBar({
                 title={t('newChat')}
                 aria-label={t('newChat')}
             >
-                <Plus size={22} />
+                <MessageSquarePlus size={22} />
             </button>
 
             <div className="settings-actions">

@@ -255,6 +255,12 @@
     display: none;
 }
 
+/* New-chat icon in the topbar lives ONLY on mobile (desktop has the
+   big "New Chat" button + the small icon inside the sidebar header). */
+.new-chat-btn-icon {
+    display: none;
+}
+
 @media (max-width: 768px) {
     .sidebar-hamburger {
         display: flex;
@@ -263,6 +269,14 @@
         width: 36px;
         height: 36px;
         margin-right: 0.5rem;
+    }
+
+    .new-chat-btn-icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 36px;
+        height: 36px;
     }
 
     .settings-bar {

@@ -433,8 +433,20 @@ function App() {
   };
 
   const handleNewChat = () => {
-    const currentChat = chats.find((chat) => chat.id === activeChatId);
-    if (currentChat && currentChat.messages.length === 0) {
+    // Always land in the chat view (the user might be on the leaderboard
+    // when they press "new chat"). Pressing the affordance from anywhere
+    // should take them to the chat surface.
+    setCurrentView('chat');
+
+    // At most one empty chat exists at any time — pressing "new chat" while
+    // an empty chat already lives in the sidebar just re-selects it instead
+    // of stacking another empty placeholder. Without this, switching to an
+    // existing-with-messages chat and pressing "new chat" was creating a
+    // fresh empty every time (the old guard only checked the *current*
+    // chat).
+    const existingEmpty = chats.find((c) => !c.messages || c.messages.length === 0);
+    if (existingEmpty) {
+      setActiveChatId(existingEmpty.id);
       return;
     }
 

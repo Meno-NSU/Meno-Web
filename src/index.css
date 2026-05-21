@@ -72,6 +72,16 @@
   padding: 0;
 }
 
+html, body {
+  /* Defense-in-depth against any descendant that asks for more horizontal
+     space than the viewport (notably iOS WebKit form controls with long
+     placeholders — see .chat-textarea). Clipping at the document root
+     guarantees the user can always reach the right-edge controls (Send,
+     hamburger menu items) no matter what an inner element computes. */
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
 body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   background-color: var(--bg-primary);
@@ -125,6 +135,12 @@ body {
 
 .main-content {
   flex: 1;
+  /* Flex children default to `min-width: auto` (content-based) which
+     refuses to shrink past the intrinsic min-width of descendants.
+     `min-width: 0` lets the main column actually fit the viewport when
+     a child (textarea, dropdown trigger, long message) would otherwise
+     drag it past the right edge. */
+  min-width: 0;
   display: flex;
   flex-direction: column;
   height: 100%;

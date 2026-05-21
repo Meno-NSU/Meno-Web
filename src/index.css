@@ -10,8 +10,8 @@
 
   --border-color: #e5e7eb;
 
-  --accent-primary: #2563eb;
-  --accent-hover: #1d4ed8;
+  --accent-primary: #3b82f6;
+  --accent-hover: #2563eb;
   --accent-text: #ffffff;
 
   --msg-user-bg: #f3f4f6;
@@ -26,8 +26,8 @@
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
 
-  --primary: #2563eb;
-  --primary-hover: #1d4ed8;
+  --primary: #3b82f6;
+  --primary-hover: #2563eb;
   --surface-3: #e5e7eb;
   --text-1: #111827;
 }

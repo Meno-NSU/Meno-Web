@@ -871,6 +871,7 @@ function App() {
 
       <main className="main-content">
         <SettingsBar
+          onNewChat={handleNewChat}
           theme={theme}
           toggleTheme={toggleTheme}
           isSidebarOpen={isSidebarOpen}

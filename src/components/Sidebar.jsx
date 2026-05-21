@@ -53,19 +53,18 @@ export default function Sidebar({
                     <button className="sidebar-toggle-btn" onClick={toggleSidebar} title={t("closeSidebar")}>
                         <PanelLeftClose size={20} />
                     </button>
-                    <div style={{display: 'flex', gap: '0.5rem', flex: 1, minWidth: 0}}>
-                        <button className="new-chat-btn" onClick={() => { setCurrentView?.('chat'); onNewChat(); }} style={{ flex: 1, minWidth: 0 }}>
-                            <span>{t("newChat")}</span>
-                        </button>
-                        <button
-                            className="btn-icon new-chat-icon-btn-sidebar"
-                            onClick={() => { setCurrentView?.('chat'); onNewChat(); }}
-                            title={t("newChat")}
-                            aria-label={t("newChat")}
-                        >
-                            <MessageSquarePlus size={20} />
-                        </button>
-                    </div>
+                    {/* Single new-chat button inside the sidebar header, on
+                        desktop only. On mobile this affordance lives in the
+                        topbar instead (see SettingsBar.new-chat-btn-icon),
+                        so the sidebar drawer doesn't duplicate it. */}
+                    <button
+                        className="new-chat-btn sidebar-new-chat-btn"
+                        onClick={onNewChat}
+                        style={{ flex: 1, minWidth: 0 }}
+                    >
+                        <MessageSquarePlus size={20} />
+                        <span>{t("newChat")}</span>
+                    </button>
                 </div>
 
                 <div className="sidebar-content">

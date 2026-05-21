@@ -253,6 +253,12 @@
         display: none;
     }
 
+    /* New chat lives only in the topbar on mobile — the sidebar drawer is
+       for browsing existing chats. Hide the duplicate inside the drawer. */
+    .sidebar-new-chat-btn {
+        display: none;
+    }
+
     /* The action panel moves into the sidebar overlay on mobile. */
     .sidebar-actions {
         display: flex;

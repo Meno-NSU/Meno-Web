@@ -67,8 +67,14 @@ export class ArenaPoolExhaustedError extends Error {
 export async function runArenaSideWithSubstitution({
     pool, exclude, kbId, messages, sessionId, sendChat, onEvent,
     initialCandidate = null,
+    onSubstitution = null,
 }) {
-    const MAX_ATTEMPTS = 3;
+    // 5 attempts (was 3) so we don't bail out of the round just because two
+    // OR models happened to be rate-limited / silent / down at the same time.
+    // With a weighted pool of ~28 models the substitute branch will normally
+    // find a working one within the first 2 tries; the extra budget is for
+    // edge cases (open-router fleet wobble, vLLM endpoint blip, etc).
+    const MAX_ATTEMPTS = 5;
     for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
         // First attempt prefers the pre-picked candidate (so App.jsx can
         // guarantee the two sides start on disjoint models). On retry, or
@@ -90,6 +96,17 @@ export async function runArenaSideWithSubstitution({
                     onEvent(event);
                 },
             });
+            // A clean 200 with zero content (or only whitespace) doesn't
+            // count as an answer — keep substituting. Without this check
+            // the side ends up votable on a blank bubble, or the user has
+            // to retype to retry.
+            const text = (result?.content || '').trim();
+            if (!text) {
+                exclude.add(candidate.id);
+                if (firstTokenReceived) throw new Error('Model emitted partial content then went silent');
+                if (onSubstitution) onSubstitution(candidate.id, 'blank');
+                continue;
+            }
             return { model: candidate, result };
         } catch (err) {
             exclude.add(candidate.id);
@@ -102,6 +119,7 @@ export async function runArenaSideWithSubstitution({
             // `seed`, transient_timeout, even internal_error). A single bad
             // model in a 28-model pool used to kill the whole round; arena
             // is only meaningful with two complete answers.
+            if (onSubstitution) onSubstitution(candidate.id, err?.code || 'error');
         }
     }
     throw new ArenaPoolExhaustedError();

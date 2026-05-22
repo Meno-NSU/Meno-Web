@@ -8,30 +8,32 @@ import { buildArenaHistories, arenaTurnIndex } from '../services/arenaHistory.js
 import './ChatArea.css';
 
 // ── Loading phrases ──────────────────────────────────────────────────────────
-const LOADING_PHRASES = [
-    'Думаю…',
-    'Обращаюсь к мудрецам Академгородка…',
-    'Сопоставляю факты из базы знаний…',
-    'Ищу релевантные документы…',
-    'Роюсь в библиотеке…',
-    'Обрабатываю контекст…',
-    'Взвешиваю гипотезы…',
-    'Прогоняю через нейронные веса…',
-    'Консультируюсь с источниками…',
-    'Анализирую семантику вопроса…',
-];
-
+// Phrases now live in `src/i18n.js` (key `loadingPhrases`) and follow the
+// active language — see useTranslation().
 function LoadingPhrase() {
-    const [index, setIndex] = useState(() => Math.floor(Math.random() * LOADING_PHRASES.length));
+    const { t, lang } = useTranslation();
+    const phrases = (Array.isArray(t('loadingPhrases')) && t('loadingPhrases').length > 0)
+        ? t('loadingPhrases')
+        : ['…'];
+    const [index, setIndex] = useState(() => Math.floor(Math.random() * phrases.length));
     const [visible, setVisible] = useState(true);
+
+    // Reset index when the language switches so we don't briefly index past
+    // the new language's array bounds (the two language arrays may differ
+    // in length down the road).
+    useEffect(() => {
+        setIndex(Math.floor(Math.random() * phrases.length));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [lang]);
 
     useEffect(() => {
         const cycle = setInterval(() => {
             setVisible(false);
             setTimeout(() => {
                 setIndex(prev => {
+                    if (phrases.length <= 1) return 0;
                     let next;
-                    do { next = Math.floor(Math.random() * LOADING_PHRASES.length); }
+                    do { next = Math.floor(Math.random() * phrases.length); }
                     while (next === prev);
                     return next;
                 });
@@ -39,14 +41,26 @@ function LoadingPhrase() {
             }, 400); // fade-out duration before swap
         }, 2600);
         return () => clearInterval(cycle);
-    }, []);
+    }, [phrases.length]);
 
     return (
         <div className={`loading-phrase ${visible ? 'visible' : 'hidden'}`}>
-            {LOADING_PHRASES[index]}
+            {phrases[Math.min(index, phrases.length - 1)]}
         </div>
     );
 }
+
+// All inline links rendered from model output must open in a new tab —
+// otherwise tapping one inside an in-progress arena round navigates the SPA
+// away from the chat, kills both streams, and surfaces as
+// "voting unavailable — try again". `noreferrer` keeps referrer info out
+// of arbitrary third-party URLs.
+const MARKDOWN_COMPONENTS = {
+    // eslint-disable-next-line no-unused-vars
+    a: ({ node, ...props }) => (
+        <a {...props} target="_blank" rel="noopener noreferrer" />
+    ),
+};
 
 // ── Think block parser ───────────────────────────────────────────────────────
 /**
@@ -110,7 +124,7 @@ function ThinkBlock({ content, thinkTime, streaming }) {
             </button>
             {isOpen && (
                 <div className="think-content">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    <ReactMarkdown remarkPlugins={[remarkGfm]} components={MARKDOWN_COMPONENTS}>
                         {content}
                     </ReactMarkdown>
                 </div>
@@ -203,7 +217,7 @@ function AgentThinkingBlock({ stages, summary, thinkingContent }) {
                     ))}
                     {thinkingContent && (
                         <div className="agent-thinking-content">
-                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            <ReactMarkdown remarkPlugins={[remarkGfm]} components={MARKDOWN_COMPONENTS}>
                                 {thinkingContent}
                             </ReactMarkdown>
                         </div>
@@ -606,10 +620,10 @@ export function ArenaMessageBubble({ message, chatId, setChats, isGenerating, qu
                             seg.type === 'think' ? (
                                 <ThinkBlock key={i} content={seg.content} thinkTime={seg.thinkTime} streaming={seg.streaming} />
                             ) : (
-                                <ReactMarkdown key={i} remarkPlugins={[remarkGfm]}>{seg.content}</ReactMarkdown>
+                                <ReactMarkdown key={i} remarkPlugins={[remarkGfm]} components={MARKDOWN_COMPONENTS}>{seg.content}</ReactMarkdown>
                             )
                         )}
-                        {isGenerating && <LoadingPhrase />}
+                        {arenaData.a.isStreaming && <LoadingPhrase />}
                     </div>
                     {canVote && (
                         <div className="arena-vote-primary">
@@ -630,10 +644,10 @@ export function ArenaMessageBubble({ message, chatId, setChats, isGenerating, qu
                             seg.type === 'think' ? (
                                 <ThinkBlock key={i} content={seg.content} thinkTime={seg.thinkTime} streaming={seg.streaming} />
                             ) : (
-                                <ReactMarkdown key={i} remarkPlugins={[remarkGfm]}>{seg.content}</ReactMarkdown>
+                                <ReactMarkdown key={i} remarkPlugins={[remarkGfm]} components={MARKDOWN_COMPONENTS}>{seg.content}</ReactMarkdown>
                             )
                         )}
-                        {isGenerating && <LoadingPhrase />}
+                        {arenaData.b.isStreaming && <LoadingPhrase />}
                     </div>
                     {canVote && (
                         <div className="arena-vote-primary">

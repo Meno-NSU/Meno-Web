@@ -1,11 +1,23 @@
+// Some OpenRouter ids point to a meta-router that resolves to a random
+// underlying model per request. Those can't honestly appear on the arena —
+// we'd be rating an opaque routing layer, and the same id could collide
+// against itself on both sides. They're still fine for regular chat;
+// just keep them out of the arena pool.
+const ARENA_BLOCKED_IDS = new Set([
+    'openrouter/free',
+    'openrouter/auto',
+]);
+
 export function buildArenaPool(models) {
     // Any model that the backend reports as available — vLLM or OpenRouter —
-    // is eligible for arena. We previously required OR models to be
-    // `featured`, but with an empty OPENROUTER_FEATURED_MODELS env (the
-    // default) zero OR models pass that check, so arena ended up with
-    // only 1 vLLM in the pool and showed "no available models" forever.
+    // is eligible for arena, except for known meta-router ids (see
+    // ARENA_BLOCKED_IDS). We previously required OR models to be `featured`,
+    // but with an empty OPENROUTER_FEATURED_MODELS env (the default) zero
+    // OR models pass that check, so arena ended up with only 1 vLLM in
+    // the pool and showed "no available models" forever.
     return (models || []).filter(
         (m) => (m.status?.state ?? 'available') === 'available'
+            && !ARENA_BLOCKED_IDS.has(m.id)
     );
 }
 

@@ -48,7 +48,34 @@ const translations = {
         stage_generation: "Генерация ответа",
         stage_retrieval_and_generation: "Поиск и генерация",
         sources: "Источники",
-        kbUnavailable: "недоступно"
+        kbUnavailable: "недоступно",
+        loadingPhrases: [
+            "Думаю над ответом…",
+            "Обращаюсь к мудрецам Академгородка…",
+            "Сопоставляю факты из базы знаний…",
+            "Ищу релевантные документы…",
+            "Роюсь в библиотеке…",
+            "Обрабатываю контекст…",
+            "Взвешиваю гипотезы…",
+            "Прогоняю через нейронные веса…",
+            "Консультируюсь с источниками…",
+            "Анализирую семантику вопроса…",
+            "Разбираю формулировку…",
+            "Вспоминаю, что знаю по теме…",
+            "Проверяю, правильно ли понял вопрос…",
+            "Складываю кусочки воедино…",
+            "Подбираю слова поточнее…",
+            "Перечитываю найденное…",
+            "Уточняю детали…",
+            "Прикидываю, что важно сказать…",
+            "Тку из контекста ответ…",
+            "Прислушиваюсь к чанкам поиска…",
+            "Проверяю себя на противоречия…",
+            "Подбираю аналогии…",
+            "Раскладываю мысли по полочкам…",
+            "Не торопимся, проверяю аккуратно…",
+            "Собираю каркас ответа…"
+        ]
     },
     en: {
         newChat: "New Chat",
@@ -97,7 +124,34 @@ const translations = {
         stage_generation: "Generating response",
         stage_retrieval_and_generation: "Search & generation",
         sources: "Sources",
-        kbUnavailable: "unavailable"
+        kbUnavailable: "unavailable",
+        loadingPhrases: [
+            "Thinking it through…",
+            "Consulting the local archive…",
+            "Cross-checking facts in the knowledge base…",
+            "Pulling up relevant documents…",
+            "Digging through the library…",
+            "Processing the context…",
+            "Weighing the hypotheses…",
+            "Running this through the network…",
+            "Talking to the sources…",
+            "Parsing the question…",
+            "Rereading what I just found…",
+            "Lining the pieces up…",
+            "Checking my understanding…",
+            "Picking the right words…",
+            "Looking for the best framing…",
+            "Sanity-checking myself for contradictions…",
+            "Making sure I got the question right…",
+            "Pulling together a draft…",
+            "Considering the angles…",
+            "Listening to the retrieved chunks…",
+            "Trying out an analogy…",
+            "Organising the thoughts…",
+            "Not rushing — verifying carefully…",
+            "Sketching the structure…",
+            "Putting it into one coherent answer…"
+        ]
     }
 };
 

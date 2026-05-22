@@ -49,6 +49,8 @@ const translations = {
         stage_retrieval_and_generation: "Поиск и генерация",
         sources: "Источники",
         kbUnavailable: "недоступно",
+        chatTimeoutWarning: "Модель не начала отвечать за 60 секунд. Похоже, провайдер заглох — задайте вопрос ещё раз чуть позже.",
+        arenaModelSwitched: "Модель не ответила, пробую другую…",
         loadingPhrases: [
             "Думаю над ответом…",
             "Обращаюсь к мудрецам Академгородка…",
@@ -125,6 +127,8 @@ const translations = {
         stage_retrieval_and_generation: "Search & generation",
         sources: "Sources",
         kbUnavailable: "unavailable",
+        chatTimeoutWarning: "The model didn't start responding within 60 seconds. Looks like the provider is stuck — try again in a moment.",
+        arenaModelSwitched: "That model didn't answer, trying another…",
         loadingPhrases: [
             "Thinking it through…",
             "Consulting the local archive…",
@@ -165,6 +169,14 @@ export const setLanguage = (lang) => {
 };
 
 export const getLanguage = () => currentLang;
+
+// Non-reactive lookup helper for plain functions (error builders, services)
+// that need a localized string but don't sit inside a React component.
+// Returns the string in the active language at the moment of call; further
+// language switches do not retroactively update strings written via this.
+export function translateOnce(key) {
+    return translations[currentLang]?.[key] || translations['en']?.[key] || key;
+}
 
 export function useTranslation() {
     const [lang, setLang] = useState(currentLang);

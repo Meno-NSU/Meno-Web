@@ -24,6 +24,7 @@ import {
   migrateChats,
   saveChats,
 } from './store/chatStore.js';
+import { translateOnce as i18nLookup } from './i18n.js';
 import './index.css';
 
 const LAST_USED_MODEL_KEY = 'lastUsedModelId';
@@ -39,6 +40,12 @@ const EMPTY_CHAT = {
 };
 
 function buildErrorMessage(error) {
+  if (error.code === 'chat_timeout') {
+    // i18n.js getLanguage() avoids dragging `useTranslation` into a plain
+    // helper. The string is written into setChats once on error; it stays
+    // in whatever the active language was at error time.
+    return `⚠ ${i18nLookup('chatTimeoutWarning')}`;
+  }
   if (error.code === 'model_rate_limited') {
     const until = error.until ? new Date(error.until) : null;
     const hh = until ? String(until.getHours()).padStart(2, '0') : '??';
@@ -614,6 +621,15 @@ function App() {
               pool, exclude: sideExclude, kbId, messages: sideMessages, sessionId: requestConfig.sessionId,
               initialCandidate: sideInitial,
               sendChat: sendChatMessage,
+              // Notify the user the moment we burn a model and pick another:
+              // briefly write a hint into this side's content so they know
+              // why this column is still spinning. The hint is overwritten
+              // by the next model's content as soon as it starts streaming.
+              onSubstitution: () => {
+                setChats((prev) => updateLastArenaMessageSide(prev, targetChatId, sideKey, (sideState) => ({
+                  ...sideState, content: `⏳ ${i18nLookup('arenaModelSwitched')}`,
+                })));
+              },
               onEvent: (event) => {
                 if (event.type !== 'content') return;
                 if (event.fullContent && event.fullContent.length > 0) {

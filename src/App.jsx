@@ -627,16 +627,22 @@ function App() {
             if (!receivedContent) {
               // Blank response: keep `model: null` so `bothSidesReady` stays
               // false in ArenaMessageBubble and the user can't vote on a
-              // missing answer.
+              // missing answer. Stop the spinner regardless — this side IS
+              // done, just unsuccessfully.
               setChats((prev) => updateLastArenaMessageSide(prev, targetChatId, sideKey, (sideState) => ({
                 ...sideState,
                 model: null,
+                isStreaming: false,
                 content: sideState.content || '⚠ Модель не вернула ответ. Попробуйте новый вопрос.',
               })));
               return;
             }
+            // Per-side completion: stop *this* column's spinner now, even
+            // though the other side may still be streaming. Avoids the
+            // "two thinking phrases when only one is actually working"
+            // confusion.
             setChats((prev) => updateLastArenaMessageSide(prev, targetChatId, sideKey, (sideState) => ({
-              ...sideState, model: model.id,
+              ...sideState, model: model.id, isStreaming: false,
             })));
           } catch (error) {
             const isExhausted = error instanceof ArenaPoolExhaustedError;
@@ -645,7 +651,7 @@ function App() {
               ? '⚠ Could not find an available model after several attempts.'
               : buildErrorMessage(error);
             setChats((prev) => updateLastArenaMessageSide(prev, targetChatId, sideKey, (sideState) => ({
-              ...sideState, content: sideState.content || errorMessage,
+              ...sideState, isStreaming: false, content: sideState.content || errorMessage,
             })));
             refreshModelsAndApplyState();
           }

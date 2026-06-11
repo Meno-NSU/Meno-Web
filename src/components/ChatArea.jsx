@@ -304,7 +304,10 @@ export default function ChatArea({ messages, isGenerating, onSendMessage, kbs, s
     return (
         <div className={`chat-container ${isEmpty ? 'empty-state' : ''}`}>
             {!isEmpty && (
-                <div className="chat-messages">
+                // Keyed by chat: switching chats remounts the list, which
+                // plays the chatViewIn entrance — a soft fade instead of an
+                // instant content swap.
+                <div className="chat-messages" key={chatId}>
                     {messages.map((msg, index) => {
                         if (msg.isArena) {
                             // Find the user question that preceded this arena response

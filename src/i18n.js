@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { flushSync } from 'react-dom';
 
 const translations = {
     ru: {
@@ -231,9 +232,25 @@ let currentLang = localStorage.getItem('lang') || 'ru';
 const listeners = new Set();
 
 export const setLanguage = (lang) => {
-    currentLang = lang;
-    localStorage.setItem('lang', lang);
-    listeners.forEach(l => l(lang));
+    const apply = () => {
+        currentLang = lang;
+        localStorage.setItem('lang', lang);
+        listeners.forEach(l => l(lang));
+    };
+    // Soft full-page crossfade on language switch (default view-transition
+    // animation — the theme toggle's circular reveal is scoped behind the
+    // .theme-switching class and doesn't apply here).
+    const reduceMotion = typeof window !== 'undefined'
+        && window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+    if (typeof document === 'undefined'
+        || typeof document.startViewTransition !== 'function'
+        || reduceMotion) {
+        apply();
+        return;
+    }
+    document.startViewTransition(() => {
+        flushSync(apply);
+    });
 };
 
 export const getLanguage = () => currentLang;

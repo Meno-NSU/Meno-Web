@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import Sidebar from './components/Sidebar.jsx';
 import ChatArea from './components/ChatArea.jsx';
 import SettingsBar from './components/SettingsBar.jsx';
@@ -397,8 +398,47 @@ function App() {
     }
   }, [selectedModel, selectedKb]);
 
-  const toggleTheme = () => {
-    setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));
+  // Theme switch "flows" across the screen: a circular reveal growing from
+  // the clicked control, via the View Transitions API. Browsers without it
+  // (and reduced-motion users) just get the instant switch.
+  const toggleTheme = (event) => {
+    const next = theme === 'light' ? 'dark' : 'light';
+    const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+    if (typeof document.startViewTransition !== 'function' || reduceMotion) {
+      setTheme(next);
+      return;
+    }
+
+    // Fallback origin ≈ where the topbar toggle lives.
+    const x = event?.clientX ?? window.innerWidth - 48;
+    const y = event?.clientY ?? 48;
+    const maxRadius = Math.hypot(
+      Math.max(x, window.innerWidth - x),
+      Math.max(y, window.innerHeight - y),
+    );
+
+    document.documentElement.classList.add('theme-switching');
+    const transition = document.startViewTransition(() => {
+      flushSync(() => setTheme(next));
+      // The persisting useEffect is async — snapshot needs the final DOM now.
+      document.documentElement.setAttribute('data-theme', next);
+    });
+    transition.ready
+      .then(() => {
+        document.documentElement.animate(
+          {
+            clipPath: [
+              `circle(0px at ${x}px ${y}px)`,
+              `circle(${maxRadius}px at ${x}px ${y}px)`,
+            ],
+          },
+          { duration: 550, easing: 'ease-in-out', pseudoElement: '::view-transition-new(root)' },
+        );
+      })
+      .catch(() => { /* transition skipped (rapid toggles) — theme already applied */ });
+    transition.finished.finally(() => {
+      document.documentElement.classList.remove('theme-switching');
+    });
   };
 
   const toggleSidebar = () => {

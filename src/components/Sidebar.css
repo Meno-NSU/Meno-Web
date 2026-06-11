@@ -9,6 +9,19 @@
     transition: width 0.3s ease;
     flex-shrink: 0;
     overflow: hidden;
+    /* The sidebar unmounts when closed, so opening = mounting: slide it in. */
+    animation: sidebarIn 0.22s ease;
+}
+
+@keyframes sidebarIn {
+    from {
+        opacity: 0;
+        transform: translateX(-16px);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
 }
 
 .sidebar-header {
@@ -38,6 +51,12 @@
     background-color: var(--bg-primary);
     border: 1px solid var(--border-color);
     box-shadow: var(--shadow-sm);
+    animation: collapsedBtnIn 0.25s ease;
+}
+
+@keyframes collapsedBtnIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
 }
 
 .sidebar-toggle-btn:hover {
@@ -230,6 +249,19 @@
         max-width: 320px;
         z-index: 60;
         box-shadow: 4px 0 12px rgba(0, 0, 0, 0.2);
+        /* Overlay drawer: a fuller slide reads better than the desktop nudge. */
+        animation: sidebarDrawerIn 0.25s ease;
+    }
+
+    @keyframes sidebarDrawerIn {
+        from {
+            transform: translateX(-60%);
+            opacity: 0.4;
+        }
+        to {
+            transform: none;
+            opacity: 1;
+        }
     }
 
     .sidebar-backdrop {

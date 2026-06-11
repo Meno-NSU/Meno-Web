@@ -168,6 +168,43 @@
     opacity: 1;
 }
 
+/* ── Entrance animations ─────────────────────────────────────────────────── */
+/* Chat switch: the keyed .chat-messages remounts and fades in as one block. */
+.chat-messages {
+    animation: chatViewIn 0.22s ease;
+}
+
+.empty-chat-hero {
+    animation: chatViewIn 0.25s ease;
+}
+
+@keyframes chatViewIn {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+/* New messages (yours and the assistant's placeholder) pop in gently. */
+.message-wrapper {
+    animation: messageIn 0.2s ease;
+}
+
+@keyframes messageIn {
+    from {
+        opacity: 0;
+        transform: translateY(4px);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
 /* Keep the bar visible when feedback is active (the given thumb shouldn't
    vanish when the cursor leaves) and for keyboard focus. */
 .message-actions-bar:focus-within,

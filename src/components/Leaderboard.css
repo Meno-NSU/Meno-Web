@@ -21,6 +21,37 @@
     margin-right: auto;
 }
 
+.leaderboard-container {
+    animation: leaderboardIn 0.25s ease;
+}
+
+@keyframes leaderboardIn {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+/* Tab switch: .table-wrapper is keyed by tab, so it remounts and fades. */
+.table-wrapper {
+    animation: tableTabIn 0.2s ease;
+}
+
+@keyframes tableTabIn {
+    from {
+        opacity: 0;
+        transform: translateY(4px);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
 /* Models / Contributors tab switcher */
 .leaderboard-tabs {
     display: grid;

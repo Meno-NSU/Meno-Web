@@ -82,6 +82,10 @@
     border-color: var(--text-tertiary);
 }
 
+.survey-answer:active {
+    transform: scale(0.96);
+}
+
 .survey-answer.yes {
     background: var(--accent-primary);
     border-color: var(--accent-primary);

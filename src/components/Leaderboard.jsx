@@ -164,7 +164,9 @@ export default function Leaderboard({ onClose }) {
             {loading ? (
                 <div className="leaderboard-loading">{t('arenaLoading')}</div>
             ) : (
-                <div className="table-wrapper">
+                // Keyed by tab: switching remounts the wrapper and plays the
+                // tableTabIn fade.
+                <div className="table-wrapper" key={tab}>
                     {isContrib
                         ? <ContributorsTable data={contribData || []} />
                         : <ArenaTable data={arenaData || []} />}

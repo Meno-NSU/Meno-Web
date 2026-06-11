@@ -27,6 +27,21 @@
     color: var(--text-primary);
 }
 
+.feedback-btn:active {
+    transform: scale(0.85);
+}
+
+/* Little pop when a thumb lands. */
+.feedback-btn.active svg {
+    animation: thumbPop 0.25s ease;
+}
+
+@keyframes thumbPop {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.3); }
+    100% { transform: scale(1); }
+}
+
 .feedback-btn.active {
     color: var(--accent-primary);
     background-color: rgba(23, 192, 233, 0.12);

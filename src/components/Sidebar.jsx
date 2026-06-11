@@ -45,7 +45,12 @@ export default function Sidebar({
         setCurrentView?.(currentView === 'leaderboard' ? 'chat' : 'leaderboard');
     });
     const handleArena = closeAfter(() => setIsArenaMode?.(!isArenaMode));
-    const handleTheme = closeAfter(() => toggleTheme?.());
+    // Keep the click event: toggleTheme uses it as the origin of the
+    // circular theme reveal, so the new theme spreads from the tap point.
+    const handleTheme = (event) => {
+        toggleTheme?.(event);
+        toggleSidebar();
+    };
     const handleLang = closeAfter(() => setLanguage(lang === 'ru' ? 'en' : 'ru'));
 
     return (

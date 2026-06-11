@@ -40,14 +40,19 @@
 }
 
 .empty-chat-icon {
-    width: 116px;
-    height: 116px;
+    width: 136px;
+    height: 136px;
     border-radius: 50%;
-    /* Borderless halo instead of a flat disc: a neutral slate cloud with a
-       whisper of brand cyan, melting to transparent. */
-    background:
-        radial-gradient(circle at 50% 45%, rgba(23, 192, 233, 0.05), transparent 55%),
-        radial-gradient(circle at 50% 45%, rgba(100, 116, 139, 0.12), rgba(100, 116, 139, 0.04) 55%, transparent 72%);
+    /* Borderless halo instead of a flat disc: a neutral slate cloud melting
+       to transparent. `closest-side` makes the fade finish strictly inside
+       the element, so its boundary never clips the gradient into a visible
+       edge. */
+    background: radial-gradient(
+        circle closest-side at 50% 46%,
+        rgba(100, 116, 139, 0.17),
+        rgba(100, 116, 139, 0.07) 55%,
+        transparent 100%
+    );
     display: flex;
     align-items: center;
     justify-content: center;
@@ -55,10 +60,14 @@
 }
 
 [data-theme='dark'] .empty-chat-icon {
-    /* Same idea in the dark: the mark softly glows out of the background. */
-    background:
-        radial-gradient(circle at 50% 45%, rgba(23, 192, 233, 0.10), transparent 58%),
-        radial-gradient(circle at 50% 45%, rgba(148, 163, 184, 0.07), transparent 75%);
+    /* Same idea in the dark: the mark softly glows out of the background,
+       with a whisper of brand cyan in the falloff. */
+    background: radial-gradient(
+        circle closest-side at 50% 46%,
+        rgba(160, 178, 200, 0.13),
+        rgba(23, 192, 233, 0.05) 55%,
+        transparent 100%
+    );
 }
 
 .empty-chat-hero h2 {

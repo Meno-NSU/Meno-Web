@@ -279,6 +279,18 @@ export async function submitSurvey({ sessionId, answer }) {
     return res.json();
 }
 
+// Arena votes go through the API client so the Bearer token rides along —
+// signed-in votes are attributed to the user (and count on the contributors
+// leaderboard). A raw fetch here silently dropped the attribution.
+export async function submitArenaVote(payload) {
+    const res = await fetchWithLogging(`${API_BASE_URL}/v1/arena/vote`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw await buildError(res, `Vote POST ${res.status}`);
+}
+
 // --- Contributor leaderboard (S3b) ---
 
 export async function fetchContributorLeaderboard() {

@@ -5,6 +5,7 @@ import { Copy, Check, Bot, ChevronDown, Brain, Loader, CheckCircle, ExternalLink
 import { useTranslation } from '../i18n.js';
 import ChatInput from './ChatInput.jsx';
 import MessageFeedback from './MessageFeedback.jsx';
+import { submitArenaVote } from '../services/api.js';
 import { buildArenaHistories, arenaTurnIndex } from '../services/arenaHistory.js';
 import './ChatArea.css';
 
@@ -561,25 +562,22 @@ export function ArenaMessageBubble({ message, chatId, setChats, isGenerating, qu
         const historyLenB = historyB.length;
 
         try {
-            const resp = await fetch('/v1/arena/vote', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    model_a: arenaData.a.model,
-                    kb_a: arenaData.a.kb,
-                    model_b: arenaData.b.model,
-                    kb_b: arenaData.b.kb,
-                    winner,
-                    response_a: arenaData.a.content || '',
-                    response_b: arenaData.b.content || '',
-                    question: question || '',
-                    session_id: chatId || '',
-                    turn_index: turnIndex,
-                    history_len_a: historyLenA,
-                    history_len_b: historyLenB,
-                }),
+            // Through the API client (not raw fetch) so a signed-in voter's
+            // Bearer token is attached and the vote is attributed to them.
+            await submitArenaVote({
+                model_a: arenaData.a.model,
+                kb_a: arenaData.a.kb,
+                model_b: arenaData.b.model,
+                kb_b: arenaData.b.kb,
+                winner,
+                response_a: arenaData.a.content || '',
+                response_b: arenaData.b.content || '',
+                question: question || '',
+                session_id: chatId || '',
+                turn_index: turnIndex,
+                history_len_a: historyLenA,
+                history_len_b: historyLenB,
             });
-            if (!resp.ok) throw new Error(`Vote POST ${resp.status}`);
             // Vote recorded: finalise voted=true so the bubble locks in.
             updateBubble({ voted: true, winner });
         } catch (e) {

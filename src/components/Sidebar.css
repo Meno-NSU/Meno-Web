@@ -69,7 +69,7 @@
 }
 
 .new-chat-btn:hover {
-    background-color: var(--primary-hover, #2563eb); /* Adjust if you use a specific primary color */
+    background-color: var(--primary-hover, #50ddff); /* Adjust if you use a specific primary color */
     box-shadow: 0 6px 8px -1px rgba(0, 0, 0, 0.15), 0 3px 6px -1px rgba(0, 0, 0, 0.1);
     transform: translateY(-1px);
 }

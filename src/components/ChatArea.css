@@ -274,7 +274,7 @@
    ══════════════════════════════════════════════════════════ */
 .agent-thinking-block {
     border: 1px solid var(--border-color);
-    border-left: 3px solid var(--accent-primary, #3b82f6);
+    border-left: 3px solid var(--accent-primary, #17c0e9);
     border-radius: 0.5rem;
     margin-bottom: 0.75rem;
     background-color: var(--bg-secondary);
@@ -308,7 +308,7 @@
 
 .agent-thinking-icon {
     flex-shrink: 0;
-    color: var(--accent-primary, #3b82f6);
+    color: var(--accent-primary, #17c0e9);
 }
 
 .agent-thinking-icon.complete {
@@ -487,7 +487,7 @@
 }
 
 .sources-list a {
-    color: var(--accent-color, #3b82f6);
+    color: var(--accent-color, #17c0e9);
     text-decoration: none;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -582,7 +582,7 @@
 }
 
 .vote-btn-primary:hover:not(:disabled) {
-    background-color: var(--primary-hover, #2563eb);
+    background-color: var(--primary-hover, #50ddff);
     transform: translateY(-2px);
     box-shadow: 0 6px 8px -1px rgba(0, 0, 0, 0.15);
 }

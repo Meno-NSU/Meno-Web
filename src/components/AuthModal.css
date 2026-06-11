@@ -128,7 +128,7 @@
 
 .auth-input:focus {
     border-color: var(--accent-primary);
-    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+    box-shadow: 0 0 0 2px rgba(23, 192, 233, 0.2);
 }
 
 .auth-input:disabled {

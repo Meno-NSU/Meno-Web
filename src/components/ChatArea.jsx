@@ -356,7 +356,7 @@ export default function ChatArea({ messages, isGenerating, onSendMessage, kbs, s
             {isEmpty && (
                 <div className="empty-chat-hero">
                     <div className="empty-chat-icon">
-                        <img src="/menon-icon.svg" alt="Менон" width={52} height={52} />
+                        <img src="/menon-icon.svg" alt="Менон" width={58} height={58} />
                     </div>
                     <h2>{t("emptyTitle")}</h2>
                     <p>{t("emptySubtitle")}</p>

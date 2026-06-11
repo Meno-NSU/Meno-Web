@@ -859,7 +859,9 @@ function App() {
           }
 
           let nextMessage = finalizeThinkTime(message);
-          nextMessage = { ...nextMessage, isStreaming: false };
+          // completionId is the OpenAI response id captured by the API client —
+          // message feedback (👍/👎) is attached to it server-side.
+          nextMessage = { ...nextMessage, isStreaming: false, completionId: result.completionId ?? null };
           const resolvedModelId = result.modelId
             || nextMessage.responseModelId
             || nextMessage.requestModelId

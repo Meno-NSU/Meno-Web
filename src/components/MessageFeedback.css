@@ -1,0 +1,108 @@
+.message-feedback {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.feedback-thumbs {
+    display: flex;
+    align-items: center;
+    gap: 0.15rem;
+}
+
+.feedback-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 0.4rem;
+    color: var(--text-tertiary);
+    transition: all 0.15s ease;
+}
+
+.feedback-btn:hover {
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
+.feedback-btn.active {
+    color: var(--accent-primary);
+    background-color: rgba(59, 130, 246, 0.12);
+}
+
+.feedback-btn.down.active {
+    color: var(--feedback-down, #dc2626);
+    background-color: rgba(220, 38, 38, 0.1);
+}
+
+[data-theme='dark'] .feedback-btn.down.active {
+    color: var(--feedback-down, #f87171);
+}
+
+.feedback-btn:disabled {
+    opacity: 0.6;
+    cursor: default;
+}
+
+.feedback-comment-row {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    flex: 1;
+    min-width: 200px;
+    max-width: 380px;
+    animation: feedbackRowIn 0.18s ease;
+}
+
+@keyframes feedbackRowIn {
+    from {
+        opacity: 0;
+        transform: translateY(-2px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.feedback-comment-input {
+    flex: 1;
+    min-width: 0;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 0.4rem;
+    padding: 0.3rem 0.6rem;
+    font-size: 0.8rem;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.15s ease;
+}
+
+.feedback-comment-input:focus {
+    border-color: var(--accent-primary);
+}
+
+.feedback-comment-send {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 0.4rem;
+    color: var(--text-secondary);
+    transition: all 0.15s ease;
+    flex-shrink: 0;
+}
+
+.feedback-comment-send:hover:not(:disabled) {
+    background-color: var(--bg-tertiary);
+    color: var(--accent-primary);
+}
+
+.feedback-comment-send:disabled {
+    opacity: 0.45;
+    cursor: default;
+}

@@ -168,6 +168,13 @@
     opacity: 1;
 }
 
+/* Keep the bar visible when feedback is active (the given thumb shouldn't
+   vanish when the cursor leaves) and for keyboard focus. */
+.message-actions-bar:focus-within,
+.message-actions-bar:has(.feedback-btn.active) {
+    opacity: 1;
+}
+
 .copy-btn {
     display: flex;
     align-items: center;

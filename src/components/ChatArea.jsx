@@ -4,6 +4,7 @@ import remarkGfm from 'remark-gfm';
 import { Copy, Check, Bot, ChevronDown, Brain, Loader, CheckCircle, ExternalLink } from 'lucide-react';
 import { useTranslation } from '../i18n.js';
 import ChatInput from './ChatInput.jsx';
+import MessageFeedback from './MessageFeedback.jsx';
 import { buildArenaHistories, arenaTurnIndex } from '../services/arenaHistory.js';
 import './ChatArea.css';
 
@@ -322,7 +323,7 @@ export default function ChatArea({ messages, isGenerating, onSendMessage, kbs, s
                                 : messages.slice(0, index);
                             return <ArenaMessageBubble key={index} message={msg} chatId={chatId} setChats={setChats} isGenerating={isGenerating} question={question} messagesBeforeRound={messagesBeforeRound} />;
                         }
-                        return <MessageBubble key={index} message={msg} />;
+                        return <MessageBubble key={index} message={msg} chatId={chatId} setChats={setChats} />;
                     })}
 
                     {isGenerating && (() => {
@@ -398,7 +399,7 @@ function SourcesBlock({ sources }) {
 }
 
 // ── Message bubble ───────────────────────────────────────────────────────────
-function MessageBubble({ message }) {
+function MessageBubble({ message, chatId, setChats }) {
     const isUser = message.role === 'user';
     const [copied, setCopied] = useState(false);
 
@@ -451,6 +452,12 @@ function MessageBubble({ message }) {
                         <button className="copy-btn" onClick={handleCopy} title="Copy message">
                             {copied ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
                         </button>
+                        {/* Thumbs need the completion id the backend attaches
+                            feedback to — it lands on the message only after a
+                            response finishes streaming. */}
+                        {message.completionId && !message.isStreaming && (
+                            <MessageFeedback message={message} chatId={chatId} setChats={setChats} />
+                        )}
                     </div>
                     {effectiveModelId && (
                         <span className="message-model-label">{effectiveModelId}</span>

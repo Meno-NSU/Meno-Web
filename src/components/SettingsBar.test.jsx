@@ -8,15 +8,17 @@ function renderBar({
     user = null,
     onOpenAuth = vi.fn(),
     onLogout = vi.fn(),
+    models = [],
+    onModelChange = vi.fn(),
 } = {}) {
     return render(
         <SettingsBar
             theme="light"
             toggleTheme={() => {}}
             isSidebarOpen={true}
-            models={[]}
+            models={models}
             selectedModel=""
-            onModelChange={() => {}}
+            onModelChange={onModelChange}
             onDropdownOpen={() => {}}
             isArenaMode={false}
             setIsArenaMode={() => {}}
@@ -81,5 +83,44 @@ describe('SettingsBar auth controls', () => {
         fireEvent.click(screen.getByText('Demo'));
         fireEvent.click(screen.getByText(/sign out|выйти/i));
         expect(onLogout).toHaveBeenCalled();
+    });
+});
+
+describe('SettingsBar locked models', () => {
+    const models = [
+        { id: 'local-vllm', provider: 'vllm', display_name: 'Local vLLM' },
+        { id: 'openrouter/demo', provider: 'openrouter', featured: true, display_name: 'OR Demo', requires_auth: true },
+    ];
+
+    function openDropdown(container) {
+        fireEvent.click(container.querySelector('.model-dropdown-trigger'));
+    }
+
+    it('opens the auth modal instead of selecting a locked model', () => {
+        const onOpenAuth = vi.fn();
+        const onModelChange = vi.fn();
+        const { container } = renderBar({ models, onOpenAuth, onModelChange });
+        openDropdown(container);
+        fireEvent.click(screen.getByText('OR Demo'));
+        expect(onOpenAuth).toHaveBeenCalled();
+        expect(onModelChange).not.toHaveBeenCalled();
+    });
+
+    it('still selects unlocked models normally', () => {
+        const onOpenAuth = vi.fn();
+        const onModelChange = vi.fn();
+        const { container } = renderBar({ models, onOpenAuth, onModelChange });
+        openDropdown(container);
+        fireEvent.click(screen.getByText('Local vLLM'));
+        expect(onModelChange).toHaveBeenCalledWith('local-vllm');
+        expect(onOpenAuth).not.toHaveBeenCalled();
+    });
+
+    it('marks the locked item with a sign-in hint', () => {
+        const { container } = renderBar({ models });
+        openDropdown(container);
+        const locked = screen.getByText('OR Demo').closest('button');
+        expect(locked.className).toMatch(/\blocked\b/);
+        expect(locked.title).toMatch(/sign in|войдите/i);
     });
 });

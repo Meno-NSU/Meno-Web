@@ -18,6 +18,9 @@ export function buildArenaPool(models) {
     return (models || []).filter(
         (m) => (m.status?.state ?? 'available') === 'available'
             && !ARENA_BLOCKED_IDS.has(m.id)
+            // Locked-behind-login models would just 401 at chat time and burn
+            // a substitution retry — keep them out of the anonymous pool.
+            && !m.requires_auth
     );
 }
 

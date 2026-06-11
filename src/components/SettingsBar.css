@@ -241,10 +241,14 @@
     opacity: 0.6;
 }
 .model-status-icon { margin-right: 6px; font-size: 0.7rem; }
+.model-dropdown-item.locked { color: var(--text-secondary); }
+.model-item-lock { color: var(--text-tertiary); vertical-align: middle; }
 .model-item-state {
     margin-left: auto;
+    padding-left: 0.5rem;
     font-size: 0.7rem;
     color: var(--text-tertiary, #aaa);
+    flex-shrink: 0;
 }
 
 /* Trigger label with OR sublabel */

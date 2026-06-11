@@ -358,11 +358,14 @@ function App() {
   const selectedModel = activeChat.runtimeConfig?.modelId || '';
   const selectedKb = activeChat.runtimeConfig?.knowledgeBaseId || '';
 
-  // Auto-fallback when the selected model disappears from the available list.
+  // Auto-fallback when the selected model disappears from the available list
+  // or becomes locked behind login (e.g. the user signed out while an
+  // OpenRouter model was selected — the server would reject chat against it).
   useEffect(() => {
     if (models.length === 0 || !activeChatId) return;
-    if (selectedModel && models.some((m) => m.id === selectedModel)) return;
-    const fallback = models[0]?.id || '';
+    const usable = (m) => !m.requires_auth;
+    if (selectedModel && models.some((m) => m.id === selectedModel && usable(m))) return;
+    const fallback = models.find(usable)?.id || '';
     if (fallback) {
       updateActiveChatRuntimeConfig({ modelId: fallback });
     }

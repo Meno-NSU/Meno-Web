@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Sidebar from './components/Sidebar.jsx';
 import ChatArea from './components/ChatArea.jsx';
 import SettingsBar from './components/SettingsBar.jsx';
 import Leaderboard from './components/Leaderboard.jsx';
+import AuthModal from './components/AuthModal.jsx';
 import {
   clearChatHistory,
   fetchKnowledgeBases,
@@ -24,6 +25,7 @@ import {
   migrateChats,
   saveChats,
 } from './store/chatStore.js';
+import { useAuth } from './store/authStore.js';
 import './index.css';
 
 const LAST_USED_MODEL_KEY = 'lastUsedModelId';
@@ -248,6 +250,10 @@ function App() {
   // Core model annotation from /v1/models response
   const [coreModelId, setCoreModelId] = useState(null);
 
+  // Auth (S3): optional sign-in — anonymous users keep full chat access.
+  const auth = useAuth();
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+
   // Initialize data and migrate stored chats to the chat-scoped config shape.
   useEffect(() => {
     const initData = async () => {
@@ -427,6 +433,22 @@ function App() {
       setCoreModelId(freshCoreModelId);
     } catch { /* ignore */ }
   }, []);
+
+  // Signing in/out changes what /v1/models returns (OpenRouter is gated behind
+  // login), so refresh the list whenever the auth state actually flips. The
+  // ref skips the initial render — initData already fetched the list.
+  const prevAuthedRef = useRef(null);
+  useEffect(() => {
+    if (!auth.ready) return;
+    if (prevAuthedRef.current === null) {
+      prevAuthedRef.current = auth.isAuthenticated;
+      return;
+    }
+    if (prevAuthedRef.current !== auth.isAuthenticated) {
+      prevAuthedRef.current = auth.isAuthenticated;
+      refreshModelsAndApplyState();
+    }
+  }, [auth.ready, auth.isAuthenticated, refreshModelsAndApplyState]);
 
   const handleKbChange = (knowledgeBaseId) => {
     updateActiveChatRuntimeConfig({ knowledgeBaseId });
@@ -885,6 +907,9 @@ function App() {
         toggleTheme={toggleTheme}
         isArenaMode={isArenaMode}
         setIsArenaMode={setIsArenaMode}
+        user={auth.user}
+        onOpenAuth={() => setIsAuthModalOpen(true)}
+        onLogout={auth.logout}
       />
 
       <main className="main-content">
@@ -903,6 +928,9 @@ function App() {
           setCurrentView={setCurrentView}
           coreModelId={coreModelId}
           onOpenSidebar={() => setIsSidebarOpen(true)}
+          user={auth.user}
+          onOpenAuth={() => setIsAuthModalOpen(true)}
+          onLogout={auth.logout}
         />
         {currentView === 'chat' ? (
           (() => {
@@ -937,6 +965,13 @@ function App() {
           <Leaderboard onClose={() => setCurrentView('chat')} />
         )}
       </main>
+
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        login={auth.login}
+        register={auth.register}
+      />
     </div>
   );
 }

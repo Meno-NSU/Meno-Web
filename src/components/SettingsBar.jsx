@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Trophy, Moon, Sun, ChevronDown, AlertCircle, Menu, MessageSquarePlus } from 'lucide-react';
+import { Trophy, Moon, Sun, ChevronDown, AlertCircle, Menu, MessageSquarePlus, LogIn, LogOut, UserRound } from 'lucide-react';
 import { useTranslation } from '../i18n.js';
 import './SettingsBar.css';
 
@@ -85,20 +85,28 @@ export default function SettingsBar({
     coreModelId,
     onOpenSidebar,
     onNewChat,
+    user,
+    onOpenAuth,
+    onLogout,
 }) {
     const { t, lang, setLanguage } = useTranslation();
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const [isAuthMenuOpen, setIsAuthMenuOpen] = useState(false);
     const dropdownRef = useRef(null);
+    const authMenuRef = useRef(null);
 
     const handleLangToggle = () => {
         setLanguage(lang === 'ru' ? 'en' : 'ru');
     };
 
-    // Close dropdown on outside click
+    // Close dropdowns on outside click
     useEffect(() => {
         const handleClickOutside = (e) => {
             if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
                 setIsDropdownOpen(false);
+            }
+            if (authMenuRef.current && !authMenuRef.current.contains(e.target)) {
+                setIsAuthMenuOpen(false);
             }
         };
         document.addEventListener('mousedown', handleClickOutside);
@@ -201,6 +209,47 @@ export default function SettingsBar({
             </button>
 
             <div className="settings-actions">
+                {user ? (
+                    <div className="auth-menu" ref={authMenuRef}>
+                        <button
+                            className="auth-chip"
+                            onClick={() => setIsAuthMenuOpen(!isAuthMenuOpen)}
+                            title={user.email}
+                            type="button"
+                        >
+                            <UserRound size={18} />
+                            <span className="auth-chip-name">{user.nickname || user.email}</span>
+                        </button>
+                        {isAuthMenuOpen && (
+                            <div className="auth-menu-dropdown">
+                                <div className="auth-menu-signed">
+                                    {t('authSignedInAs')}
+                                    <strong>{user.nickname || user.email}</strong>
+                                </div>
+                                <button
+                                    className="auth-menu-item"
+                                    onClick={() => {
+                                        setIsAuthMenuOpen(false);
+                                        onLogout();
+                                    }}
+                                    type="button"
+                                >
+                                    <LogOut size={16} />
+                                    {t('signOut')}
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                ) : (
+                    <button
+                        className="btn-icon auth-signin-btn"
+                        onClick={onOpenAuth}
+                        title={t('signIn')}
+                        aria-label={t('signIn')}
+                    >
+                        <LogIn size={20} />
+                    </button>
+                )}
                 <button
                     className="btn-icon lang-toggle"
                     onClick={handleLangToggle}

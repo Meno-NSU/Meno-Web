@@ -1,4 +1,6 @@
 import {
+    LogIn,
+    LogOut,
     MessageSquare,
     MessageSquarePlus,
     PanelLeftClose,
@@ -19,6 +21,7 @@ export default function Sidebar({
     currentView, setCurrentView,
     theme, toggleTheme,
     isArenaMode, setIsArenaMode,
+    user, onOpenAuth, onLogout,
 }) {
     const { t, lang, setLanguage } = useTranslation();
     if (!isOpen) {
@@ -100,6 +103,27 @@ export default function Sidebar({
 
                 {/* Mobile-only action panel — hidden via CSS on desktop. */}
                 <div className="sidebar-actions" role="group">
+                    {user ? (
+                        <button
+                            className="sidebar-action-btn"
+                            onClick={closeAfter(() => onLogout?.())}
+                            title={user.email}
+                        >
+                            <LogOut size={20} className="sidebar-action-icon" />
+                            <span className="sidebar-action-label">
+                                {t('signOut')} · {user.nickname || user.email}
+                            </span>
+                        </button>
+                    ) : (
+                        <button
+                            className="sidebar-action-btn"
+                            onClick={closeAfter(() => onOpenAuth?.())}
+                            title={t('signIn')}
+                        >
+                            <LogIn size={20} className="sidebar-action-icon" />
+                            <span className="sidebar-action-label">{t('signIn')}</span>
+                        </button>
+                    )}
                     <button
                         className="sidebar-action-btn"
                         onClick={handleLang}

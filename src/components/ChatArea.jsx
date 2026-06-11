@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Copy, Check, Bot, ChevronDown, Brain, Loader, CheckCircle, ExternalLink } from 'lucide-react';
+import { Copy, Check, ChevronDown, Brain, Loader, CheckCircle, ExternalLink } from 'lucide-react';
 import { useTranslation } from '../i18n.js';
 import ChatInput from './ChatInput.jsx';
 import MessageFeedback from './MessageFeedback.jsx';
@@ -356,7 +356,7 @@ export default function ChatArea({ messages, isGenerating, onSendMessage, kbs, s
             {isEmpty && (
                 <div className="empty-chat-hero">
                     <div className="empty-chat-icon">
-                        <Bot size={56} />
+                        <img src="/menon-icon.svg" alt="Менон" width={52} height={52} />
                     </div>
                     <h2>{t("emptyTitle")}</h2>
                     <p>{t("emptySubtitle")}</p>

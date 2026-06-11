@@ -1,0 +1,105 @@
+.survey-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(10, 12, 16, 0.35);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    animation: surveyFadeIn 0.15s ease;
+    padding: 1rem;
+}
+
+@keyframes surveyFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.survey-card {
+    position: relative;
+    width: min(400px, 100%);
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 1rem;
+    box-shadow: var(--shadow-lg);
+    padding: 1.75rem 1.75rem 1.25rem;
+    text-align: center;
+    animation: surveyCardIn 0.18s ease;
+}
+
+@keyframes surveyCardIn {
+    from {
+        opacity: 0;
+        transform: translateY(8px) scale(0.98);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.survey-close {
+    position: absolute;
+    top: 0.6rem;
+    right: 0.6rem;
+    width: 32px;
+    height: 32px;
+}
+
+.survey-emoji {
+    font-size: 1.8rem;
+    margin-bottom: 0.5rem;
+}
+
+.survey-question {
+    font-size: 1.05rem;
+    font-weight: 600;
+    line-height: 1.45;
+    margin-bottom: 1.25rem;
+}
+
+.survey-answers {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 0.5rem;
+}
+
+.survey-answer {
+    padding: 0.55rem 0.5rem;
+    border-radius: 0.6rem;
+    border: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    font-weight: 500;
+    transition: all 0.15s ease;
+}
+
+.survey-answer:hover {
+    background: var(--bg-tertiary);
+    border-color: var(--text-tertiary);
+}
+
+.survey-answer.yes {
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+    color: var(--accent-text);
+}
+
+.survey-answer.yes:hover {
+    background: var(--accent-hover);
+    border-color: var(--accent-hover);
+}
+
+.survey-skip {
+    margin-top: 0.9rem;
+    font-size: 0.8rem;
+    color: var(--text-tertiary);
+    transition: color 0.15s ease;
+}
+
+.survey-skip:hover {
+    color: var(--text-secondary);
+}

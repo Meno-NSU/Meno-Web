@@ -26,6 +26,8 @@ import {
   saveChats,
 } from './store/chatStore.js';
 import { useAuth } from './store/authStore.js';
+import SurveyModal from './components/SurveyModal.jsx';
+import { submitSurvey } from './services/api.js';
 import './index.css';
 
 const LAST_USED_MODEL_KEY = 'lastUsedModelId';
@@ -254,6 +256,9 @@ function App() {
   const auth = useAuth();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
+  // End-of-session survey (S2): chat id awaiting the one-question survey.
+  const [surveySessionId, setSurveySessionId] = useState(null);
+
   // Initialize data and migrate stored chats to the chat-scoped config shape.
   useEffect(() => {
     const initData = async () => {
@@ -436,6 +441,40 @@ function App() {
       setCoreModelId(freshCoreModelId);
     } catch { /* ignore */ }
   }, []);
+
+  // Survey trigger: leaving a chat that actually got answers and hasn't been
+  // surveyed yet. "Leaving" = activeChatId moved to a different chat (chat
+  // switch, new chat). Generation in flight defers the prompt — switching
+  // away mid-answer shouldn't interrupt with a modal.
+  const prevActiveChatRef = useRef(null);
+  useEffect(() => {
+    const prevId = prevActiveChatRef.current;
+    prevActiveChatRef.current = activeChatId;
+    if (!prevId || prevId === activeChatId) return;
+    const prevChat = chats.find((chat) => chat.id === prevId);
+    if (!prevChat || prevChat.surveyed) return;
+    if (generatingChats.has(prevId)) return;
+    const hadAnswer = (prevChat.messages || []).some(
+      (m) => m.role === 'assistant' && (m.completionId || m.isArena),
+    );
+    if (!hadAnswer) return;
+    setSurveySessionId(prevId);
+  }, [activeChatId, chats, generatingChats]);
+
+  // Both outcomes mark the chat surveyed locally first (never nag twice, even
+  // if the POST fails) and report best-effort: answers as themselves, every
+  // dismissal path as the explicit 'skipped'.
+  const handleSurveyDone = (answer) => {
+    const sessionId = surveySessionId;
+    setSurveySessionId(null);
+    if (!sessionId) return;
+    setChats((prev) => prev.map((chat) => (
+      chat.id === sessionId ? { ...chat, surveyed: true } : chat
+    )));
+    submitSurvey({ sessionId, answer }).catch((error) => {
+      console.warn('Survey answer not recorded', error);
+    });
+  };
 
   // Signing in/out changes what /v1/models returns (OpenRouter is gated behind
   // login), so refresh the list whenever the auth state actually flips. The
@@ -976,6 +1015,12 @@ function App() {
         onClose={() => setIsAuthModalOpen(false)}
         login={auth.login}
         register={auth.register}
+      />
+
+      <SurveyModal
+        isOpen={surveySessionId !== null}
+        onAnswer={handleSurveyDone}
+        onSkip={() => handleSurveyDone('skipped')}
       />
     </div>
   );

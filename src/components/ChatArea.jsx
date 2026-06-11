@@ -195,7 +195,7 @@ function AgentThinkingBlock({ stages, summary, thinkingContent }) {
                                     : s.status === 'complete'
                                         ? <Check size={12} />
                                         : s.status === 'failed'
-                                            ? <span style={{ color: '#ef4444' }}>!</span>
+                                            ? <span style={{ color: 'var(--danger)' }}>!</span>
                                             : <span>-</span>
                                 }
                             </span>

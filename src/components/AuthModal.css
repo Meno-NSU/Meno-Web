@@ -137,16 +137,12 @@
 
 .auth-error {
     font-size: 0.85rem;
-    color: var(--auth-error, #dc2626);
-    background: var(--auth-error-bg, rgba(220, 38, 38, 0.08));
-    border: 1px solid var(--auth-error-border, rgba(220, 38, 38, 0.25));
+    color: var(--danger);
+    background: var(--danger-bg);
+    border: 1px solid rgba(222, 32, 34, 0.25);
     border-radius: 0.5rem;
     padding: 0.5rem 0.75rem;
     line-height: 1.4;
-}
-
-[data-theme='dark'] .auth-error {
-    color: var(--auth-error, #f87171);
 }
 
 .auth-submit {

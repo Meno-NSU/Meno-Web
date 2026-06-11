@@ -4,9 +4,11 @@
   --bg-secondary: #f9f9fb;
   --bg-tertiary: #f0f0f4;
 
-  --text-primary: #111827;
-  --text-secondary: #4b5563;
-  --text-tertiary: #9ca3af;
+  /* Graphite neutrals anchored on the NSU brand gray #313131 — warmer than
+     the previous blue-tinted slate, kills the "clinical" temperature. */
+  --text-primary: #313131;
+  --text-secondary: #54585a;
+  --text-tertiary: #9b9fa1;
 
   --border-color: #e5e7eb;
 
@@ -31,7 +33,16 @@
   /* rgb triplet of --primary for rgba() derivations (arena winner tint) */
   --primary-rgb: 23, 192, 233;
   --surface-3: #e5e7eb;
-  --text-1: #111827;
+  --text-1: #313131;
+
+  /* Semantic accents from the NSU brand book: green = positive/success,
+     red = negative/destructive. Cyan stays the only ACTION color. */
+  --success: #72c81f;
+  --success-hover: #64b81b;
+  --success-strong: #5cb517;
+  --success-bg: rgba(114, 200, 31, 0.13);
+  --danger: #de2022;
+  --danger-bg: rgba(222, 32, 34, 0.10);
 }
 
 [data-theme='dark'] {
@@ -68,6 +79,14 @@
   --primary-rgb: 23, 192, 233;
   --surface-3: #2d313b;
   --text-1: #f3f4f6;
+
+  /* Brand semantic accents, lightened a touch for contrast on dark. */
+  --success: #84d83a;
+  --success-hover: #8fdf4f;
+  --success-strong: #8fdf4f;
+  --success-bg: rgba(114, 200, 31, 0.16);
+  --danger: #f0564f;
+  --danger-bg: rgba(222, 32, 34, 0.18);
 }
 
 * {
@@ -149,8 +168,22 @@ body {
   flex-direction: column;
   height: 100%;
   position: relative;
-  background-color: var(--bg-primary);
+  /* "Forest" atmosphere: two brand-tinted clouds (cyan ↖, green ↘) so the
+     canvas stops reading as a sterile white sheet. Both hues are from the
+     NSU palette. */
+  background:
+    radial-gradient(640px 420px at 8% -10%, rgba(23, 192, 233, 0.07), transparent 60%),
+    radial-gradient(860px 580px at 96% 112%, rgba(114, 200, 31, 0.07), transparent 62%),
+    var(--bg-primary);
   transition: all 0.3s ease;
+}
+
+[data-theme='dark'] .main-content {
+  /* Same clouds, deeper and quieter — dark keeps its character. */
+  background:
+    radial-gradient(640px 420px at 8% -10%, rgba(23, 192, 233, 0.05), transparent 60%),
+    radial-gradient(860px 580px at 96% 112%, rgba(114, 200, 31, 0.04), transparent 62%),
+    var(--bg-primary);
 }
 
 /* Buttons */

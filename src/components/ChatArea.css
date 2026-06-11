@@ -251,7 +251,7 @@
 }
 
 .text-green-500 {
-    color: #10b981;
+    color: var(--success-strong, #10b981);
 }
 
 .chat-input-wrapper {

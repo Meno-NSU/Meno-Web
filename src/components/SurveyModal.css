@@ -86,15 +86,16 @@
     transform: scale(0.96);
 }
 
+/* "Yes" is a semantic answer, not an action — brand green, not cyan. */
 .survey-answer.yes {
-    background: var(--accent-primary);
-    border-color: var(--accent-primary);
+    background: var(--success);
+    border-color: var(--success);
     color: var(--accent-text);
 }
 
 .survey-answer.yes:hover {
-    background: var(--accent-hover);
-    border-color: var(--accent-hover);
+    background: var(--success-hover);
+    border-color: var(--success-hover);
 }
 
 .survey-skip {

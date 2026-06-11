@@ -40,15 +40,25 @@
 }
 
 .empty-chat-icon {
-    width: 80px;
-    height: 80px;
+    width: 116px;
+    height: 116px;
     border-radius: 50%;
-    background-color: var(--bg-tertiary);
+    /* Borderless halo instead of a flat disc: a neutral slate cloud with a
+       whisper of brand cyan, melting to transparent. */
+    background:
+        radial-gradient(circle at 50% 45%, rgba(23, 192, 233, 0.05), transparent 55%),
+        radial-gradient(circle at 50% 45%, rgba(100, 116, 139, 0.12), rgba(100, 116, 139, 0.04) 55%, transparent 72%);
     display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--primary);
     margin: 0 auto;
+}
+
+[data-theme='dark'] .empty-chat-icon {
+    /* Same idea in the dark: the mark softly glows out of the background. */
+    background:
+        radial-gradient(circle at 50% 45%, rgba(23, 192, 233, 0.10), transparent 58%),
+        radial-gradient(circle at 50% 45%, rgba(148, 163, 184, 0.07), transparent 75%);
 }
 
 .empty-chat-hero h2 {

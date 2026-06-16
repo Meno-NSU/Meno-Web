@@ -40,34 +40,14 @@
 }
 
 .empty-chat-icon {
-    width: 136px;
-    height: 136px;
+    width: 80px;
+    height: 80px;
     border-radius: 50%;
-    /* Borderless halo instead of a flat disc: a neutral slate cloud melting
-       to transparent. `closest-side` makes the fade finish strictly inside
-       the element, so its boundary never clips the gradient into a visible
-       edge. */
-    background: radial-gradient(
-        circle closest-side at 50% 46%,
-        rgba(100, 116, 139, 0.17),
-        rgba(100, 116, 139, 0.07) 55%,
-        transparent 100%
-    );
+    background-color: var(--bg-tertiary);
     display: flex;
     align-items: center;
     justify-content: center;
     margin: 0 auto;
-}
-
-[data-theme='dark'] .empty-chat-icon {
-    /* Same idea in the dark: the mark softly glows out of the background,
-       with a whisper of brand cyan in the falloff. */
-    background: radial-gradient(
-        circle closest-side at 50% 46%,
-        rgba(160, 178, 200, 0.13),
-        rgba(23, 192, 233, 0.05) 55%,
-        transparent 100%
-    );
 }
 
 .empty-chat-hero h2 {

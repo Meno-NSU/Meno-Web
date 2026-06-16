@@ -13,6 +13,26 @@
 .chat-container.empty-state {
     justify-content: center;
     align-items: center;
+    /* Anchor for the absolutely-positioned greeting (see below). */
+    position: relative;
+}
+
+/* Welcome screen: center the INPUT BOX itself on the vertical midline (not
+   the greeting+input group, which left the box sitting low). The greeting is
+   lifted out of flow so only the input wrapper participates in centering. */
+.chat-container.empty-state .empty-chat-hero {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: calc(50% + 2rem);
+    padding: 0 1rem;
+}
+
+/* The wrapper holds the box AND the disclaimer caption + an asymmetric bottom
+   pad, so centering the wrapper puts the box ~24px high. Nudge it down so the
+   visible box lands on the exact midline. */
+.chat-container.empty-state .chat-input-wrapper.centered {
+    transform: translateY(24px);
 }
 
 .chat-messages {

@@ -9,7 +9,8 @@ import {
     Trophy,
     Moon,
     Sun,
-} from 'lucide-react';
+    Swords,
+} from './icons.jsx';
 import { useTranslation } from '../i18n.js';
 import './Sidebar.css';
 
@@ -153,7 +154,7 @@ export default function Sidebar({
                         onClick={handleArena}
                         title={`Arena Mode is ${isArenaMode ? 'ON' : 'OFF'}`}
                     >
-                        <span className="sidebar-action-icon" aria-hidden="true">⚔️</span>
+                        <span className="sidebar-action-icon" aria-hidden="true"><Swords size={20} /></span>
                         <span className="sidebar-action-label">
                             {isArenaMode ? t('battleArenaModeOn') : t('battleArenaModeOff')}
                         </span>

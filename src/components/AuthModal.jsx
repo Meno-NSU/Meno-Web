@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { X } from 'lucide-react';
+import { X } from './icons.jsx';
 import { useTranslation } from '../i18n.js';
 import './AuthModal.css';
 

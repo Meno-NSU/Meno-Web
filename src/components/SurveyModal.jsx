@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { X } from 'lucide-react';
+import { X, RateReview } from './icons.jsx';
 import { useTranslation } from '../i18n.js';
 import './SurveyModal.css';
 
@@ -38,7 +38,7 @@ export default function SurveyModal({ isOpen, onAnswer, onSkip }) {
                 >
                     <X size={18} />
                 </button>
-                <div className="survey-emoji" aria-hidden="true">💬</div>
+                <div className="survey-emoji" aria-hidden="true"><RateReview size={30} /></div>
                 <h3 className="survey-question">{t('surveyQuestion')}</h3>
                 <div className="survey-answers">
                     <button className="survey-answer yes" onClick={() => onAnswer('yes')} type="button">

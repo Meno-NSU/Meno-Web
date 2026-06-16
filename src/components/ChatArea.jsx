@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Copy, Check, ChevronDown, Brain, Loader, CheckCircle, ExternalLink } from 'lucide-react';
+import { Copy, Check, ChevronDown, Brain, Loader, CheckCircle, ExternalLink, Trophy, ArrowCircleLeft, ArrowCircleRight, Handshake, ThumbsDown } from './icons.jsx';
 import { useTranslation } from '../i18n.js';
 import ChatInput from './ChatInput.jsx';
 import MessageFeedback from './MessageFeedback.jsx';
@@ -618,7 +618,7 @@ export function ArenaMessageBubble({ message, chatId, setChats, isGenerating, qu
                 <div className="arena-column a" style={{ flex: 1, backgroundColor: bgA, border: borderA, borderRadius: '12px', padding: '1rem', overflowX: 'auto', display: 'flex', flexDirection: 'column' }}>
                     <div className="arena-header" style={{ marginBottom: '1rem', fontWeight: 'bold', display: 'flex', justifyContent: 'space-between' }}>
                         <span>{(arenaData.voted || arenaData.namesRevealed) ? `A: ${arenaData.a.model} (${arenaData.a.kb})` : 'Model A'}</span>
-                        {arenaData.voted && arenaData.winner === 'a' && <span style={{ color: 'var(--primary)' }}>🏆 Winner</span>}
+                        {arenaData.voted && arenaData.winner === 'a' && <span style={{ color: 'var(--primary)', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}><Trophy size={16} /> Winner</span>}
                     </div>
                     <div className="message-markdown prose" style={{ flex: 1, paddingBottom: isGenerating ? '2rem' : '0' }}>
                         {segmentsA.map((seg, i) =>
@@ -633,6 +633,7 @@ export function ArenaMessageBubble({ message, chatId, setChats, isGenerating, qu
                     {canVote && (
                         <div className="arena-vote-primary">
                             <button className="vote-btn vote-btn-primary" onClick={() => handleVote('a')} disabled={voting}>
+                                <ArrowCircleLeft size={18} />
                                 {t('arenaVoteLeftBetter')}
                             </button>
                         </div>
@@ -642,7 +643,7 @@ export function ArenaMessageBubble({ message, chatId, setChats, isGenerating, qu
                 <div className="arena-column b" style={{ flex: 1, backgroundColor: bgB, border: borderB, borderRadius: '12px', padding: '1rem', overflowX: 'auto', display: 'flex', flexDirection: 'column' }}>
                     <div className="arena-header" style={{ marginBottom: '1rem', fontWeight: 'bold', display: 'flex', justifyContent: 'space-between' }}>
                         <span>{(arenaData.voted || arenaData.namesRevealed) ? `B: ${arenaData.b.model} (${arenaData.b.kb})` : 'Model B'}</span>
-                        {arenaData.voted && arenaData.winner === 'b' && <span style={{ color: 'var(--primary)' }}>🏆 Winner</span>}
+                        {arenaData.voted && arenaData.winner === 'b' && <span style={{ color: 'var(--primary)', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}><Trophy size={16} /> Winner</span>}
                     </div>
                     <div className="message-markdown prose" style={{ flex: 1, paddingBottom: isGenerating ? '2rem' : '0' }}>
                         {segmentsB.map((seg, i) =>
@@ -657,6 +658,7 @@ export function ArenaMessageBubble({ message, chatId, setChats, isGenerating, qu
                     {canVote && (
                         <div className="arena-vote-primary">
                             <button className="vote-btn vote-btn-primary" onClick={() => handleVote('b')} disabled={voting}>
+                                <ArrowCircleRight size={18} />
                                 {t('arenaVoteRightBetter')}
                             </button>
                         </div>
@@ -684,8 +686,8 @@ export function ArenaMessageBubble({ message, chatId, setChats, isGenerating, qu
 
             {canVote && (
                 <div className="arena-vote-secondary" style={{ display: 'flex', justifyContent: 'center', gap: '1rem', marginTop: '1rem' }}>
-                    <button className="vote-btn vote-btn-secondary" onClick={() => handleVote('tie')} disabled={voting}>{t('arenaVoteTie')}</button>
-                    <button className="vote-btn vote-btn-secondary" onClick={() => handleVote('both_bad')} disabled={voting}>{t('arenaVoteBothBad')}</button>
+                    <button className="vote-btn vote-btn-secondary" onClick={() => handleVote('tie')} disabled={voting}><Handshake size={16} />{t('arenaVoteTie')}</button>
+                    <button className="vote-btn vote-btn-secondary" onClick={() => handleVote('both_bad')} disabled={voting}><ThumbsDown size={16} />{t('arenaVoteBothBad')}</button>
                 </div>
             )}
         </div>

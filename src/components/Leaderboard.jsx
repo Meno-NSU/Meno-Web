@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Trophy, Users, X } from 'lucide-react';
+import { Trophy, Users, X } from './icons.jsx';
 import { useTranslation } from '../i18n.js';
 import { fetchContributorLeaderboard } from '../services/api.js';
 import './Leaderboard.css';

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ThumbsUp, ThumbsDown, Check, SendHorizontal } from 'lucide-react';
+import { ThumbsUp, ThumbsDown, Check, SendHorizontal } from './icons.jsx';
 import { useTranslation } from '../i18n.js';
 import { clearFeedback, submitFeedback } from '../services/api.js';
 import './MessageFeedback.css';

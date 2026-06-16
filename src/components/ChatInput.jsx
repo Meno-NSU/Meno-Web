@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { SendHorizontal, Database } from 'lucide-react';
+import { SendHorizontal, Database } from './icons.jsx';
 import { useTranslation } from '../i18n.js';
 import './ChatInput.css';
 

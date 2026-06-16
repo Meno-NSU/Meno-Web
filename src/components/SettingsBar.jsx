@@ -1,12 +1,12 @@
 import { useState, useRef, useEffect } from 'react';
-import { Trophy, Moon, Sun, ChevronDown, AlertCircle, Menu, MessageSquarePlus, LogIn, LogOut, UserRound, Lock } from 'lucide-react';
+import { Trophy, Moon, Sun, ChevronDown, ChevronRight, AlertCircle, Menu, MessageSquarePlus, LogIn, LogOut, UserRound, Lock, Swords, Check, Circle, Schedule, CloudOff } from './icons.jsx';
 import { useTranslation } from '../i18n.js';
 import './SettingsBar.css';
 
-function statusIcon(state) {
-    if (state === 'rate_limited') return '◐';
-    if (state === 'unreachable') return '○';
-    return '●';
+function StatusIcon({ state }) {
+    if (state === 'rate_limited') return <Schedule size={12} />;
+    if (state === 'unreachable') return <CloudOff size={12} />;
+    return <Circle size={9} />; // available
 }
 
 function formatUntil(untilIso) {
@@ -48,10 +48,10 @@ function ModelItem({ model, selected, onSelect, onRequireAuth }) {
             title={requiresAuth ? t('modelRequiresAuth') : stateLabel || ''}
         >
             <span className="model-status-icon">
-                {requiresAuth ? <Lock size={11} className="model-item-lock" /> : statusIcon(model.status?.state)}
+                {requiresAuth ? <Lock size={12} className="model-item-lock" /> : <StatusIcon state={model.status?.state} />}
             </span>
             <span className="model-item-name">{model.display_name || model.id}</span>
-            {selected && <span className="model-item-check">✓</span>}
+            {selected && <span className="model-item-check"><Check size={16} /></span>}
             {requiresAuth && <span className="model-item-state">{t('signIn')}</span>}
             {!requiresAuth && stateLabel && <span className="model-item-state">{stateLabel}</span>}
         </button>
@@ -83,7 +83,8 @@ function AllFreeModelsExpander({ items, selectedModel, onSelect, onRequireAuth }
                 onClick={() => setOpen(!open)}
                 type="button"
             >
-                {open ? '▾' : '▸'} All free models ({items.length})
+                {open ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                <span>All free models ({items.length})</span>
             </button>
             {open && items.map(m => (
                 <ModelItem key={m.id} model={m} selected={m.id === selectedModel} onSelect={onSelect} onRequireAuth={onRequireAuth} />
@@ -293,7 +294,7 @@ export default function SettingsBar({
                     onClick={() => setIsArenaMode(!isArenaMode)}
                     title={`Arena Mode is ${isArenaMode ? 'ON' : 'OFF'}`}
                 >
-                    <span className="arena-icon">⚔️</span>
+                    <span className="arena-icon"><Swords size={18} /></span>
                     <span className="arena-text">{isArenaMode ? t('battleArenaModeOn') : t('battleArenaModeOff')}</span>
                 </button>
                 <button

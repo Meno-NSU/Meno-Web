@@ -49,8 +49,10 @@
 }
 
 .survey-emoji {
-    font-size: 1.8rem;
-    margin-bottom: 0.5rem;
+    display: flex;
+    justify-content: center;
+    color: var(--primary);
+    margin-bottom: 0.6rem;
 }
 
 .survey-question {

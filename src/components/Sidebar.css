@@ -34,8 +34,13 @@
 }
 
 .sidebar-logo {
-    height: 26px;
+    height: 36px;
     width: auto;
+    /* The wordmark letters live in the lower ~63% of the SVG (the top third is
+       just the robot's antenna). Lift the image so the LETTERS — not the full
+       SVG box — sit centered in the header row, giving equal space above and
+       below the text. -6.6px = (0.685 − 0.5) × 36px. */
+    transform: translateY(-6.6px);
     flex-shrink: 1;
     min-width: 0;
     object-fit: contain;

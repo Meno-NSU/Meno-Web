@@ -7,7 +7,7 @@
 // sites barely change. Exports are NAMED after their former lucide icons to
 // keep the swap a one-line import change per component.
 
-import AddCommentSvg from '@material-symbols/svg-400/rounded/add_comment.svg?react';
+import AddCircleSvg from '@material-symbols/svg-400/rounded/add_circle.svg?react';
 import AccountCircleSvg from '@material-symbols/svg-400/rounded/account_circle.svg?react';
 import ArrowCircleLeftSvg from '@material-symbols/svg-400/rounded/arrow_circle_left.svg?react';
 import ArrowCircleRightSvg from '@material-symbols/svg-400/rounded/arrow_circle_right.svg?react';
@@ -26,8 +26,7 @@ import ErrorSvg from '@material-symbols/svg-400/rounded/error.svg?react';
 import GroupSvg from '@material-symbols/svg-400/rounded/group.svg?react';
 import HandshakeSvg from '@material-symbols/svg-400/rounded/handshake.svg?react';
 import KeyboardArrowDownSvg from '@material-symbols/svg-400/rounded/keyboard_arrow_down.svg?react';
-import LeftPanelCloseSvg from '@material-symbols/svg-400/rounded/left_panel_close.svg?react';
-import LeftPanelOpenSvg from '@material-symbols/svg-400/rounded/left_panel_open.svg?react';
+import MenuOpenSvg from '@material-symbols/svg-400/rounded/menu_open.svg?react';
 import LightModeSvg from '@material-symbols/svg-400/rounded/light_mode.svg?react';
 import LockSvg from '@material-symbols/svg-400/rounded/lock.svg?react';
 import LoginSvg from '@material-symbols/svg-400/rounded/login.svg?react';
@@ -70,13 +69,15 @@ export const Sun = makeIcon(LightModeSvg, 'Sun');
 export const ChevronDown = makeIcon(KeyboardArrowDownSvg, 'ChevronDown');
 export const AlertCircle = makeIcon(ErrorSvg, 'AlertCircle');
 export const Menu = makeIcon(MenuSvg, 'Menu');
-export const MessageSquarePlus = makeIcon(AddCommentSvg, 'MessageSquarePlus');
+export const MessageSquarePlus = makeIcon(AddCircleSvg, 'MessageSquarePlus');
 export const LogIn = makeIcon(LoginSvg, 'LogIn');
 export const LogOut = makeIcon(LogoutSvg, 'LogOut');
 export const UserRound = makeIcon(AccountCircleSvg, 'UserRound');
 export const Lock = makeIcon(LockSvg, 'Lock');
-export const PanelLeftClose = makeIcon(LeftPanelCloseSvg, 'PanelLeftClose');
-export const PanelLeft = makeIcon(LeftPanelOpenSvg, 'PanelLeft');
+// Collapse / reopen sidebar — the hamburger pair reads rounder (rounded
+// strokes, no sharp panel rectangle) and matches the robot better.
+export const PanelLeftClose = makeIcon(MenuOpenSvg, 'PanelLeftClose');
+export const PanelLeft = makeIcon(MenuSvg, 'PanelLeft');
 export const MessageSquare = makeIcon(ChatBubbleSvg, 'MessageSquare');
 export const Trash2 = makeIcon(DeleteSvg, 'Trash2');
 export const Copy = makeIcon(ContentCopySvg, 'Copy');

@@ -28,8 +28,19 @@
     padding: 1rem;
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 0.5rem;
     border-bottom: 1px solid transparent;
+}
+
+.sidebar-logo {
+    height: 26px;
+    width: auto;
+    flex-shrink: 1;
+    min-width: 0;
+    object-fit: contain;
+    object-position: left center;
+    user-select: none;
 }
 
 .sidebar-toggle-btn {
@@ -73,29 +84,27 @@
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
-    background-color: var(--primary);
-    color: white;
-    flex: 1;
+    /* Neutral site gray, not the cyan accent — sits below the logo as a
+       quiet secondary action. */
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+    margin: 0 1rem 0.25rem;
     padding: 0.75rem 1.25rem;
-    height: 48px;
+    height: 46px;
     border-radius: 12px;
     font-weight: 600;
     font-size: 1rem;
-    border: none;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-    transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+    border: 1px solid var(--border-color);
+    transition: transform 0.2s ease, background-color 0.2s ease;
     cursor: pointer;
 }
 
 .new-chat-btn:hover {
-    background-color: var(--primary-hover, #50ddff); /* Adjust if you use a specific primary color */
-    box-shadow: 0 6px 8px -1px rgba(0, 0, 0, 0.15), 0 3px 6px -1px rgba(0, 0, 0, 0.1);
-    transform: translateY(-1px);
+    background-color: var(--sidebar-hover);
 }
 
 .new-chat-btn:active {
-    transform: translateY(1px);
-    box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.1);
+    transform: scale(0.98);
 }
 
 .sidebar-content {

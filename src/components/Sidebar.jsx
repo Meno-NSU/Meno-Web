@@ -57,23 +57,26 @@ export default function Sidebar({
         <>
             <div className="sidebar-backdrop" onClick={toggleSidebar} aria-hidden="true" />
             <aside className="sidebar">
+                {/* Header row: brand logo on the left, collapse button on the
+                    right (ChatGPT/DeepSeek-style). */}
                 <div className="sidebar-header">
+                    <img className="sidebar-logo" src="/menon-logo.svg" alt="Менон" />
                     <button className="sidebar-toggle-btn" onClick={toggleSidebar} title={t("closeSidebar")}>
                         <PanelLeftClose size={20} />
                     </button>
-                    {/* Single new-chat button inside the sidebar header, on
-                        desktop only. On mobile this affordance lives in the
-                        topbar instead (see SettingsBar.new-chat-btn-icon),
-                        so the sidebar drawer doesn't duplicate it. */}
-                    <button
-                        className="new-chat-btn sidebar-new-chat-btn"
-                        onClick={onNewChat}
-                        style={{ flex: 1, minWidth: 0 }}
-                    >
-                        <MessageSquarePlus size={20} />
-                        <span>{t("newChat")}</span>
-                    </button>
                 </div>
+
+                {/* New-chat button sits below the logo. Desktop only — on
+                    mobile this affordance lives in the topbar instead (see
+                    SettingsBar.new-chat-btn-icon), so the drawer doesn't
+                    duplicate it. */}
+                <button
+                    className="new-chat-btn sidebar-new-chat-btn"
+                    onClick={onNewChat}
+                >
+                    <MessageSquarePlus size={20} />
+                    <span>{t("newChat")}</span>
+                </button>
 
                 <div className="sidebar-content">
                     <div className="sidebar-section-title">{t("recentChats")}</div>

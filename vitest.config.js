@@ -9,8 +9,8 @@ export default defineConfig({
         globals: false,
         setupFiles: ['./src/test-setup.js'],
         include: ['src/**/*.test.js', 'src/**/*.test.jsx'],
-        // Material Symbols SVGs live in node_modules; inline them so svgr's
+        // Phosphor SVGs live in node_modules; inline them so svgr's
         // `?react` transform runs on them under vitest too.
-        server: { deps: { inline: [/@material-symbols/] } },
+        server: { deps: { inline: [/@phosphor-icons/] } },
     },
 });

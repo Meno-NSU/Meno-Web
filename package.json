@@ -14,7 +14,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@material-symbols/svg-400": "^0.45.1",
+    "@phosphor-icons/core": "^2.1.1",
     "express": "^5.1.0",
     "http-proxy-middleware": "^3.0.3",
     "react": "^19.2.0",

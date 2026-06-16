@@ -1,48 +1,48 @@
-// Material Symbols (Rounded) icon set — the rounded optical style matches the
-// curvature of the Менон robot mark, so the whole UI reads as one family.
+// Phosphor Icons (regular weight) — a friendly, generously-rounded open set
+// (MIT) in the spirit of ChatGPT/DeepSeek's iconography, rounder than Material
+// Symbols so it sits closer to the Менон robot's curvature. One family → one
+// consistent corner-radius language across the whole UI.
 //
-// Each icon is the official Material Symbols Rounded SVG (viewBox 0 -960 960
-// 960) imported as a React component via vite-plugin-svgr. `makeIcon` gives
-// them a lucide-compatible API (`<Icon size={20} />`, currentColor) so call
-// sites barely change. Exports are NAMED after their former lucide icons to
-// keep the swap a one-line import change per component.
+// Each icon is a Phosphor SVG (viewBox 0 0 256 256, fill=currentColor) imported
+// via vite-plugin-svgr. `makeIcon` gives a lucide-compatible API
+// (`<Icon size={20} />`, currentColor). Exports keep the old lucide names so
+// call sites don't change.
 
-import EditSquareSvg from '@material-symbols/svg-400/rounded/edit_square.svg?react';
-import AccountCircleSvg from '@material-symbols/svg-400/rounded/account_circle.svg?react';
-import ArrowCircleLeftSvg from '@material-symbols/svg-400/rounded/arrow_circle_left.svg?react';
-import ArrowCircleRightSvg from '@material-symbols/svg-400/rounded/arrow_circle_right.svg?react';
-import ChatBubbleSvg from '@material-symbols/svg-400/rounded/chat_bubble.svg?react';
-import CheckSvg from '@material-symbols/svg-400/rounded/check.svg?react';
-import CheckCircleSvg from '@material-symbols/svg-400/rounded/check_circle.svg?react';
-import ChevronRightSvg from '@material-symbols/svg-400/rounded/chevron_right.svg?react';
-import CircleSvg from '@material-symbols/svg-400/rounded/circle.svg?react';
-import CloseSvg from '@material-symbols/svg-400/rounded/close.svg?react';
-import CloudOffSvg from '@material-symbols/svg-400/rounded/cloud_off.svg?react';
-import ContentCopySvg from '@material-symbols/svg-400/rounded/content_copy.svg?react';
-import DarkModeSvg from '@material-symbols/svg-400/rounded/dark_mode.svg?react';
-import DatabaseSvg from '@material-symbols/svg-400/rounded/database.svg?react';
-import DeleteSvg from '@material-symbols/svg-400/rounded/delete.svg?react';
-import ErrorSvg from '@material-symbols/svg-400/rounded/error.svg?react';
-import GroupSvg from '@material-symbols/svg-400/rounded/group.svg?react';
-import HandshakeSvg from '@material-symbols/svg-400/rounded/handshake.svg?react';
-import KeyboardArrowDownSvg from '@material-symbols/svg-400/rounded/keyboard_arrow_down.svg?react';
-import LeftPanelCloseSvg from '@material-symbols/svg-400/rounded/left_panel_close.svg?react';
-import LeftPanelOpenSvg from '@material-symbols/svg-400/rounded/left_panel_open.svg?react';
-import LightModeSvg from '@material-symbols/svg-400/rounded/light_mode.svg?react';
-import LockSvg from '@material-symbols/svg-400/rounded/lock.svg?react';
-import LoginSvg from '@material-symbols/svg-400/rounded/login.svg?react';
-import LogoutSvg from '@material-symbols/svg-400/rounded/logout.svg?react';
-import MenuSvg from '@material-symbols/svg-400/rounded/menu.svg?react';
-import OpenInNewSvg from '@material-symbols/svg-400/rounded/open_in_new.svg?react';
-import ProgressActivitySvg from '@material-symbols/svg-400/rounded/progress_activity.svg?react';
-import PsychologySvg from '@material-symbols/svg-400/rounded/psychology.svg?react';
-import RateReviewSvg from '@material-symbols/svg-400/rounded/rate_review.svg?react';
-import ScheduleSvg from '@material-symbols/svg-400/rounded/schedule.svg?react';
-import SendSvg from '@material-symbols/svg-400/rounded/send.svg?react';
-import SwordsSvg from '@material-symbols/svg-400/rounded/swords.svg?react';
-import ThumbDownSvg from '@material-symbols/svg-400/rounded/thumb_down.svg?react';
-import ThumbUpSvg from '@material-symbols/svg-400/rounded/thumb_up.svg?react';
-import TrophySvg from '@material-symbols/svg-400/rounded/trophy.svg?react';
+import TrophySvg from '@phosphor-icons/core/assets/regular/trophy.svg?react';
+import MoonSvg from '@phosphor-icons/core/assets/regular/moon.svg?react';
+import SunSvg from '@phosphor-icons/core/assets/regular/sun.svg?react';
+import CaretDownSvg from '@phosphor-icons/core/assets/regular/caret-down.svg?react';
+import CaretRightSvg from '@phosphor-icons/core/assets/regular/caret-right.svg?react';
+import WarningCircleSvg from '@phosphor-icons/core/assets/regular/warning-circle.svg?react';
+import ListSvg from '@phosphor-icons/core/assets/regular/list.svg?react';
+import NotePencilSvg from '@phosphor-icons/core/assets/regular/note-pencil.svg?react';
+import SignInSvg from '@phosphor-icons/core/assets/regular/sign-in.svg?react';
+import SignOutSvg from '@phosphor-icons/core/assets/regular/sign-out.svg?react';
+import UserCircleSvg from '@phosphor-icons/core/assets/regular/user-circle.svg?react';
+import LockSvg from '@phosphor-icons/core/assets/regular/lock.svg?react';
+import SidebarSimpleSvg from '@phosphor-icons/core/assets/regular/sidebar-simple.svg?react';
+import ChatCircleSvg from '@phosphor-icons/core/assets/regular/chat-circle.svg?react';
+import ChatTextSvg from '@phosphor-icons/core/assets/regular/chat-text.svg?react';
+import TrashSvg from '@phosphor-icons/core/assets/regular/trash.svg?react';
+import CopySvg from '@phosphor-icons/core/assets/regular/copy.svg?react';
+import CheckSvg from '@phosphor-icons/core/assets/regular/check.svg?react';
+import BrainSvg from '@phosphor-icons/core/assets/regular/brain.svg?react';
+import CircleNotchSvg from '@phosphor-icons/core/assets/regular/circle-notch.svg?react';
+import CheckCircleSvg from '@phosphor-icons/core/assets/regular/check-circle.svg?react';
+import ArrowSquareOutSvg from '@phosphor-icons/core/assets/regular/arrow-square-out.svg?react';
+import DatabaseSvg from '@phosphor-icons/core/assets/regular/database.svg?react';
+import PaperPlaneTiltSvg from '@phosphor-icons/core/assets/regular/paper-plane-tilt.svg?react';
+import ThumbsUpSvg from '@phosphor-icons/core/assets/regular/thumbs-up.svg?react';
+import ThumbsDownSvg from '@phosphor-icons/core/assets/regular/thumbs-down.svg?react';
+import XSvg from '@phosphor-icons/core/assets/regular/x.svg?react';
+import UsersSvg from '@phosphor-icons/core/assets/regular/users.svg?react';
+import SwordSvg from '@phosphor-icons/core/assets/regular/sword.svg?react';
+import HandshakeSvg from '@phosphor-icons/core/assets/regular/handshake.svg?react';
+import ArrowCircleLeftSvg from '@phosphor-icons/core/assets/regular/arrow-circle-left.svg?react';
+import ArrowCircleRightSvg from '@phosphor-icons/core/assets/regular/arrow-circle-right.svg?react';
+import ClockSvg from '@phosphor-icons/core/assets/regular/clock.svg?react';
+import CloudSlashSvg from '@phosphor-icons/core/assets/regular/cloud-slash.svg?react';
+import CircleFillSvg from '@phosphor-icons/core/assets/fill/circle-fill.svg?react';
 
 function makeIcon(Svg, displayName) {
     const Icon = ({ size = 20, className, style, title, ...rest }) => (
@@ -65,44 +65,43 @@ function makeIcon(Svg, displayName) {
 
 // ── Names kept identical to the former lucide imports (drop-in swap) ──
 export const Trophy = makeIcon(TrophySvg, 'Trophy');
-export const Moon = makeIcon(DarkModeSvg, 'Moon');
-export const Sun = makeIcon(LightModeSvg, 'Sun');
-export const ChevronDown = makeIcon(KeyboardArrowDownSvg, 'ChevronDown');
-export const AlertCircle = makeIcon(ErrorSvg, 'AlertCircle');
-export const Menu = makeIcon(MenuSvg, 'Menu');
-// "New chat" = compose (the de-facto standard in ChatGPT/Claude etc.); a
-// slightly-rounded square, not a perfect circle.
-export const MessageSquarePlus = makeIcon(EditSquareSvg, 'MessageSquarePlus');
-export const LogIn = makeIcon(LoginSvg, 'LogIn');
-export const LogOut = makeIcon(LogoutSvg, 'LogOut');
-export const UserRound = makeIcon(AccountCircleSvg, 'UserRound');
+export const Moon = makeIcon(MoonSvg, 'Moon');
+export const Sun = makeIcon(SunSvg, 'Sun');
+export const ChevronDown = makeIcon(CaretDownSvg, 'ChevronDown');
+export const AlertCircle = makeIcon(WarningCircleSvg, 'AlertCircle');
+export const Menu = makeIcon(ListSvg, 'Menu');
+// "New chat" = compose (the de-facto standard in ChatGPT/Claude etc.).
+export const MessageSquarePlus = makeIcon(NotePencilSvg, 'MessageSquarePlus');
+export const LogIn = makeIcon(SignInSvg, 'LogIn');
+export const LogOut = makeIcon(SignOutSvg, 'LogOut');
+export const UserRound = makeIcon(UserCircleSvg, 'UserRound');
 export const Lock = makeIcon(LockSvg, 'Lock');
-// Collapse / reopen sidebar — the standard left-panel toggle (VS Code etc.).
-export const PanelLeftClose = makeIcon(LeftPanelCloseSvg, 'PanelLeftClose');
-export const PanelLeft = makeIcon(LeftPanelOpenSvg, 'PanelLeft');
-export const MessageSquare = makeIcon(ChatBubbleSvg, 'MessageSquare');
-export const Trash2 = makeIcon(DeleteSvg, 'Trash2');
-export const Copy = makeIcon(ContentCopySvg, 'Copy');
+// Same symmetric panel icon toggles the sidebar both ways (like ChatGPT/DeepSeek).
+export const PanelLeftClose = makeIcon(SidebarSimpleSvg, 'PanelLeftClose');
+export const PanelLeft = makeIcon(SidebarSimpleSvg, 'PanelLeft');
+export const MessageSquare = makeIcon(ChatCircleSvg, 'MessageSquare');
+export const Trash2 = makeIcon(TrashSvg, 'Trash2');
+export const Copy = makeIcon(CopySvg, 'Copy');
 export const Check = makeIcon(CheckSvg, 'Check');
-export const Brain = makeIcon(PsychologySvg, 'Brain');
-export const Loader = makeIcon(ProgressActivitySvg, 'Loader');
+export const Brain = makeIcon(BrainSvg, 'Brain');
+export const Loader = makeIcon(CircleNotchSvg, 'Loader');
 export const CheckCircle = makeIcon(CheckCircleSvg, 'CheckCircle');
-export const ExternalLink = makeIcon(OpenInNewSvg, 'ExternalLink');
+export const ExternalLink = makeIcon(ArrowSquareOutSvg, 'ExternalLink');
 export const Database = makeIcon(DatabaseSvg, 'Database');
-export const SendHorizontal = makeIcon(SendSvg, 'SendHorizontal');
-export const ThumbsUp = makeIcon(ThumbUpSvg, 'ThumbsUp');
-export const ThumbsDown = makeIcon(ThumbDownSvg, 'ThumbsDown');
-export const X = makeIcon(CloseSvg, 'X');
-export const Users = makeIcon(GroupSvg, 'Users');
+export const SendHorizontal = makeIcon(PaperPlaneTiltSvg, 'SendHorizontal');
+export const ThumbsUp = makeIcon(ThumbsUpSvg, 'ThumbsUp');
+export const ThumbsDown = makeIcon(ThumbsDownSvg, 'ThumbsDown');
+export const X = makeIcon(XSvg, 'X');
+export const Users = makeIcon(UsersSvg, 'Users');
 
 // ── New icons that replace emoji / unicode glyphs ──
-export const Swords = makeIcon(SwordsSvg, 'Swords');
+export const Swords = makeIcon(SwordSvg, 'Swords');
 export const Handshake = makeIcon(HandshakeSvg, 'Handshake');
 export const ArrowCircleLeft = makeIcon(ArrowCircleLeftSvg, 'ArrowCircleLeft');
 export const ArrowCircleRight = makeIcon(ArrowCircleRightSvg, 'ArrowCircleRight');
-export const RateReview = makeIcon(RateReviewSvg, 'RateReview');
-export const ChevronRight = makeIcon(ChevronRightSvg, 'ChevronRight');
+export const RateReview = makeIcon(ChatTextSvg, 'RateReview');
+export const ChevronRight = makeIcon(CaretRightSvg, 'ChevronRight');
 // model-status dots
-export const Circle = makeIcon(CircleSvg, 'Circle'); // available
-export const Schedule = makeIcon(ScheduleSvg, 'Schedule'); // rate-limited
-export const CloudOff = makeIcon(CloudOffSvg, 'CloudOff'); // unreachable
+export const Circle = makeIcon(CircleFillSvg, 'Circle'); // available (filled dot)
+export const Schedule = makeIcon(ClockSvg, 'Schedule'); // rate-limited
+export const CloudOff = makeIcon(CloudSlashSvg, 'CloudOff'); // unreachable

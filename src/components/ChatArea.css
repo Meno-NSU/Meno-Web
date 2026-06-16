@@ -69,12 +69,12 @@
        bottom). With baseline alignment the img's box-bottom would land on the
        baseline, floating the robot up; push it down by the empty 22% so the
        ink-bottom — where the robot actually ends — meets the letters'
-       baseline. 12px ≈ 0.222 × 54px. */
-    transform: translateY(12px);
+       baseline. 8.7px ≈ 0.223 × 39px. */
+    transform: translateY(8.7px);
     /* Trim the SVG's ~11% side padding so the visual gap to the heading is
        the flex gap, not gap + transparent margin. */
-    margin-left: -6px;
-    margin-right: -6px;
+    margin-left: -4px;
+    margin-right: -4px;
 }
 
 .empty-chat-hero h2 {

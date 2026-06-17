@@ -45,7 +45,9 @@ app.get('{*path}', (_req, res) => {
 });
 
 // ── Start ────────────────────────────────────────────────────
-app.listen(PORT, '0.0.0.0', () => {
-    console.log(`✅ Meno-Web server listening on http://0.0.0.0:${PORT}`);
+const HOST = process.env.HOST || '127.0.0.1';
+
+app.listen(PORT, HOST, () => {
+    console.log(`✅ Meno-Web server listening on http://${HOST}:${PORT}`);
     console.log(`   Proxying /v1/* → ${BACKEND_URL}`);
 });

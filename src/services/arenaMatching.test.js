@@ -32,6 +32,14 @@ describe('buildArenaPool', () => {
         expect(buildArenaPool(null)).toEqual([]);
         expect(buildArenaPool(undefined)).toEqual([]);
     });
+
+    it('excludes models locked behind login (requires_auth)', () => {
+        const pool = buildArenaPool([
+            { id: 'a', provider: 'vllm', status: { state: 'available' } },
+            { id: 'b', provider: 'openrouter', status: { state: 'available' }, requires_auth: true },
+        ]);
+        expect(pool.map((m) => m.id)).toEqual(['a']);
+    });
 });
 
 describe('pickRandomFromPool', () => {

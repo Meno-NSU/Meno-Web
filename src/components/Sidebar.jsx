@@ -1,4 +1,6 @@
 import {
+    LogIn,
+    LogOut,
     MessageSquare,
     MessageSquarePlus,
     PanelLeftClose,
@@ -7,7 +9,8 @@ import {
     Trophy,
     Moon,
     Sun,
-} from 'lucide-react';
+    Swords,
+} from './icons.jsx';
 import { useTranslation } from '../i18n.js';
 import './Sidebar.css';
 
@@ -19,6 +22,7 @@ export default function Sidebar({
     currentView, setCurrentView,
     theme, toggleTheme,
     isArenaMode, setIsArenaMode,
+    user, onOpenAuth, onLogout,
 }) {
     const { t, lang, setLanguage } = useTranslation();
     if (!isOpen) {
@@ -42,30 +46,38 @@ export default function Sidebar({
         setCurrentView?.(currentView === 'leaderboard' ? 'chat' : 'leaderboard');
     });
     const handleArena = closeAfter(() => setIsArenaMode?.(!isArenaMode));
-    const handleTheme = closeAfter(() => toggleTheme?.());
+    // Keep the click event: toggleTheme uses it as the origin of the
+    // circular theme reveal, so the new theme spreads from the tap point.
+    const handleTheme = (event) => {
+        toggleTheme?.(event);
+        toggleSidebar();
+    };
     const handleLang = closeAfter(() => setLanguage(lang === 'ru' ? 'en' : 'ru'));
 
     return (
         <>
             <div className="sidebar-backdrop" onClick={toggleSidebar} aria-hidden="true" />
             <aside className="sidebar">
+                {/* Header row: brand logo on the left, collapse button on the
+                    right (ChatGPT/DeepSeek-style). */}
                 <div className="sidebar-header">
+                    <img className="sidebar-logo" src="/menon-logo.svg" alt="Менон" />
                     <button className="sidebar-toggle-btn" onClick={toggleSidebar} title={t("closeSidebar")}>
                         <PanelLeftClose size={20} />
                     </button>
-                    {/* Single new-chat button inside the sidebar header, on
-                        desktop only. On mobile this affordance lives in the
-                        topbar instead (see SettingsBar.new-chat-btn-icon),
-                        so the sidebar drawer doesn't duplicate it. */}
-                    <button
-                        className="new-chat-btn sidebar-new-chat-btn"
-                        onClick={onNewChat}
-                        style={{ flex: 1, minWidth: 0 }}
-                    >
-                        <MessageSquarePlus size={20} />
-                        <span>{t("newChat")}</span>
-                    </button>
                 </div>
+
+                {/* New-chat button sits below the logo. Desktop only — on
+                    mobile this affordance lives in the topbar instead (see
+                    SettingsBar.new-chat-btn-icon), so the drawer doesn't
+                    duplicate it. */}
+                <button
+                    className="new-chat-btn sidebar-new-chat-btn"
+                    onClick={onNewChat}
+                >
+                    <MessageSquarePlus size={20} />
+                    <span>{t("newChat")}</span>
+                </button>
 
                 <div className="sidebar-content">
                     <div className="sidebar-section-title">{t("recentChats")}</div>
@@ -100,6 +112,27 @@ export default function Sidebar({
 
                 {/* Mobile-only action panel — hidden via CSS on desktop. */}
                 <div className="sidebar-actions" role="group">
+                    {user ? (
+                        <button
+                            className="sidebar-action-btn"
+                            onClick={closeAfter(() => onLogout?.())}
+                            title={user.email}
+                        >
+                            <LogOut size={20} className="sidebar-action-icon" />
+                            <span className="sidebar-action-label">
+                                {t('signOut')} · {user.nickname || user.email}
+                            </span>
+                        </button>
+                    ) : (
+                        <button
+                            className="sidebar-action-btn"
+                            onClick={closeAfter(() => onOpenAuth?.())}
+                            title={t('signIn')}
+                        >
+                            <LogIn size={20} className="sidebar-action-icon" />
+                            <span className="sidebar-action-label">{t('signIn')}</span>
+                        </button>
+                    )}
                     <button
                         className="sidebar-action-btn"
                         onClick={handleLang}
@@ -121,7 +154,7 @@ export default function Sidebar({
                         onClick={handleArena}
                         title={`Arena Mode is ${isArenaMode ? 'ON' : 'OFF'}`}
                     >
-                        <span className="sidebar-action-icon" aria-hidden="true">⚔️</span>
+                        <span className="sidebar-action-icon" aria-hidden="true"><Swords size={20} /></span>
                         <span className="sidebar-action-label">
                             {isArenaMode ? t('battleArenaModeOn') : t('battleArenaModeOff')}
                         </span>

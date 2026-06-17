@@ -5,7 +5,45 @@ import { apiLogger } from './logger';
 // In production server.js proxies /v1/* to the backend.
 const API_BASE_URL = '';
 
+// --- Auth token (stored by authStore; read here so every request is authenticated) ---
+export const AUTH_TOKEN_KEY = 'meno.authToken';
+
+export function getAuthToken() {
+    try {
+        return localStorage.getItem(AUTH_TOKEN_KEY);
+    } catch {
+        return null;
+    }
+}
+
+export function setAuthToken(token) {
+    try {
+        if (token) {
+            localStorage.setItem(AUTH_TOKEN_KEY, token);
+        } else {
+            localStorage.removeItem(AUTH_TOKEN_KEY);
+        }
+    } catch {
+        /* localStorage unavailable (private mode etc.) — auth simply won't persist */
+    }
+}
+
 const generateRequestId = () => Math.random().toString(36).substring(2, 10);
+
+// Parse a FastAPI-style error body ({"detail": ...} or {"error": {"message": ...}})
+// into an Error carrying the human message and HTTP status.
+async function buildError(res, fallback) {
+    let message = fallback;
+    try {
+        const data = await res.json();
+        message = data?.detail || data?.error?.message || fallback;
+    } catch {
+        /* non-JSON body */
+    }
+    const err = new Error(message);
+    err.httpStatus = res.status;
+    return err;
+}
 
 function splitSseBuffer(buffer) {
     const normalized = buffer.replace(/\r\n/g, '\n');
@@ -57,6 +95,13 @@ async function fetchWithLogging(url, options = {}) {
     const method = options.method || 'GET';
     const startTime = performance.now();
 
+    // Inject the bearer token (when signed in) on every request. The backend
+    // treats it as optional — anonymous calls just omit it.
+    const token = getAuthToken();
+    const authedOptions = token
+        ? { ...options, headers: { ...(options.headers || {}), Authorization: `Bearer ${token}` } }
+        : options;
+
     apiLogger.info(`--> [${requestId}] ${method} ${url}`, {
         headers: options.headers,
         bodyPreview: options.body ? (options.body.length > 200 ? options.body.substring(0, 200) + '...' : options.body) : undefined
@@ -64,7 +109,7 @@ async function fetchWithLogging(url, options = {}) {
 
     try {
         // Here we track network errors. A TypeError implies CORS failure or server unreachable.
-        const res = await fetch(url, options);
+        const res = await fetch(url, authedOptions);
         const duration = Math.round(performance.now() - startTime);
 
         if (!res.ok) {
@@ -160,6 +205,98 @@ export async function clearChatHistory(chatId) {
     }
 
     return res.json();
+}
+
+// --- Auth (S3) ---
+
+export async function register({ email, password, nickname }) {
+    apiLogger.debug('register called', { email });
+    const res = await fetchWithLogging(`${API_BASE_URL}/v1/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, nickname: nickname || null }),
+    });
+    if (!res.ok) throw await buildError(res, 'Registration failed');
+    return res.json(); // { token, user }
+}
+
+export async function login({ email, password }) {
+    apiLogger.debug('login called', { email });
+    const res = await fetchWithLogging(`${API_BASE_URL}/v1/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+    });
+    if (!res.ok) throw await buildError(res, 'Invalid email or password');
+    return res.json(); // { token, user }
+}
+
+export async function fetchMe() {
+    const res = await fetchWithLogging(`${API_BASE_URL}/v1/auth/me`);
+    if (!res.ok) throw await buildError(res, 'Not authenticated');
+    return (await res.json()).user;
+}
+
+export async function updateNickname(nickname) {
+    const res = await fetchWithLogging(`${API_BASE_URL}/v1/auth/me`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nickname }),
+    });
+    if (!res.ok) throw await buildError(res, 'Failed to update nickname');
+    return (await res.json()).user;
+}
+
+// --- Feedback (S2) ---
+
+export async function submitFeedback({ completionId, sessionId, value, comment = null }) {
+    const res = await fetchWithLogging(`${API_BASE_URL}/v1/feedback`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ completion_id: completionId, session_id: sessionId, value, comment }),
+    });
+    if (!res.ok) throw await buildError(res, 'Failed to submit feedback');
+    return res.json();
+}
+
+export async function clearFeedback({ completionId, sessionId }) {
+    const res = await fetchWithLogging(`${API_BASE_URL}/v1/feedback/clear`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ completion_id: completionId, session_id: sessionId }),
+    });
+    if (!res.ok) throw await buildError(res, 'Failed to clear feedback');
+    return res.json();
+}
+
+export async function submitSurvey({ sessionId, answer }) {
+    const res = await fetchWithLogging(`${API_BASE_URL}/v1/feedback/survey`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session_id: sessionId, answer }),
+    });
+    if (!res.ok) throw await buildError(res, 'Failed to submit survey');
+    return res.json();
+}
+
+// Arena votes go through the API client so the Bearer token rides along —
+// signed-in votes are attributed to the user (and count on the contributors
+// leaderboard). A raw fetch here silently dropped the attribution.
+export async function submitArenaVote(payload) {
+    const res = await fetchWithLogging(`${API_BASE_URL}/v1/arena/vote`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw await buildError(res, `Vote POST ${res.status}`);
+}
+
+// --- Contributor leaderboard (S3b) ---
+
+export async function fetchContributorLeaderboard() {
+    const res = await fetchWithLogging(`${API_BASE_URL}/v1/leaderboard`);
+    if (!res.ok) throw await buildError(res, 'Failed to fetch leaderboard');
+    return (await res.json()).data || [];
 }
 
 // First-token timeout: if the backend hasn't produced the FIRST content
@@ -268,7 +405,8 @@ export async function sendChatMessage({
             }
 
             apiLogger.debug('sendChatMessage (non-stream) completed successfully');
-            return { content, modelId: responseModelId };
+            // `completionId` is the OpenAI response id — feedback is attached to it.
+            return { content, modelId: responseModelId, completionId: data.id ?? null };
         }
 
         // Handle Streaming Response
@@ -282,6 +420,7 @@ export async function sendChatMessage({
         let fullContent = '';
         let chunkCount = 0;
         let responseModelId = null;
+        let completionId = null;
         let rawBuffer = '';
         let streamFinished = false;
 
@@ -296,6 +435,11 @@ export async function sendChatMessage({
             }
 
             const data = parsedEvent.data;
+
+            // The OpenAI response id (same across all chunks) — captured for feedback.
+            if (data?.id && !completionId) {
+                completionId = data.id;
+            }
 
             // Handle named SSE event types (pipeline stages)
             if (parsedEvent.eventType === 'stage' && onEvent) {
@@ -426,6 +570,7 @@ export async function sendChatMessage({
         return {
             content: fullContent,
             modelId: responseModelId || modelId,
+            completionId,
         };
     } catch (error) {
         apiLogger.error('Error in sendChatMessage:', error);

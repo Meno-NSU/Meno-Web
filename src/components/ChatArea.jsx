@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Copy, Check, Bot, ChevronDown, Brain, Loader, CheckCircle, ExternalLink } from 'lucide-react';
+import { Copy, Check, ChevronDown, Brain, Loader, CheckCircle, ExternalLink, Trophy, ArrowCircleLeft, ArrowCircleRight, Handshake, ThumbsDown } from './icons.jsx';
 import { useTranslation } from '../i18n.js';
 import ChatInput from './ChatInput.jsx';
+import MessageFeedback from './MessageFeedback.jsx';
+import { submitArenaVote } from '../services/api.js';
 import { buildArenaHistories, arenaTurnIndex } from '../services/arenaHistory.js';
 import './ChatArea.css';
 
@@ -193,7 +195,7 @@ function AgentThinkingBlock({ stages, summary, thinkingContent }) {
                                     : s.status === 'complete'
                                         ? <Check size={12} />
                                         : s.status === 'failed'
-                                            ? <span style={{ color: '#ef4444' }}>!</span>
+                                            ? <span style={{ color: 'var(--danger)' }}>!</span>
                                             : <span>-</span>
                                 }
                             </span>
@@ -302,7 +304,10 @@ export default function ChatArea({ messages, isGenerating, onSendMessage, kbs, s
     return (
         <div className={`chat-container ${isEmpty ? 'empty-state' : ''}`}>
             {!isEmpty && (
-                <div className="chat-messages">
+                // Keyed by chat: switching chats remounts the list, which
+                // plays the chatViewIn entrance — a soft fade instead of an
+                // instant content swap.
+                <div className="chat-messages" key={chatId}>
                     {messages.map((msg, index) => {
                         if (msg.isArena) {
                             // Find the user question that preceded this arena response
@@ -322,7 +327,7 @@ export default function ChatArea({ messages, isGenerating, onSendMessage, kbs, s
                                 : messages.slice(0, index);
                             return <ArenaMessageBubble key={index} message={msg} chatId={chatId} setChats={setChats} isGenerating={isGenerating} question={question} messagesBeforeRound={messagesBeforeRound} />;
                         }
-                        return <MessageBubble key={index} message={msg} />;
+                        return <MessageBubble key={index} message={msg} chatId={chatId} setChats={setChats} />;
                     })}
 
                     {isGenerating && (() => {
@@ -353,11 +358,8 @@ export default function ChatArea({ messages, isGenerating, onSendMessage, kbs, s
 
             {isEmpty && (
                 <div className="empty-chat-hero">
-                    <div className="empty-chat-icon">
-                        <Bot size={56} />
-                    </div>
+                    <img className="empty-chat-mark" src="/menon-icon.svg" alt="Менон" width={39} height={39} />
                     <h2>{t("emptyTitle")}</h2>
-                    <p>{t("emptySubtitle")}</p>
                 </div>
             )}
 
@@ -398,7 +400,7 @@ function SourcesBlock({ sources }) {
 }
 
 // ── Message bubble ───────────────────────────────────────────────────────────
-function MessageBubble({ message }) {
+function MessageBubble({ message, chatId, setChats }) {
     const isUser = message.role === 'user';
     const [copied, setCopied] = useState(false);
 
@@ -451,6 +453,12 @@ function MessageBubble({ message }) {
                         <button className="copy-btn" onClick={handleCopy} title="Copy message">
                             {copied ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
                         </button>
+                        {/* Thumbs need the completion id the backend attaches
+                            feedback to — it lands on the message only after a
+                            response finishes streaming. */}
+                        {message.completionId && !message.isStreaming && (
+                            <MessageFeedback message={message} chatId={chatId} setChats={setChats} />
+                        )}
                     </div>
                     {effectiveModelId && (
                         <span className="message-model-label">{effectiveModelId}</span>
@@ -554,25 +562,22 @@ export function ArenaMessageBubble({ message, chatId, setChats, isGenerating, qu
         const historyLenB = historyB.length;
 
         try {
-            const resp = await fetch('/v1/arena/vote', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    model_a: arenaData.a.model,
-                    kb_a: arenaData.a.kb,
-                    model_b: arenaData.b.model,
-                    kb_b: arenaData.b.kb,
-                    winner,
-                    response_a: arenaData.a.content || '',
-                    response_b: arenaData.b.content || '',
-                    question: question || '',
-                    session_id: chatId || '',
-                    turn_index: turnIndex,
-                    history_len_a: historyLenA,
-                    history_len_b: historyLenB,
-                }),
+            // Through the API client (not raw fetch) so a signed-in voter's
+            // Bearer token is attached and the vote is attributed to them.
+            await submitArenaVote({
+                model_a: arenaData.a.model,
+                kb_a: arenaData.a.kb,
+                model_b: arenaData.b.model,
+                kb_b: arenaData.b.kb,
+                winner,
+                response_a: arenaData.a.content || '',
+                response_b: arenaData.b.content || '',
+                question: question || '',
+                session_id: chatId || '',
+                turn_index: turnIndex,
+                history_len_a: historyLenA,
+                history_len_b: historyLenB,
             });
-            if (!resp.ok) throw new Error(`Vote POST ${resp.status}`);
             // Vote recorded: finalise voted=true so the bubble locks in.
             updateBubble({ voted: true, winner });
         } catch (e) {
@@ -613,7 +618,7 @@ export function ArenaMessageBubble({ message, chatId, setChats, isGenerating, qu
                 <div className="arena-column a" style={{ flex: 1, backgroundColor: bgA, border: borderA, borderRadius: '12px', padding: '1rem', overflowX: 'auto', display: 'flex', flexDirection: 'column' }}>
                     <div className="arena-header" style={{ marginBottom: '1rem', fontWeight: 'bold', display: 'flex', justifyContent: 'space-between' }}>
                         <span>{(arenaData.voted || arenaData.namesRevealed) ? `A: ${arenaData.a.model} (${arenaData.a.kb})` : 'Model A'}</span>
-                        {arenaData.voted && arenaData.winner === 'a' && <span style={{ color: 'var(--primary)' }}>🏆 Winner</span>}
+                        {arenaData.voted && arenaData.winner === 'a' && <span style={{ color: 'var(--primary)', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}><Trophy size={16} /> Winner</span>}
                     </div>
                     <div className="message-markdown prose" style={{ flex: 1, paddingBottom: isGenerating ? '2rem' : '0' }}>
                         {segmentsA.map((seg, i) =>
@@ -628,6 +633,7 @@ export function ArenaMessageBubble({ message, chatId, setChats, isGenerating, qu
                     {canVote && (
                         <div className="arena-vote-primary">
                             <button className="vote-btn vote-btn-primary" onClick={() => handleVote('a')} disabled={voting}>
+                                <ArrowCircleLeft size={18} />
                                 {t('arenaVoteLeftBetter')}
                             </button>
                         </div>
@@ -637,7 +643,7 @@ export function ArenaMessageBubble({ message, chatId, setChats, isGenerating, qu
                 <div className="arena-column b" style={{ flex: 1, backgroundColor: bgB, border: borderB, borderRadius: '12px', padding: '1rem', overflowX: 'auto', display: 'flex', flexDirection: 'column' }}>
                     <div className="arena-header" style={{ marginBottom: '1rem', fontWeight: 'bold', display: 'flex', justifyContent: 'space-between' }}>
                         <span>{(arenaData.voted || arenaData.namesRevealed) ? `B: ${arenaData.b.model} (${arenaData.b.kb})` : 'Model B'}</span>
-                        {arenaData.voted && arenaData.winner === 'b' && <span style={{ color: 'var(--primary)' }}>🏆 Winner</span>}
+                        {arenaData.voted && arenaData.winner === 'b' && <span style={{ color: 'var(--primary)', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}><Trophy size={16} /> Winner</span>}
                     </div>
                     <div className="message-markdown prose" style={{ flex: 1, paddingBottom: isGenerating ? '2rem' : '0' }}>
                         {segmentsB.map((seg, i) =>
@@ -652,6 +658,7 @@ export function ArenaMessageBubble({ message, chatId, setChats, isGenerating, qu
                     {canVote && (
                         <div className="arena-vote-primary">
                             <button className="vote-btn vote-btn-primary" onClick={() => handleVote('b')} disabled={voting}>
+                                <ArrowCircleRight size={18} />
                                 {t('arenaVoteRightBetter')}
                             </button>
                         </div>
@@ -679,8 +686,8 @@ export function ArenaMessageBubble({ message, chatId, setChats, isGenerating, qu
 
             {canVote && (
                 <div className="arena-vote-secondary" style={{ display: 'flex', justifyContent: 'center', gap: '1rem', marginTop: '1rem' }}>
-                    <button className="vote-btn vote-btn-secondary" onClick={() => handleVote('tie')} disabled={voting}>{t('arenaVoteTie')}</button>
-                    <button className="vote-btn vote-btn-secondary" onClick={() => handleVote('both_bad')} disabled={voting}>{t('arenaVoteBothBad')}</button>
+                    <button className="vote-btn vote-btn-secondary" onClick={() => handleVote('tie')} disabled={voting}><Handshake size={16} />{t('arenaVoteTie')}</button>
+                    <button className="vote-btn vote-btn-secondary" onClick={() => handleVote('both_bad')} disabled={voting}><ThumbsDown size={16} />{t('arenaVoteBothBad')}</button>
                 </div>
             )}
         </div>

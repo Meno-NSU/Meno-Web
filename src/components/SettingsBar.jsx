@@ -1,12 +1,12 @@
 import { useState, useRef, useEffect } from 'react';
-import { Trophy, Moon, Sun, ChevronDown, AlertCircle, Menu, MessageSquarePlus } from 'lucide-react';
+import { Trophy, Moon, Sun, ChevronDown, ChevronRight, AlertCircle, Menu, MessageSquarePlus, LogIn, LogOut, UserRound, Lock, Swords, Check, Circle, Schedule, CloudOff } from './icons.jsx';
 import { useTranslation } from '../i18n.js';
 import './SettingsBar.css';
 
-function statusIcon(state) {
-    if (state === 'rate_limited') return '◐';
-    if (state === 'unreachable') return '○';
-    return '●';
+function StatusIcon({ state }) {
+    if (state === 'rate_limited') return <Schedule size={12} />;
+    if (state === 'unreachable') return <CloudOff size={12} />;
+    return <Circle size={9} />; // available
 }
 
 function formatUntil(untilIso) {
@@ -19,8 +19,13 @@ function formatUntil(untilIso) {
     return `until ${hh}:${mm} (~${diffMin} min)`;
 }
 
-function ModelItem({ model, selected, onSelect }) {
+function ModelItem({ model, selected, onSelect, onRequireAuth }) {
+    const { t } = useTranslation();
     const isAvailable = (model.status?.state ?? 'available') === 'available';
+    // The backend marks OpenRouter models requires_auth for anonymous callers
+    // and rejects chat requests against them — clicking one opens the auth
+    // modal instead of selecting an unusable model.
+    const requiresAuth = Boolean(model.requires_auth);
     const stateLabel = model.status?.state === 'rate_limited'
         ? `Rate-limited ${formatUntil(model.status.until)}`
         : model.status?.state === 'unreachable'
@@ -29,21 +34,31 @@ function ModelItem({ model, selected, onSelect }) {
     return (
         <button
             key={model.id}
-            className={`model-dropdown-item ${selected ? 'active' : ''} ${!isAvailable ? 'disabled' : ''}`}
-            onClick={() => isAvailable && onSelect(model.id)}
+            className={`model-dropdown-item ${selected ? 'active' : ''} ${!isAvailable ? 'disabled' : ''} ${requiresAuth ? 'locked' : ''}`}
+            onClick={() => {
+                if (!isAvailable) return;
+                if (requiresAuth) {
+                    onRequireAuth?.();
+                    return;
+                }
+                onSelect(model.id);
+            }}
             disabled={!isAvailable}
             type="button"
-            title={stateLabel || ''}
+            title={requiresAuth ? t('modelRequiresAuth') : stateLabel || ''}
         >
-            <span className="model-status-icon">{statusIcon(model.status?.state)}</span>
+            <span className="model-status-icon">
+                {requiresAuth ? <Lock size={12} className="model-item-lock" /> : <StatusIcon state={model.status?.state} />}
+            </span>
             <span className="model-item-name">{model.display_name || model.id}</span>
-            {selected && <span className="model-item-check">✓</span>}
-            {stateLabel && <span className="model-item-state">{stateLabel}</span>}
+            {selected && <span className="model-item-check"><Check size={16} /></span>}
+            {requiresAuth && <span className="model-item-state">{t('signIn')}</span>}
+            {!requiresAuth && stateLabel && <span className="model-item-state">{stateLabel}</span>}
         </button>
     );
 }
 
-function ModelGroup({ title, subtitle, items, selectedModel, onSelect }) {
+function ModelGroup({ title, subtitle, items, selectedModel, onSelect, onRequireAuth }) {
     if (items.length === 0) return null;
     return (
         <div className="model-dropdown-group">
@@ -52,13 +67,13 @@ function ModelGroup({ title, subtitle, items, selectedModel, onSelect }) {
                 {subtitle && <span className="model-dropdown-group-sub">{subtitle}</span>}
             </div>
             {items.map(m => (
-                <ModelItem key={m.id} model={m} selected={m.id === selectedModel} onSelect={onSelect} />
+                <ModelItem key={m.id} model={m} selected={m.id === selectedModel} onSelect={onSelect} onRequireAuth={onRequireAuth} />
             ))}
         </div>
     );
 }
 
-function AllFreeModelsExpander({ items, selectedModel, onSelect }) {
+function AllFreeModelsExpander({ items, selectedModel, onSelect, onRequireAuth }) {
     const [open, setOpen] = useState(false);
     if (items.length === 0) return null;
     return (
@@ -68,10 +83,11 @@ function AllFreeModelsExpander({ items, selectedModel, onSelect }) {
                 onClick={() => setOpen(!open)}
                 type="button"
             >
-                {open ? '▾' : '▸'} All free models ({items.length})
+                {open ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                <span>All free models ({items.length})</span>
             </button>
             {open && items.map(m => (
-                <ModelItem key={m.id} model={m} selected={m.id === selectedModel} onSelect={onSelect} />
+                <ModelItem key={m.id} model={m} selected={m.id === selectedModel} onSelect={onSelect} onRequireAuth={onRequireAuth} />
             ))}
         </div>
     );
@@ -85,20 +101,28 @@ export default function SettingsBar({
     coreModelId,
     onOpenSidebar,
     onNewChat,
+    user,
+    onOpenAuth,
+    onLogout,
 }) {
     const { t, lang, setLanguage } = useTranslation();
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const [isAuthMenuOpen, setIsAuthMenuOpen] = useState(false);
     const dropdownRef = useRef(null);
+    const authMenuRef = useRef(null);
 
     const handleLangToggle = () => {
         setLanguage(lang === 'ru' ? 'en' : 'ru');
     };
 
-    // Close dropdown on outside click
+    // Close dropdowns on outside click
     useEffect(() => {
         const handleClickOutside = (e) => {
             if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
                 setIsDropdownOpen(false);
+            }
+            if (authMenuRef.current && !authMenuRef.current.contains(e.target)) {
+                setIsAuthMenuOpen(false);
             }
         };
         document.addEventListener('mousedown', handleClickOutside);
@@ -108,6 +132,11 @@ export default function SettingsBar({
     const handleSelectModel = (modelId) => {
         onModelChange(modelId);
         setIsDropdownOpen(false);
+    };
+
+    const handleModelRequiresAuth = () => {
+        setIsDropdownOpen(false);
+        onOpenAuth?.();
     };
 
     const handleLeaderboardClick = () => {
@@ -165,6 +194,7 @@ export default function SettingsBar({
                                         items={models.filter(m => m.provider === 'vllm')}
                                         selectedModel={selectedModel}
                                         onSelect={handleSelectModel}
+                                        onRequireAuth={handleModelRequiresAuth}
                                         coreModelId={coreModelId}
                                     />
                                     <ModelGroup
@@ -173,12 +203,14 @@ export default function SettingsBar({
                                         items={models.filter(m => m.provider === 'openrouter' && m.featured)}
                                         selectedModel={selectedModel}
                                         onSelect={handleSelectModel}
+                                        onRequireAuth={handleModelRequiresAuth}
                                         coreModelId={coreModelId}
                                     />
                                     <AllFreeModelsExpander
                                         items={models.filter(m => m.provider === 'openrouter' && !m.featured)}
                                         selectedModel={selectedModel}
                                         onSelect={handleSelectModel}
+                                        onRequireAuth={handleModelRequiresAuth}
                                     />
                                 </>
                             ) : (
@@ -201,6 +233,47 @@ export default function SettingsBar({
             </button>
 
             <div className="settings-actions">
+                {user ? (
+                    <div className="auth-menu" ref={authMenuRef}>
+                        <button
+                            className="auth-chip"
+                            onClick={() => setIsAuthMenuOpen(!isAuthMenuOpen)}
+                            title={user.email}
+                            type="button"
+                        >
+                            <UserRound size={18} />
+                            <span className="auth-chip-name">{user.nickname || user.email}</span>
+                        </button>
+                        {isAuthMenuOpen && (
+                            <div className="auth-menu-dropdown">
+                                <div className="auth-menu-signed">
+                                    {t('authSignedInAs')}
+                                    <strong>{user.nickname || user.email}</strong>
+                                </div>
+                                <button
+                                    className="auth-menu-item"
+                                    onClick={() => {
+                                        setIsAuthMenuOpen(false);
+                                        onLogout();
+                                    }}
+                                    type="button"
+                                >
+                                    <LogOut size={16} />
+                                    {t('signOut')}
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                ) : (
+                    <button
+                        className="btn-icon auth-signin-btn"
+                        onClick={onOpenAuth}
+                        title={t('signIn')}
+                        aria-label={t('signIn')}
+                    >
+                        <LogIn size={20} />
+                    </button>
+                )}
                 <button
                     className="btn-icon lang-toggle"
                     onClick={handleLangToggle}
@@ -221,7 +294,7 @@ export default function SettingsBar({
                     onClick={() => setIsArenaMode(!isArenaMode)}
                     title={`Arena Mode is ${isArenaMode ? 'ON' : 'OFF'}`}
                 >
-                    <span className="arena-icon">⚔️</span>
+                    <span className="arena-icon"><Swords size={18} /></span>
                     <span className="arena-text">{isArenaMode ? t('battleArenaModeOn') : t('battleArenaModeOff')}</span>
                 </button>
                 <button

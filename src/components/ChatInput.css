@@ -31,6 +31,14 @@
     width: 100%;
     max-height: 200px;
     min-height: 24px;
+    /* The form is `align-items: flex-end` so the send button stays pinned to
+       the bottom as the textarea grows. For a single line, though, that left
+       the (shorter) textarea bottom-aligned against the taller button row,
+       making the placeholder sit visibly low. `align-self: center` vertically
+       centers the textarea in the box when short; once it grows past the
+       button row it becomes the tallest item and centering is a no-op, so the
+       button still anchors to the bottom. */
+    align-self: center;
     background: transparent;
     border: none;
     outline: none;

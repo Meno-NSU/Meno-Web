@@ -14,10 +14,69 @@
 /* Keep the actual content at a readable width on ultra-wide monitors so
    text doesn't stretch edge-to-edge. */
 .leaderboard-container > .leaderboard-header,
+.leaderboard-container > .leaderboard-tabs,
 .leaderboard-container > .table-wrapper {
     max-width: 1100px;
     margin-left: auto;
     margin-right: auto;
+}
+
+.leaderboard-container {
+    animation: leaderboardIn 0.25s ease;
+}
+
+@keyframes leaderboardIn {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+/* Tab switch: .table-wrapper is keyed by tab, so it remounts and fades. */
+.table-wrapper {
+    animation: tableTabIn 0.2s ease;
+}
+
+@keyframes tableTabIn {
+    from {
+        opacity: 0;
+        transform: translateY(4px);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+/* Models / Contributors tab switcher */
+.leaderboard-tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+    background: var(--bg-tertiary);
+    border-radius: 0.6rem;
+    padding: 4px;
+    margin-bottom: 1.5rem;
+    max-width: 420px;
+}
+
+.leaderboard-tab {
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.45rem;
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    transition: all 0.15s ease;
+}
+
+.leaderboard-tab.active {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    box-shadow: var(--shadow-sm);
 }
 
 .leaderboard-header {

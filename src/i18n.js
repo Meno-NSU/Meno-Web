@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { flushSync } from 'react-dom';
 
 const translations = {
     ru: {
@@ -8,7 +9,7 @@ const translations = {
         model: "Модель",
         knowledgeBase: "База знаний",
         placeholder: "Написать Менону...",
-        emptyTitle: "Ассистент Менон",
+        emptyTitle: "Что хотите узнать об НГУ?",
         emptySubtitle: "Задайте вопрос, чтобы выполнить поиск по локальной базе знаний.",
         disclaimer: "Менон может допускать ошибки. Проверяйте важную информацию.",
         error: "Ошибка: не удалось получить ответ",
@@ -25,10 +26,10 @@ const translations = {
         arenaMatches: "Матчи",
         arenaNoBattles: "Битв пока не было.",
         arenaLoading: "Загрузка турнирной таблицы...",
-        arenaVoteLeftBetter: "👈 Левый ответ лучше",
-        arenaVoteTie: "🤝 Оба хорошие",
-        arenaVoteBothBad: "👎 Оба плохие",
-        arenaVoteRightBetter: "👉 Правый ответ лучше",
+        arenaVoteLeftBetter: "Левый ответ лучше",
+        arenaVoteTie: "Оба хорошие",
+        arenaVoteBothBad: "Оба плохие",
+        arenaVoteRightBetter: "Правый ответ лучше",
         arenaRoundIncomplete: "⚠ Не удалось получить ответы от обеих моделей. Голосование недоступно — попробуйте ещё раз.",
         arenaVotePromptPending: "Сначала проголосуйте за ответ выше, чтобы продолжить.",
         arenaSwipeHint: "← свайп →",
@@ -36,6 +37,42 @@ const translations = {
         battleArenaModeOff: "Арена: ВЫКЛ",
         openSidebar: "Открыть боковую панель",
         closeLeaderboard: "Закрыть таблицу",
+        signIn: "Войти",
+        signOut: "Выйти",
+        authRegisterTitle: "Регистрация",
+        authWhy: "Вход открывает дополнительные модели (OpenRouter) и засчитывает ваш вклад в рейтинге участников.",
+        authEmail: "Email",
+        authPassword: "Пароль",
+        authPasswordHint: "Не менее 8 символов",
+        authNickname: "Никнейм",
+        authNicknameHint: "Необязательно — отображается в рейтинге участников",
+        authSubmitSignIn: "Войти",
+        authSubmitRegister: "Создать аккаунт",
+        authSwitchToRegister: "Нет аккаунта? Зарегистрируйтесь",
+        authSwitchToSignIn: "Уже есть аккаунт? Войти",
+        authSignedInAs: "Вы вошли как",
+        authClose: "Закрыть",
+        modelRequiresAuth: "Войдите, чтобы открыть эту модель",
+        feedbackGoodTitle: "Хороший ответ",
+        feedbackBadTitle: "Плохой ответ",
+        feedbackCommentPlaceholder: "Расскажите подробнее (необязательно)",
+        feedbackCommentSend: "Отправить отзыв",
+        surveyQuestion: "Будете ли пользоваться Меноном для похожих вопросов?",
+        surveyYes: "Да",
+        surveyMaybe: "Возможно",
+        surveyNo: "Нет",
+        surveySkip: "Пропустить",
+        leaderboardTabModels: "Модели",
+        leaderboardTabContributors: "Участники",
+        contribLeaderboardTitle: "Рейтинг участников",
+        contribLeaderboardDesc: "Задавайте вопросы, голосуйте на арене и оценивайте ответы, чтобы подняться в рейтинге.",
+        contribNickname: "Участник",
+        contribQuestions: "Вопросы",
+        contribVotes: "Голоса",
+        contribFeedback: "Отзывы",
+        contribTotal: "Вклад",
+        contribAnonymous: "Аноним",
+        contribEmpty: "Участников пока нет. Войдите и станьте первым!",
         agentProcessing: "Обрабатываю запрос...",
         agentThoughtFor: "Обработка заняла {time} сек",
         stage_abbreviation_expansion: "Раскрытие сокращений",
@@ -86,7 +123,7 @@ const translations = {
         model: "Model",
         knowledgeBase: "Knowledge Base",
         placeholder: "Message Meno...",
-        emptyTitle: "Meno Assistant",
+        emptyTitle: "What would you like to know about NSU?",
         emptySubtitle: "Ask a question to search your local knowledge base.",
         disclaimer: "Meno can make mistakes. Consider verifying important information.",
         error: "Error: Failed to get response",
@@ -103,10 +140,10 @@ const translations = {
         arenaMatches: "Matches",
         arenaNoBattles: "No battles fought yet.",
         arenaLoading: "Loading Arena Leaderboard...",
-        arenaVoteLeftBetter: "👈 Left is better",
-        arenaVoteTie: "🤝 Both are good",
-        arenaVoteBothBad: "👎 Both bad",
-        arenaVoteRightBetter: "👉 Right is better",
+        arenaVoteLeftBetter: "Left is better",
+        arenaVoteTie: "Both are good",
+        arenaVoteBothBad: "Both bad",
+        arenaVoteRightBetter: "Right is better",
         arenaRoundIncomplete: "⚠ Could not get responses from both models. Voting is disabled — please try again.",
         arenaVotePromptPending: "Vote on the answers above to continue.",
         arenaSwipeHint: "← swipe →",
@@ -114,6 +151,42 @@ const translations = {
         battleArenaModeOff: "Arena: OFF",
         openSidebar: "Open sidebar",
         closeLeaderboard: "Close leaderboard",
+        signIn: "Sign in",
+        signOut: "Sign out",
+        authRegisterTitle: "Create account",
+        authWhy: "Signing in unlocks extra models (OpenRouter) and counts your contributions on the leaderboard.",
+        authEmail: "Email",
+        authPassword: "Password",
+        authPasswordHint: "At least 8 characters",
+        authNickname: "Nickname",
+        authNicknameHint: "Optional — shown on the contributors leaderboard",
+        authSubmitSignIn: "Sign in",
+        authSubmitRegister: "Create account",
+        authSwitchToRegister: "No account? Create one",
+        authSwitchToSignIn: "Already have an account? Sign in",
+        authSignedInAs: "Signed in as",
+        authClose: "Close",
+        modelRequiresAuth: "Sign in to unlock this model",
+        feedbackGoodTitle: "Good response",
+        feedbackBadTitle: "Bad response",
+        feedbackCommentPlaceholder: "Tell us more (optional)",
+        feedbackCommentSend: "Send feedback",
+        surveyQuestion: "Would you use Meno again for similar questions?",
+        surveyYes: "Yes",
+        surveyMaybe: "Maybe",
+        surveyNo: "No",
+        surveySkip: "Skip",
+        leaderboardTabModels: "Models",
+        leaderboardTabContributors: "Contributors",
+        contribLeaderboardTitle: "Contributors",
+        contribLeaderboardDesc: "Ask questions, vote in the arena and rate answers to climb the board.",
+        contribNickname: "Contributor",
+        contribQuestions: "Questions",
+        contribVotes: "Votes",
+        contribFeedback: "Feedback",
+        contribTotal: "Total",
+        contribAnonymous: "Anonymous",
+        contribEmpty: "No contributors yet. Sign in and be the first!",
         agentProcessing: "Processing query...",
         agentThoughtFor: "Processed in {time}s",
         stage_abbreviation_expansion: "Expanding abbreviations",
@@ -163,9 +236,25 @@ let currentLang = localStorage.getItem('lang') || 'ru';
 const listeners = new Set();
 
 export const setLanguage = (lang) => {
-    currentLang = lang;
-    localStorage.setItem('lang', lang);
-    listeners.forEach(l => l(lang));
+    const apply = () => {
+        currentLang = lang;
+        localStorage.setItem('lang', lang);
+        listeners.forEach(l => l(lang));
+    };
+    // Soft full-page crossfade on language switch (default view-transition
+    // animation — the theme toggle's circular reveal is scoped behind the
+    // .theme-switching class and doesn't apply here).
+    const reduceMotion = typeof window !== 'undefined'
+        && window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+    if (typeof document === 'undefined'
+        || typeof document.startViewTransition !== 'function'
+        || reduceMotion) {
+        apply();
+        return;
+    }
+    document.startViewTransition(() => {
+        flushSync(apply);
+    });
 };
 
 export const getLanguage = () => currentLang;

@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import Sidebar from './components/Sidebar.jsx';
 import ChatArea from './components/ChatArea.jsx';
 import SettingsBar from './components/SettingsBar.jsx';
 import Leaderboard from './components/Leaderboard.jsx';
+import AuthModal from './components/AuthModal.jsx';
 import {
   clearChatHistory,
   fetchKnowledgeBases,
@@ -24,6 +26,9 @@ import {
   migrateChats,
   saveChats,
 } from './store/chatStore.js';
+import { useAuth } from './store/authStore.js';
+import SurveyModal from './components/SurveyModal.jsx';
+import { submitSurvey } from './services/api.js';
 import { translateOnce as i18nLookup } from './i18n.js';
 import './index.css';
 
@@ -255,6 +260,13 @@ function App() {
   // Core model annotation from /v1/models response
   const [coreModelId, setCoreModelId] = useState(null);
 
+  // Auth (S3): optional sign-in — anonymous users keep full chat access.
+  const auth = useAuth();
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+
+  // End-of-session survey (S2): chat id awaiting the one-question survey.
+  const [surveySessionId, setSurveySessionId] = useState(null);
+
   // Initialize data and migrate stored chats to the chat-scoped config shape.
   useEffect(() => {
     const initData = async () => {
@@ -359,11 +371,14 @@ function App() {
   const selectedModel = activeChat.runtimeConfig?.modelId || '';
   const selectedKb = activeChat.runtimeConfig?.knowledgeBaseId || '';
 
-  // Auto-fallback when the selected model disappears from the available list.
+  // Auto-fallback when the selected model disappears from the available list
+  // or becomes locked behind login (e.g. the user signed out while an
+  // OpenRouter model was selected — the server would reject chat against it).
   useEffect(() => {
     if (models.length === 0 || !activeChatId) return;
-    if (selectedModel && models.some((m) => m.id === selectedModel)) return;
-    const fallback = models[0]?.id || '';
+    const usable = (m) => !m.requires_auth;
+    if (selectedModel && models.some((m) => m.id === selectedModel && usable(m))) return;
+    const fallback = models.find(usable)?.id || '';
     if (fallback) {
       updateActiveChatRuntimeConfig({ modelId: fallback });
     }
@@ -390,8 +405,47 @@ function App() {
     }
   }, [selectedModel, selectedKb]);
 
-  const toggleTheme = () => {
-    setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));
+  // Theme switch "flows" across the screen: a circular reveal growing from
+  // the clicked control, via the View Transitions API. Browsers without it
+  // (and reduced-motion users) just get the instant switch.
+  const toggleTheme = (event) => {
+    const next = theme === 'light' ? 'dark' : 'light';
+    const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+    if (typeof document.startViewTransition !== 'function' || reduceMotion) {
+      setTheme(next);
+      return;
+    }
+
+    // Fallback origin ≈ where the topbar toggle lives.
+    const x = event?.clientX ?? window.innerWidth - 48;
+    const y = event?.clientY ?? 48;
+    const maxRadius = Math.hypot(
+      Math.max(x, window.innerWidth - x),
+      Math.max(y, window.innerHeight - y),
+    );
+
+    document.documentElement.classList.add('theme-switching');
+    const transition = document.startViewTransition(() => {
+      flushSync(() => setTheme(next));
+      // The persisting useEffect is async — snapshot needs the final DOM now.
+      document.documentElement.setAttribute('data-theme', next);
+    });
+    transition.ready
+      .then(() => {
+        document.documentElement.animate(
+          {
+            clipPath: [
+              `circle(0px at ${x}px ${y}px)`,
+              `circle(${maxRadius}px at ${x}px ${y}px)`,
+            ],
+          },
+          { duration: 550, easing: 'ease-in-out', pseudoElement: '::view-transition-new(root)' },
+        );
+      })
+      .catch(() => { /* transition skipped (rapid toggles) — theme already applied */ });
+    transition.finished.finally(() => {
+      document.documentElement.classList.remove('theme-switching');
+    });
   };
 
   const toggleSidebar = () => {
@@ -434,6 +488,56 @@ function App() {
       setCoreModelId(freshCoreModelId);
     } catch { /* ignore */ }
   }, []);
+
+  // Survey trigger: leaving a chat that actually got answers and hasn't been
+  // surveyed yet. "Leaving" = activeChatId moved to a different chat (chat
+  // switch, new chat). Generation in flight defers the prompt — switching
+  // away mid-answer shouldn't interrupt with a modal.
+  const prevActiveChatRef = useRef(null);
+  useEffect(() => {
+    const prevId = prevActiveChatRef.current;
+    prevActiveChatRef.current = activeChatId;
+    if (!prevId || prevId === activeChatId) return;
+    const prevChat = chats.find((chat) => chat.id === prevId);
+    if (!prevChat || prevChat.surveyed) return;
+    if (generatingChats.has(prevId)) return;
+    const hadAnswer = (prevChat.messages || []).some(
+      (m) => m.role === 'assistant' && (m.completionId || m.isArena),
+    );
+    if (!hadAnswer) return;
+    setSurveySessionId(prevId);
+  }, [activeChatId, chats, generatingChats]);
+
+  // Both outcomes mark the chat surveyed locally first (never nag twice, even
+  // if the POST fails) and report best-effort: answers as themselves, every
+  // dismissal path as the explicit 'skipped'.
+  const handleSurveyDone = (answer) => {
+    const sessionId = surveySessionId;
+    setSurveySessionId(null);
+    if (!sessionId) return;
+    setChats((prev) => prev.map((chat) => (
+      chat.id === sessionId ? { ...chat, surveyed: true } : chat
+    )));
+    submitSurvey({ sessionId, answer }).catch((error) => {
+      console.warn('Survey answer not recorded', error);
+    });
+  };
+
+  // Signing in/out changes what /v1/models returns (OpenRouter is gated behind
+  // login), so refresh the list whenever the auth state actually flips. The
+  // ref skips the initial render — initData already fetched the list.
+  const prevAuthedRef = useRef(null);
+  useEffect(() => {
+    if (!auth.ready) return;
+    if (prevAuthedRef.current === null) {
+      prevAuthedRef.current = auth.isAuthenticated;
+      return;
+    }
+    if (prevAuthedRef.current !== auth.isAuthenticated) {
+      prevAuthedRef.current = auth.isAuthenticated;
+      refreshModelsAndApplyState();
+    }
+  }, [auth.ready, auth.isAuthenticated, refreshModelsAndApplyState]);
 
   const handleKbChange = (knowledgeBaseId) => {
     updateActiveChatRuntimeConfig({ knowledgeBaseId });
@@ -850,7 +954,9 @@ function App() {
           }
 
           let nextMessage = finalizeThinkTime(message);
-          nextMessage = { ...nextMessage, isStreaming: false };
+          // completionId is the OpenAI response id captured by the API client —
+          // message feedback (👍/👎) is attached to it server-side.
+          nextMessage = { ...nextMessage, isStreaming: false, completionId: result.completionId ?? null };
           const resolvedModelId = result.modelId
             || nextMessage.responseModelId
             || nextMessage.requestModelId
@@ -901,6 +1007,9 @@ function App() {
         toggleTheme={toggleTheme}
         isArenaMode={isArenaMode}
         setIsArenaMode={setIsArenaMode}
+        user={auth.user}
+        onOpenAuth={() => setIsAuthModalOpen(true)}
+        onLogout={auth.logout}
       />
 
       <main className="main-content">
@@ -919,6 +1028,9 @@ function App() {
           setCurrentView={setCurrentView}
           coreModelId={coreModelId}
           onOpenSidebar={() => setIsSidebarOpen(true)}
+          user={auth.user}
+          onOpenAuth={() => setIsAuthModalOpen(true)}
+          onLogout={auth.logout}
         />
         {currentView === 'chat' ? (
           (() => {
@@ -953,6 +1065,19 @@ function App() {
           <Leaderboard onClose={() => setCurrentView('chat')} />
         )}
       </main>
+
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        login={auth.login}
+        register={auth.register}
+      />
+
+      <SurveyModal
+        isOpen={surveySessionId !== null}
+        onAnswer={handleSurveyDone}
+        onSkip={() => handleSurveyDone('skipped')}
+      />
     </div>
   );
 }

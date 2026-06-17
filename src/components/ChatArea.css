@@ -13,6 +13,26 @@
 .chat-container.empty-state {
     justify-content: center;
     align-items: center;
+    /* Anchor for the absolutely-positioned greeting (see below). */
+    position: relative;
+}
+
+/* Welcome screen: center the INPUT BOX itself on the vertical midline (not
+   the greeting+input group, which left the box sitting low). The greeting is
+   lifted out of flow so only the input wrapper participates in centering. */
+.chat-container.empty-state .empty-chat-hero {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: calc(50% + 2rem);
+    padding: 0 1rem;
+}
+
+/* The wrapper holds the box AND the disclaimer caption + an asymmetric bottom
+   pad, so centering the wrapper puts the box ~24px high. Nudge it down so the
+   visible box lands on the exact midline. */
+.chat-container.empty-state .chat-input-wrapper.centered {
+    transform: translateY(24px);
 }
 
 .chat-messages {
@@ -27,38 +47,40 @@
 }
 
 .empty-chat-hero {
+    /* Logo + heading on one line: the brand mark sits just left of the
+       question, no container/disc behind it. Baseline alignment + the nudge
+       below put the robot's real ink-bottom on the text baseline. */
     display: flex;
-    flex-direction: column;
-    align-items: center;
+    flex-direction: row;
+    align-items: baseline;
     justify-content: center;
     color: var(--text-secondary);
-    text-align: center;
-    gap: 1.25rem;
+    text-align: left;
+    gap: 0.3rem;
     margin-bottom: 2rem;
     animation: fadeIn 0.4s ease;
     width: 100%;
 }
 
-.empty-chat-icon {
-    width: 80px;
-    height: 80px;
-    border-radius: 50%;
-    background-color: var(--bg-tertiary);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--primary);
-    margin: 0 auto;
+.empty-chat-mark {
+    flex-shrink: 0;
+    display: block;
+    /* The robot ink fills only the top ~78% of the SVG (22% empty at the
+       bottom). With baseline alignment the img's box-bottom would land on the
+       baseline, floating the robot up; push it down by the empty 22% so the
+       ink-bottom — where the robot actually ends — meets the letters'
+       baseline. 8.7px ≈ 0.223 × 39px. */
+    transform: translateY(8.7px);
+    /* Trim the SVG's ~11% side padding so the visual gap to the heading is
+       the flex gap, not gap + transparent margin. */
+    margin-left: -4px;
+    margin-right: -4px;
 }
 
 .empty-chat-hero h2 {
     font-size: 1.8rem;
     font-weight: 600;
     color: var(--text-primary);
-}
-
-.empty-chat-hero p {
-    font-size: 1.1rem;
 }
 
 /* Base message wrapper */
@@ -168,6 +190,50 @@
     opacity: 1;
 }
 
+/* ── Entrance animations ─────────────────────────────────────────────────── */
+/* Chat switch: the keyed .chat-messages remounts and fades in as one block. */
+.chat-messages {
+    animation: chatViewIn 0.22s ease;
+}
+
+.empty-chat-hero {
+    animation: chatViewIn 0.25s ease;
+}
+
+@keyframes chatViewIn {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+/* New messages (yours and the assistant's placeholder) pop in gently. */
+.message-wrapper {
+    animation: messageIn 0.2s ease;
+}
+
+@keyframes messageIn {
+    from {
+        opacity: 0;
+        transform: translateY(4px);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+/* Keep the bar visible when feedback is active (the given thumb shouldn't
+   vanish when the cursor leaves) and for keyboard focus. */
+.message-actions-bar:focus-within,
+.message-actions-bar:has(.feedback-btn.active) {
+    opacity: 1;
+}
+
 .copy-btn {
     display: flex;
     align-items: center;
@@ -188,7 +254,7 @@
 }
 
 .text-green-500 {
-    color: #10b981;
+    color: var(--success-strong, #10b981);
 }
 
 .chat-input-wrapper {
@@ -267,7 +333,7 @@
    ══════════════════════════════════════════════════════════ */
 .agent-thinking-block {
     border: 1px solid var(--border-color);
-    border-left: 3px solid var(--accent-primary, #3b82f6);
+    border-left: 3px solid var(--accent-primary, #17c0e9);
     border-radius: 0.5rem;
     margin-bottom: 0.75rem;
     background-color: var(--bg-secondary);
@@ -301,7 +367,7 @@
 
 .agent-thinking-icon {
     flex-shrink: 0;
-    color: var(--accent-primary, #3b82f6);
+    color: var(--accent-primary, #17c0e9);
 }
 
 .agent-thinking-icon.complete {
@@ -480,7 +546,7 @@
 }
 
 .sources-list a {
-    color: var(--accent-color, #3b82f6);
+    color: var(--accent-color, #17c0e9);
     text-decoration: none;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -557,6 +623,7 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    gap: 0.4rem;
 }
 
 .vote-btn:disabled {
@@ -575,7 +642,7 @@
 }
 
 .vote-btn-primary:hover:not(:disabled) {
-    background-color: var(--primary-hover, #2563eb);
+    background-color: var(--primary-hover, #50ddff);
     transform: translateY(-2px);
     box-shadow: 0 6px 8px -1px rgba(0, 0, 0, 0.15);
 }

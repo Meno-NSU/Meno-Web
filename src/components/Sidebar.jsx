@@ -63,7 +63,9 @@ export default function Sidebar({
                 <div className="sidebar-header">
                     <img className="sidebar-logo" src="/menon-logo.svg" alt="Менон" />
                     <button className="sidebar-toggle-btn" onClick={toggleSidebar} title={t("closeSidebar")}>
-                        <PanelLeftClose size={20} />
+                        {/* 22px → the panel's ink height (~15.8px) matches the
+                            МЕНОН wordmark's letter height beside it. */}
+                        <PanelLeftClose size={22} />
                     </button>
                 </div>
 

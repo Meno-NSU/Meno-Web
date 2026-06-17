@@ -766,5 +766,11 @@
    label while running, so it must sit inline (not as a centered block). */
 .agent-thinking-summary .loading-phrase {
   margin: 0;
+  /* The base .loading-phrase carries padding-top: 0.35rem for its standalone
+     use; here it is a flex item in an align-items:center row, so that padding
+     pushes the shimmer text below the spinner/chevron. Zero it and let flex
+     center it against the icon. */
+  padding-top: 0;
+  line-height: 1.2;
   text-align: left;
 }

@@ -229,7 +229,7 @@ export default function SettingsBar({
                 title={t('newChat')}
                 aria-label={t('newChat')}
             >
-                <MessageSquarePlus size={22} />
+                <MessageSquarePlus size={20} />
             </button>
 
             <div className="settings-actions">
@@ -294,7 +294,7 @@ export default function SettingsBar({
                     onClick={() => setIsArenaMode(!isArenaMode)}
                     title={`Arena Mode is ${isArenaMode ? 'ON' : 'OFF'}`}
                 >
-                    <span className="arena-icon"><Swords size={18} /></span>
+                    <span className="arena-icon"><Swords size={20} /></span>
                     <span className="arena-text">{isArenaMode ? t('battleArenaModeOn') : t('battleArenaModeOff')}</span>
                 </button>
                 <button
@@ -302,7 +302,7 @@ export default function SettingsBar({
                     onClick={toggleTheme}
                     title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
                 >
-                    {theme === 'light' ? <Moon size={22} /> : <Sun size={22} />}
+                    {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
                 </button>
             </div>
         </header>

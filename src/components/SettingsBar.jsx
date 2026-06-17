@@ -294,7 +294,7 @@ export default function SettingsBar({
                     onClick={() => setIsArenaMode(!isArenaMode)}
                     title={`Arena Mode is ${isArenaMode ? 'ON' : 'OFF'}`}
                 >
-                    <span className="arena-icon"><Swords size={20} /></span>
+                    <span className="arena-icon"><Swords size={17} /></span>
                     <span className="arena-text">{isArenaMode ? t('battleArenaModeOn') : t('battleArenaModeOff')}</span>
                 </button>
                 <button
@@ -302,7 +302,7 @@ export default function SettingsBar({
                     onClick={toggleTheme}
                     title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
                 >
-                    {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
+                    {theme === 'light' ? <Moon size={19} /> : <Sun size={16} />}
                 </button>
             </div>
         </header>

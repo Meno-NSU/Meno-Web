@@ -45,7 +45,7 @@ import ClockSvg from '@phosphor-icons/core/assets/regular/clock.svg?react';
 import CloudSlashSvg from '@phosphor-icons/core/assets/regular/cloud-slash.svg?react';
 import CircleFillSvg from '@phosphor-icons/core/assets/fill/circle-fill.svg?react';
 
-function makeIcon(Svg, displayName) {
+function makeIcon(Svg, displayName, { mirror = false } = {}) {
     const Icon = ({ size = 20, className, style, title, ...rest }) => (
         <Svg
             width={size}
@@ -54,7 +54,14 @@ function makeIcon(Svg, displayName) {
             aria-hidden={title ? undefined : true}
             focusable="false"
             className={className}
-            style={{ display: 'block', flexShrink: 0, ...style }}
+            style={{
+                display: 'block',
+                flexShrink: 0,
+                // Horizontal flip for directional glyphs (e.g. the sidebar
+                // panel) so the close/open states point opposite ways.
+                ...(mirror ? { transform: 'scaleX(-1)' } : null),
+                ...style,
+            }}
             {...rest}
         >
             {title ? <title>{title}</title> : null}
@@ -69,7 +76,7 @@ export const Trophy = makeIcon(TrophyIcon, 'Trophy');            // leaderboard 
 export const Moon = makeIcon(MoonIcon, 'Moon');                  // dark theme
 export const MessageSquarePlus = makeIcon(NewChatIcon, 'MessageSquarePlus'); // new chat
 export const PanelLeftClose = makeIcon(SidebarIcon, 'PanelLeftClose');       // collapse sidebar
-export const PanelLeft = makeIcon(SidebarIcon, 'PanelLeft');                 // reopen sidebar (same glyph)
+export const PanelLeft = makeIcon(SidebarIcon, 'PanelLeft', { mirror: true }); // reopen sidebar (mirrored so close/open point opposite ways)
 export const MessageSquare = makeIcon(ChatIcon, 'MessageSquare'); // chat-list item
 export const Copy = makeIcon(CopyIcon, 'Copy');                  // copy message
 export const CheckCircle = makeIcon(CheckSquareIcon, 'CheckCircle'); // agent "done" (Обработка заняла)

@@ -761,3 +761,10 @@
         75% { transform: translateX(4px); opacity: 1; }
     }
 }
+
+/* Unified reasoning block: the rotating phrase becomes the collapsed header
+   label while running, so it must sit inline (not as a centered block). */
+.agent-thinking-summary .loading-phrase {
+  margin: 0;
+  text-align: left;
+}

@@ -45,12 +45,18 @@ import ClockSvg from '@phosphor-icons/core/assets/regular/clock.svg?react';
 import CloudSlashSvg from '@phosphor-icons/core/assets/regular/cloud-slash.svg?react';
 import CircleFillSvg from '@phosphor-icons/core/assets/fill/circle-fill.svg?react';
 
-function makeIcon(Svg, displayName, { mirror = false } = {}) {
+// `forceFill` makes the root <svg> inherit fill="currentColor". Phosphor glyphs
+// declare no per-path fill, so they depend on it. The custom Менон SVGs colour
+// themselves (filled shapes carry fill="currentColor"; outline shapes use a
+// stroke over the SVG's own root fill="none"). Forcing a root fill onto those
+// would flood the stroke-only outlines — the arena sword blade, the new-chat
+// pencil — solid, so custom icons pass forceFill: false (see makeCustomIcon).
+function makeIcon(Svg, displayName, { mirror = false, forceFill = true } = {}) {
     const Icon = ({ size = 20, className, style, title, ...rest }) => (
         <Svg
             width={size}
             height={size}
-            fill="currentColor"
+            {...(forceFill ? { fill: 'currentColor' } : null)}
             aria-hidden={title ? undefined : true}
             focusable="false"
             className={className}
@@ -71,19 +77,25 @@ function makeIcon(Svg, displayName, { mirror = false } = {}) {
     return Icon;
 }
 
+// Custom Менон icons are self-colouring (per-path fill/stroke=currentColor over
+// a fill="none" root), so they must NOT have a root fill forced onto them — that
+// is what makes their outline-only shapes render as a contour, not a solid blob.
+const makeCustomIcon = (Svg, displayName, opts = {}) =>
+    makeIcon(Svg, displayName, { forceFill: false, ...opts });
+
 // ── Custom-icon exports (names kept identical to the former lucide imports) ──
-export const Trophy = makeIcon(TrophyIcon, 'Trophy');            // leaderboard / arena winner
-export const Moon = makeIcon(MoonIcon, 'Moon');                  // dark theme
-export const MessageSquarePlus = makeIcon(NewChatIcon, 'MessageSquarePlus'); // new chat
-export const PanelLeftClose = makeIcon(SidebarIcon, 'PanelLeftClose');       // collapse sidebar
-export const PanelLeft = makeIcon(SidebarIcon, 'PanelLeft', { mirror: true }); // reopen sidebar (mirrored so close/open point opposite ways)
-export const MessageSquare = makeIcon(ChatIcon, 'MessageSquare'); // chat-list item
-export const Copy = makeIcon(CopyIcon, 'Copy');                  // copy message
-export const CheckCircle = makeIcon(CheckSquareIcon, 'CheckCircle'); // agent "done" (Обработка заняла)
-export const ExternalLink = makeIcon(ExternalIcon, 'ExternalLink');  // sources link
-export const SendHorizontal = makeIcon(SendIcon, 'SendHorizontal');  // send
-export const RateReview = makeIcon(SurveyIcon, 'RateReview');    // end-of-session survey
-export const Swords = makeIcon(ArenaIcon, 'Swords');             // arena toggle
+export const Trophy = makeCustomIcon(TrophyIcon, 'Trophy');            // leaderboard / arena winner
+export const Moon = makeCustomIcon(MoonIcon, 'Moon');                  // dark theme
+export const MessageSquarePlus = makeCustomIcon(NewChatIcon, 'MessageSquarePlus'); // new chat
+export const PanelLeftClose = makeCustomIcon(SidebarIcon, 'PanelLeftClose');       // collapse sidebar
+export const PanelLeft = makeCustomIcon(SidebarIcon, 'PanelLeft', { mirror: true }); // reopen sidebar (mirrored so close/open point opposite ways)
+export const MessageSquare = makeCustomIcon(ChatIcon, 'MessageSquare'); // chat-list item
+export const Copy = makeCustomIcon(CopyIcon, 'Copy');                  // copy message
+export const CheckCircle = makeCustomIcon(CheckSquareIcon, 'CheckCircle'); // agent "done" (Обработка заняла)
+export const ExternalLink = makeCustomIcon(ExternalIcon, 'ExternalLink');  // sources link
+export const SendHorizontal = makeCustomIcon(SendIcon, 'SendHorizontal');  // send
+export const RateReview = makeCustomIcon(SurveyIcon, 'RateReview');    // end-of-session survey
+export const Swords = makeCustomIcon(ArenaIcon, 'Swords');             // arena toggle
 
 // ── Phosphor exports (no custom glyph) ──
 export const Sun = makeIcon(SunSvg, 'Sun');

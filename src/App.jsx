@@ -209,6 +209,8 @@ function applyLastMessageError(chats, chatId, error) {
       ...message,
       content: errorMessage,
       responseModelId: message.responseModelId || message.requestModelId || null,
+      isStreaming: false,
+      agentError: true,
     };
   });
 }

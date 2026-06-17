@@ -299,6 +299,20 @@ export async function fetchContributorLeaderboard() {
     return (await res.json()).data || [];
 }
 
+// First-token timeout: if the backend hasn't produced the FIRST content
+// chunk within this many ms we assume the upstream is stuck and abort.
+// Once streaming has started we don't enforce the cap further — long
+// answers are fine, mid-stream silence is the symptom we're worried about.
+export const CHAT_FIRST_TOKEN_TIMEOUT_MS = 60_000;
+
+export class ChatTimeoutError extends Error {
+    constructor(modelId) {
+        super(`Chat timeout after ${CHAT_FIRST_TOKEN_TIMEOUT_MS}ms (model=${modelId || 'unknown'})`);
+        this.name = 'ChatTimeoutError';
+        this.code = 'chat_timeout';
+    }
+}
+
 export async function sendChatMessage({
     messages,
     modelId,
@@ -306,6 +320,7 @@ export async function sendChatMessage({
     sessionId,
     stream = false,
     onEvent = null,
+    signal = null,
 }) {
     apiLogger.debug('sendChatMessage called', {
         modelId,
@@ -323,14 +338,40 @@ export async function sendChatMessage({
             knowledge_base_id: knowledgeBaseId,
         };
 
-        const res = await fetchWithLogging(`${API_BASE_URL}/v1/chat/completions`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-Pipeline-Stages': 'true',
-            },
-            body: JSON.stringify(payload),
-        });
+        // Wrap the fetch in a timeout that aborts if the FIRST content
+        // chunk hasn't appeared in CHAT_FIRST_TOKEN_TIMEOUT_MS. Cleared
+        // below the moment we see a content event in the SSE loop.
+        const localAborter = new AbortController();
+        const externalAbortHandler = () => localAborter.abort(signal?.reason);
+        if (signal) {
+            if (signal.aborted) localAborter.abort(signal.reason);
+            else signal.addEventListener('abort', externalAbortHandler, { once: true });
+        }
+        let timeoutFired = false;
+        const firstTokenTimer = setTimeout(() => {
+            timeoutFired = true;
+            localAborter.abort();
+        }, CHAT_FIRST_TOKEN_TIMEOUT_MS);
+
+        let res;
+        try {
+            res = await fetchWithLogging(`${API_BASE_URL}/v1/chat/completions`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Pipeline-Stages': 'true',
+                },
+                body: JSON.stringify(payload),
+                signal: localAborter.signal,
+            });
+        } catch (err) {
+            clearTimeout(firstTokenTimer);
+            if (signal) signal.removeEventListener('abort', externalAbortHandler);
+            if (timeoutFired || err?.name === 'AbortError') {
+                throw new ChatTimeoutError(modelId);
+            }
+            throw err;
+        }
 
         if (!res.ok) {
             let errorData = await res.text();
@@ -456,6 +497,12 @@ export async function sendChatMessage({
             if (typeof textChunk === 'string' && textChunk.length > 0) {
                 fullContent += textChunk;
                 chunkCount += 1;
+                // First real content chunk arrived — cancel the
+                // first-token timeout so a long answer isn't aborted
+                // half-way through.
+                if (firstTokenTimer) {
+                    clearTimeout(firstTokenTimer);
+                }
                 if (onEvent) {
                     onEvent({
                         type: 'content',
@@ -470,8 +517,16 @@ export async function sendChatMessage({
             return false;
         };
 
+        let readError = null;
         while (true) {
-            const { done, value } = await reader.read();
+            let readResult;
+            try {
+                readResult = await reader.read();
+            } catch (err) {
+                readError = err;
+                break;
+            }
+            const { done, value } = readResult;
             rawBuffer += decoder.decode(value || new Uint8Array(), { stream: !done });
 
             const { completeEvents, remainder } = splitSseBuffer(rawBuffer);
@@ -499,6 +554,17 @@ export async function sendChatMessage({
                 });
                 break;
             }
+        }
+
+        // Either the loop finished cleanly or `reader.read()` threw. Clear
+        // the timer either way; convert an abort into our typed error.
+        clearTimeout(firstTokenTimer);
+        if (signal) signal.removeEventListener('abort', externalAbortHandler);
+        if (readError) {
+            if (timeoutFired || readError?.name === 'AbortError') {
+                throw new ChatTimeoutError(modelId);
+            }
+            throw readError;
         }
 
         return {

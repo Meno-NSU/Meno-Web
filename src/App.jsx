@@ -30,6 +30,7 @@ import { useAuth } from './store/authStore.js';
 import SurveyModal from './components/SurveyModal.jsx';
 import { submitSurvey } from './services/api.js';
 import { translateOnce as i18nLookup } from './i18n.js';
+import { buildErrorMessage } from './services/errorMessage.js';
 import './index.css';
 
 const LAST_USED_MODEL_KEY = 'lastUsedModelId';
@@ -43,29 +44,6 @@ const EMPTY_CHAT = {
     sessionId: '',
   },
 };
-
-function buildErrorMessage(error) {
-  if (error.code === 'chat_timeout') {
-    // i18n.js getLanguage() avoids dragging `useTranslation` into a plain
-    // helper. The string is written into setChats once on error; it stays
-    // in whatever the active language was at error time.
-    return `⚠ ${i18nLookup('chatTimeoutWarning')}`;
-  }
-  if (error.code === 'model_rate_limited') {
-    const until = error.until ? new Date(error.until) : null;
-    const hh = until ? String(until.getHours()).padStart(2, '0') : '??';
-    const mm = until ? String(until.getMinutes()).padStart(2, '0') : '??';
-    const mins = until ? Math.max(0, Math.round((until.getTime() - Date.now()) / 60000)) : null;
-    return `⚠ Model is rate-limited until ${hh}:${mm}${mins !== null ? ` (~${mins} min)` : ''}. Try another model.`;
-  }
-  if (error.code === 'model_unreachable') {
-    return `⚠ Model is currently unreachable. Try another model.`;
-  }
-  if (error.code === 'core_model_unavailable') {
-    return `⚠ Internal RAG model unavailable — backend cannot run retrieval.`;
-  }
-  return `⚠ ${error.message || 'Request failed.'}`;
-}
 
 function resolveValidId(items, candidateId, fallbackId = '') {
   const normalized = typeof candidateId === 'string' ? candidateId.trim() : '';

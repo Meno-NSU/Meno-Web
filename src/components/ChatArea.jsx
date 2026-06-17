@@ -1,56 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Copy, Check, ChevronDown, Brain, Loader, CheckCircle, ExternalLink, Trophy, ArrowCircleLeft, ArrowCircleRight, Handshake, ThumbsDown } from './icons.jsx';
+import { Copy, Check, ChevronDown, Brain, ExternalLink, Trophy, ArrowCircleLeft, ArrowCircleRight, Handshake, ThumbsDown } from './icons.jsx';
 import { useTranslation } from '../i18n.js';
 import ChatInput from './ChatInput.jsx';
 import MessageFeedback from './MessageFeedback.jsx';
 import { submitArenaVote } from '../services/api.js';
 import { buildArenaHistories, arenaTurnIndex } from '../services/arenaHistory.js';
 import './ChatArea.css';
-
-// ── Loading phrases ──────────────────────────────────────────────────────────
-// Phrases now live in `src/i18n.js` (key `loadingPhrases`) and follow the
-// active language — see useTranslation().
-function LoadingPhrase() {
-    const { t, lang } = useTranslation();
-    const phrases = (Array.isArray(t('loadingPhrases')) && t('loadingPhrases').length > 0)
-        ? t('loadingPhrases')
-        : ['…'];
-    const [index, setIndex] = useState(() => Math.floor(Math.random() * phrases.length));
-    const [visible, setVisible] = useState(true);
-
-    // Reset index when the language switches so we don't briefly index past
-    // the new language's array bounds (the two language arrays may differ
-    // in length down the road).
-    useEffect(() => {
-        setIndex(Math.floor(Math.random() * phrases.length));
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [lang]);
-
-    useEffect(() => {
-        const cycle = setInterval(() => {
-            setVisible(false);
-            setTimeout(() => {
-                setIndex(prev => {
-                    if (phrases.length <= 1) return 0;
-                    let next;
-                    do { next = Math.floor(Math.random() * phrases.length); }
-                    while (next === prev);
-                    return next;
-                });
-                setVisible(true);
-            }, 400); // fade-out duration before swap
-        }, 2600);
-        return () => clearInterval(cycle);
-    }, [phrases.length]);
-
-    return (
-        <div className={`loading-phrase ${visible ? 'visible' : 'hidden'}`}>
-            {phrases[Math.min(index, phrases.length - 1)]}
-        </div>
-    );
-}
+import { ReasoningBlock, LoadingPhrase } from './ReasoningBlock.jsx';
+import { extractReasoning } from './reasoning.js';
 
 // All inline links rendered from model output must open in a new tab —
 // otherwise tapping one inside an in-progress arena round navigates the SPA
@@ -131,150 +90,6 @@ function ThinkBlock({ content, thinkTime, streaming }) {
                     </ReactMarkdown>
                 </div>
             )}
-        </div>
-    );
-}
-
-// ── Agent pipeline stages block ──────────────────────────────────────────────
-
-function formatDuration(ms) {
-    if (ms == null) return '';
-    if (ms < 1000) return `${Math.round(ms)}ms`;
-    return `${(ms / 1000).toFixed(1)}s`;
-}
-
-function AgentThinkingBlock({ stages, summary, thinkingContent }) {
-    const [manualToggle, setManualToggle] = useState(null);
-    const { t } = useTranslation();
-
-    // Complete ONLY when summary arrives (backend sends it after everything is done)
-    const isComplete = summary !== null;
-    const hasRunning = stages.some((s) => s.status === 'running');
-
-    // Auto mode: open while running, closed when complete. Manual overrides.
-    const isOpen = manualToggle !== null ? manualToggle : !isComplete;
-
-    if (!stages || stages.length === 0) return null;
-
-    const totalMs = summary?.totalMs
-        ?? stages.reduce((sum, s) => sum + (s.durationMs || 0), 0);
-
-    // Header: show current running stage name, or total time when complete
-    const runningStage = stages.find((s) => s.status === 'running');
-    let headerLabel;
-    if (isComplete) {
-        headerLabel = t('agentThoughtFor').replace('{time}', (totalMs / 1000).toFixed(1));
-    } else if (runningStage) {
-        headerLabel = t(`stage_${runningStage.stage}`) || runningStage.stage;
-    } else {
-        headerLabel = t('agentProcessing');
-    }
-
-    return (
-        <div className={`agent-thinking-block ${isOpen ? 'open' : ''} ${isComplete ? 'complete' : ''}`}>
-            <button
-                className="agent-thinking-summary"
-                onClick={() => setManualToggle((prev) => (prev !== null ? !prev : !isOpen))}
-            >
-                {isComplete
-                    ? <CheckCircle size={14} className="agent-thinking-icon complete" />
-                    : <Loader size={14} className="agent-thinking-icon spinning" />
-                }
-                <span className={hasRunning && !isOpen ? 'agent-header-shimmer' : ''}>
-                    {headerLabel}
-                </span>
-                <ChevronDown size={14} className="agent-thinking-chevron" />
-            </button>
-            {isOpen && (
-                <div className="agent-thinking-stages">
-                    {stages.map((s, i) => (
-                        <div key={i} className={`agent-stage-row ${s.status}`}>
-                            <span className="agent-stage-icon">
-                                {s.status === 'running'
-                                    ? <Loader size={12} className="spinning" />
-                                    : s.status === 'complete'
-                                        ? <Check size={12} />
-                                        : s.status === 'failed'
-                                            ? <span style={{ color: 'var(--danger)' }}>!</span>
-                                            : <span>-</span>
-                                }
-                            </span>
-                            <span className="agent-stage-label">
-                                {t(`stage_${s.stage}`) || s.stage}
-                            </span>
-                            {s.status === 'running' && (
-                                <span className="agent-stage-shimmer">
-                                    <LoadingPhrase />
-                                </span>
-                            )}
-                            {s.durationMs != null && (
-                                <span className="agent-stage-duration">
-                                    {formatDuration(s.durationMs)}
-                                </span>
-                            )}
-                        </div>
-                    ))}
-                    {stages.filter(s => s.status === 'complete' && s.detail).map((s, i) => (
-                        <StageDetail key={`detail-${i}`} detail={s.detail} stage={s.stage} />
-                    ))}
-                    {thinkingContent && (
-                        <div className="agent-thinking-content">
-                            <ReactMarkdown remarkPlugins={[remarkGfm]} components={MARKDOWN_COMPONENTS}>
-                                {thinkingContent}
-                            </ReactMarkdown>
-                        </div>
-                    )}
-                </div>
-            )}
-        </div>
-    );
-}
-
-function StageDetail({ detail, stage }) {
-    if (!detail || typeof detail !== 'object') return null;
-
-    const lines = [];
-
-    if (stage === 'abbreviation_expansion' && detail.expanded && detail.expanded !== detail.original) {
-        lines.push(detail.expanded);
-    }
-    if (stage === 'anaphora_resolution' && detail.resolved_query) {
-        lines.push(detail.resolved_query);
-    }
-    if (stage === 'query_rewrite') {
-        if (detail.resolved_coreferences) lines.push(`Запрос: ${detail.resolved_coreferences}`);
-        if (Array.isArray(detail.search_queries) && detail.search_queries.length > 0) {
-            detail.search_queries.forEach((q, i) => lines.push(`  ${i + 1}. ${q}`));
-        }
-    }
-    if (stage === 'retrieval') {
-        const parts = [];
-        if (detail.chunks_found != null) parts.push(`${detail.chunks_found} чанков`);
-        if (detail.multilingual) parts.push(`multilingual: ${detail.multilingual}`);
-        if (detail.russian) parts.push(`russian: ${detail.russian}`);
-        if (detail.bm25) parts.push(`BM25: ${detail.bm25}`);
-        if (parts.length) lines.push(parts.join(' · '));
-    }
-    if (stage === 'fusion' && detail.candidates != null) {
-        lines.push(`${detail.candidates} кандидатов после объединения`);
-    }
-    if (stage === 'rerank' && detail.kept != null) {
-        lines.push(`Отобрано топ-${detail.kept} из ${detail.candidates || '?'}`);
-    }
-    if (stage === 'context_assembly') {
-        const parts = [];
-        if (detail.sources != null) parts.push(`${detail.sources} источников`);
-        if (detail.context_tokens != null) parts.push(`~${detail.context_tokens} токенов`);
-        if (parts.length) lines.push(parts.join(', '));
-    }
-
-    if (lines.length === 0) return null;
-
-    return (
-        <div className="agent-stage-detail-block">
-            {lines.map((line, i) => (
-                <div key={i} className="agent-stage-detail-line">{line}</div>
-            ))}
         </div>
     );
 }
@@ -420,30 +235,26 @@ function MessageBubble({ message, chatId, setChats }) {
         );
     }
 
-    // Parse think blocks out of raw content, passing along thinkTime
-    const segments = parseThinkBlocks(message.content || '', message.thinkTime, message.isStreaming);
+    // Split the answer from the model's <think> reasoning; merge that with the
+    // separately-streamed thinkingContent into one reasoning disclosure above.
+    const { answer, think } = extractReasoning(message.content || '');
+    const reasoning = [message.thinkingContent, think].filter(Boolean).join('\n\n');
     const effectiveModelId = message.responseModelId || message.requestModelId;
 
     return (
         <div className="message-wrapper assistant">
             <div className="message-content">
-                {message.agentStages?.length > 0 && (
-                    <AgentThinkingBlock
-                        stages={message.agentStages}
-                        summary={message.agentSummary || null}
-                        thinkingContent={message.thinkingContent || ''}
-                    />
-                )}
+                <ReasoningBlock
+                    stages={message.agentStages || []}
+                    summary={message.agentSummary || null}
+                    agentError={!!message.agentError}
+                    isStreaming={!!message.isStreaming}
+                    reasoning={reasoning}
+                />
                 <div className="message-markdown prose">
-                    {segments.map((seg, i) =>
-                        seg.type === 'think' ? (
-                            <ThinkBlock key={i} content={seg.content} thinkTime={seg.thinkTime} streaming={seg.streaming} />
-                        ) : (
-                            <ReactMarkdown key={i} remarkPlugins={[remarkGfm]}>
-                                {seg.content}
-                            </ReactMarkdown>
-                        )
-                    )}
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        {answer}
+                    </ReactMarkdown>
                 </div>
 
                 {message.sources?.length > 0 && <SourcesBlock sources={message.sources} />}

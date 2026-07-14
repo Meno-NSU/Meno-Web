@@ -28,12 +28,13 @@
 
 /* Grouped multi-link source (e.g. a summary document) — an expandable disclosure:
    looks like a source link, reveals its URLs inline on click. */
-.source-group {
-    /* Override the row layout inherited from `.sources-list li` so the header
-       button and the revealed list stack vertically. */
+/* Higher specificity than `.sources-list li` so these win over the row layout it
+   sets (otherwise its `align-items: center` centres + un-stretches the group). */
+.sources-list li.source-group {
     flex-direction: column;
     align-items: stretch;
     gap: 0;
+    min-width: 0;
 }
 .source-group-head {
     display: flex;
@@ -86,6 +87,7 @@
     display: flex;
     flex-direction: column;
     gap: 0.1rem;
+    min-width: 0;
 }
 /* Subtle row highlight on the revealed links (they inherit accent colour +
    ellipsis from `.sources-list a`). */
@@ -639,6 +641,9 @@
     align-items: center;
     gap: 0.4rem;
     font-size: 0.85rem;
+    /* Let flex rows shrink so long, nowrap URLs truncate (ellipsis) instead of
+       widening the row past the card. Needed on every flex ancestor of the link. */
+    min-width: 0;
 }
 
 .sources-link-icon {
@@ -652,6 +657,9 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    /* Flex child inside the row: allow it to shrink so long URLs truncate with
+       an ellipsis instead of stretching the row past the card (mobile). */
+    min-width: 0;
 }
 
 .sources-list a:hover {

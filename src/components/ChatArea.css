@@ -26,6 +26,33 @@
     opacity: 0.85;
 }
 
+/* Grouped multi-link source (e.g. a summary document) */
+.source-group-title {
+    font-weight: 500;
+}
+.source-group-links {
+    list-style: none;
+    margin: 0.15rem 0 0;
+    padding-left: 1rem;
+}
+.source-group-links li {
+    margin: 0.1rem 0;
+}
+.source-group-toggle {
+    margin: 0.15rem 0 0 1rem;
+    padding: 0;
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-size: 0.8rem;
+    opacity: 0.7;
+    color: inherit;
+}
+.source-group-toggle:hover {
+    opacity: 1;
+    text-decoration: underline;
+}
+
 .chat-container {
     flex: 1;
     display: flex;

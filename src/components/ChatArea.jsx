@@ -7,6 +7,7 @@ import ChatInput from './ChatInput.jsx';
 import MessageFeedback from './MessageFeedback.jsx';
 import { submitArenaVote } from '../services/api.js';
 import { buildArenaHistories, arenaTurnIndex } from '../services/arenaHistory.js';
+import { groupSourcesByTitle, formatSourceUrl, SOURCES_LINK_CAP } from '../services/sourceGrouping.js';
 import './ChatArea.css';
 import { ReasoningBlock, LoadingPhrase } from './ReasoningBlock.jsx';
 import { extractReasoning } from './reasoning.js';
@@ -196,20 +197,72 @@ export default function ChatArea({ messages, isGenerating, onSendMessage, onRetr
 }
 
 // ── Sources block ────────────────────────────────────────────────────────────
+function SourceLink({ url, label }) {
+    return (
+        <>
+            <ExternalLink size={12} className="sources-link-icon" />
+            <a href={url} target="_blank" rel="noopener noreferrer">{label}</a>
+        </>
+    );
+}
+
+// One grouped source: a single-URL doc keeps the old look (title is the link);
+// a multi-URL doc (e.g. a summary) shows the title once with its links beneath,
+// capped at SOURCES_LINK_CAP with a show-all toggle.
+function SourceGroup({ title, urls }) {
+    const { t } = useTranslation();
+    const [expanded, setExpanded] = useState(false);
+
+    if (urls.length === 1) {
+        return (
+            <li>
+                <SourceLink url={urls[0]} label={title || formatSourceUrl(urls[0])} />
+            </li>
+        );
+    }
+
+    if (!title) {
+        return (
+            <>
+                {urls.map((url, i) => (
+                    <li key={i}><SourceLink url={url} label={formatSourceUrl(url)} /></li>
+                ))}
+            </>
+        );
+    }
+
+    const shown = expanded ? urls : urls.slice(0, SOURCES_LINK_CAP);
+    return (
+        <li className="source-group">
+            <div className="source-group-title">{title}</div>
+            <ul className="source-group-links">
+                {shown.map((url, i) => (
+                    <li key={i}><SourceLink url={url} label={formatSourceUrl(url)} /></li>
+                ))}
+            </ul>
+            {urls.length > SOURCES_LINK_CAP && (
+                <button
+                    type="button"
+                    className="source-group-toggle"
+                    onClick={() => setExpanded((v) => !v)}
+                >
+                    {expanded ? t('sourcesCollapse') : t('sourcesShowAll').replace('{n}', String(urls.length))}
+                </button>
+            )}
+        </li>
+    );
+}
+
 function SourcesBlock({ sources }) {
     const { t } = useTranslation();
-    if (!sources || sources.length === 0) return null;
+    const groups = groupSourcesByTitle(sources);
+    if (groups.length === 0) return null;
     return (
         <div className="sources-block">
             <div className="sources-header">{t('sources')}</div>
             <ul className="sources-list">
-                {sources.map((s, i) => (
-                    <li key={i}>
-                        <ExternalLink size={12} className="sources-link-icon" />
-                        <a href={s.source_url} target="_blank" rel="noopener noreferrer">
-                            {s.document_title || s.source_url}
-                        </a>
-                    </li>
+                {groups.map((g, i) => (
+                    <SourceGroup key={i} title={g.title} urls={g.urls} />
                 ))}
             </ul>
         </div>

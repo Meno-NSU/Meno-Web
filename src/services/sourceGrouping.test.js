@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { groupSourcesByTitle, formatSourceUrl, SOURCES_LINK_CAP } from './sourceGrouping.js';
+import { groupSourcesByTitle, formatSourceUrl } from './sourceGrouping.js';
 
 describe('groupSourcesByTitle', () => {
   it('merges same-titled sources and preserves first-appearance order', () => {
@@ -55,11 +55,5 @@ describe('formatSourceUrl', () => {
   it('handles empty/nullish gracefully', () => {
     expect(formatSourceUrl('')).toBe('');
     expect(formatSourceUrl(null)).toBe('');
-  });
-});
-
-describe('SOURCES_LINK_CAP', () => {
-  it('is 5', () => {
-    expect(SOURCES_LINK_CAP).toBe(5);
   });
 });

@@ -7,7 +7,7 @@ import ChatInput from './ChatInput.jsx';
 import MessageFeedback from './MessageFeedback.jsx';
 import { submitArenaVote } from '../services/api.js';
 import { buildArenaHistories, arenaTurnIndex } from '../services/arenaHistory.js';
-import { groupSourcesByTitle, formatSourceUrl, SOURCES_LINK_CAP } from '../services/sourceGrouping.js';
+import { groupSourcesByTitle, formatSourceUrl } from '../services/sourceGrouping.js';
 import './ChatArea.css';
 import { ReasoningBlock, LoadingPhrase } from './ReasoningBlock.jsx';
 import { extractReasoning } from './reasoning.js';
@@ -206,12 +206,12 @@ function SourceLink({ url, label }) {
     );
 }
 
-// One grouped source: a single-URL doc keeps the old look (title is the link);
-// a multi-URL doc (e.g. a summary) shows the title once with its links beneath,
-// capped at SOURCES_LINK_CAP with a show-all toggle.
+// One grouped source. A single-URL doc keeps the old look (the title is the
+// link). A multi-URL doc (e.g. a summary) looks like a source link too, but
+// clicking it reveals its URLs inline — a disclosure that needs no hover, so it
+// works on touch. A count badge + chevron signal that the row expands.
 function SourceGroup({ title, urls }) {
-    const { t } = useTranslation();
-    const [expanded, setExpanded] = useState(false);
+    const [open, setOpen] = useState(false);
 
     if (urls.length === 1) {
         return (
@@ -231,23 +231,25 @@ function SourceGroup({ title, urls }) {
         );
     }
 
-    const shown = expanded ? urls : urls.slice(0, SOURCES_LINK_CAP);
     return (
-        <li className="source-group">
-            <div className="source-group-title">{title}</div>
-            <ul className="source-group-links">
-                {shown.map((url, i) => (
-                    <li key={i}><SourceLink url={url} label={formatSourceUrl(url)} /></li>
-                ))}
-            </ul>
-            {urls.length > SOURCES_LINK_CAP && (
-                <button
-                    type="button"
-                    className="source-group-toggle"
-                    onClick={() => setExpanded((v) => !v)}
-                >
-                    {expanded ? t('sourcesCollapse') : t('sourcesShowAll').replace('{n}', String(urls.length))}
-                </button>
+        <li className={`source-group${open ? ' open' : ''}`}>
+            <button
+                type="button"
+                className="source-group-head"
+                aria-expanded={open}
+                onClick={() => setOpen((v) => !v)}
+            >
+                <ExternalLink size={13} className="sources-link-icon" />
+                <span className="source-group-title">{title}</span>
+                <span className="source-group-count">{urls.length}</span>
+                <ChevronDown size={14} className="source-group-chevron" />
+            </button>
+            {open && (
+                <ul className="source-group-links">
+                    {urls.map((url, i) => (
+                        <li key={i}><SourceLink url={url} label={formatSourceUrl(url)} /></li>
+                    ))}
+                </ul>
             )}
         </li>
     );

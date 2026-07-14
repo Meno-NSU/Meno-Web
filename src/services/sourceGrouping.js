@@ -3,8 +3,6 @@
 // summary documents — so the same title can appear many times. Group by title so
 // each title renders once with its links.
 
-export const SOURCES_LINK_CAP = 5;
-
 // Group flat sources by document title, preserving first-appearance order of both
 // titles and URLs, dropping empty URLs and exact-duplicate URLs within a group.
 export function groupSourcesByTitle(sources) {

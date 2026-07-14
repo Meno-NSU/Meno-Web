@@ -1,4 +1,5 @@
 import { apiLogger } from './logger';
+import { createWaitTimers, RESPONSE_TIMEOUT_MS, SLOW_WARNING_MS } from './chatWaitState.js';
 
 // All API calls use relative URLs (e.g. /v1/models).
 // In dev mode Vite proxies /v1/* to the backend.
@@ -303,7 +304,8 @@ export async function fetchContributorLeaderboard() {
 // chunk within this many ms we assume the upstream is stuck and abort.
 // Once streaming has started we don't enforce the cap further — long
 // answers are fine, mid-stream silence is the symptom we're worried about.
-export const CHAT_FIRST_TOKEN_TIMEOUT_MS = 60_000;
+export const CHAT_FIRST_TOKEN_TIMEOUT_MS = RESPONSE_TIMEOUT_MS; // 120s hard abort
+export const CHAT_SLOW_WARNING_MS = SLOW_WARNING_MS; // 40s soft notice
 
 export class ChatTimeoutError extends Error {
     constructor(modelId) {
@@ -348,10 +350,15 @@ export async function sendChatMessage({
             else signal.addEventListener('abort', externalAbortHandler, { once: true });
         }
         let timeoutFired = false;
-        const firstTokenTimer = setTimeout(() => {
-            timeoutFired = true;
-            localAborter.abort();
-        }, CHAT_FIRST_TOKEN_TIMEOUT_MS);
+        // Two-stage wait: a soft "slow" notice at 40s, then a hard abort at 120s.
+        const waitTimers = createWaitTimers({
+            onSlowWarning: () => onEvent && onEvent({ type: 'slow_warning' }),
+            onTimeout: () => {
+                timeoutFired = true;
+                localAborter.abort();
+            },
+        });
+        const firstTokenTimer = waitTimers; // keep the name used by the clears below
 
         let res;
         try {
@@ -365,7 +372,7 @@ export async function sendChatMessage({
                 signal: localAborter.signal,
             });
         } catch (err) {
-            clearTimeout(firstTokenTimer);
+            firstTokenTimer.clear();
             if (signal) signal.removeEventListener('abort', externalAbortHandler);
             if (timeoutFired || err?.name === 'AbortError') {
                 throw new ChatTimeoutError(modelId);
@@ -497,12 +504,9 @@ export async function sendChatMessage({
             if (typeof textChunk === 'string' && textChunk.length > 0) {
                 fullContent += textChunk;
                 chunkCount += 1;
-                // First real content chunk arrived — cancel the
-                // first-token timeout so a long answer isn't aborted
-                // half-way through.
-                if (firstTokenTimer) {
-                    clearTimeout(firstTokenTimer);
-                }
+                // First real content chunk arrived — cancel the wait timers
+                // so a long answer isn't aborted (and no late slow-warning).
+                firstTokenTimer.clear();
                 if (onEvent) {
                     onEvent({
                         type: 'content',
@@ -557,8 +561,8 @@ export async function sendChatMessage({
         }
 
         // Either the loop finished cleanly or `reader.read()` threw. Clear
-        // the timer either way; convert an abort into our typed error.
-        clearTimeout(firstTokenTimer);
+        // the timers either way; convert an abort into our typed error.
+        firstTokenTimer.clear();
         if (signal) signal.removeEventListener('abort', externalAbortHandler);
         if (readError) {
             if (timeoutFired || readError?.name === 'AbortError') {
@@ -575,5 +579,18 @@ export async function sendChatMessage({
     } catch (error) {
         apiLogger.error('Error in sendChatMessage:', error);
         throw error;
+    }
+}
+
+// Best-effort load snapshot for the overload UX. Never throws — on any failure
+// it returns zeros so the caller just omits the load figure.
+export async function fetchServiceStatus() {
+    try {
+        const res = await fetch(`${API_BASE_URL}/v1/status`);
+        if (!res.ok) return { active: 0, limit: null };
+        const data = await res.json();
+        return { active: data.active_requests ?? 0, limit: data.limit ?? null };
+    } catch {
+        return { active: 0, limit: null };
     }
 }

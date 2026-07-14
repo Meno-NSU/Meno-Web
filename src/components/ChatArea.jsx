@@ -95,7 +95,7 @@ function ThinkBlock({ content, thinkTime, streaming }) {
 }
 
 // ── Main ChatArea ────────────────────────────────────────────────────────────
-export default function ChatArea({ messages, isGenerating, onSendMessage, kbs, selectedKb, onKbChange, modelsAvailable, chatId, setChats, voteIsPending }) {
+export default function ChatArea({ messages, isGenerating, onSendMessage, onRetry, kbs, selectedKb, onKbChange, modelsAvailable, chatId, setChats, voteIsPending }) {
     const { t } = useTranslation();
     const messagesEndRef = useRef(null);
 
@@ -142,7 +142,7 @@ export default function ChatArea({ messages, isGenerating, onSendMessage, kbs, s
                                 : messages.slice(0, index);
                             return <ArenaMessageBubble key={index} message={msg} chatId={chatId} setChats={setChats} isGenerating={isGenerating} question={question} messagesBeforeRound={messagesBeforeRound} />;
                         }
-                        return <MessageBubble key={index} message={msg} chatId={chatId} setChats={setChats} />;
+                        return <MessageBubble key={index} message={msg} chatId={chatId} setChats={setChats} onRetry={onRetry} />;
                     })}
 
                     {isGenerating && (() => {
@@ -215,7 +215,8 @@ function SourcesBlock({ sources }) {
 }
 
 // ── Message bubble ───────────────────────────────────────────────────────────
-function MessageBubble({ message, chatId, setChats }) {
+function MessageBubble({ message, chatId, setChats, onRetry }) {
+    const { t } = useTranslation();
     const isUser = message.role === 'user';
     const [copied, setCopied] = useState(false);
 
@@ -251,11 +252,27 @@ function MessageBubble({ message, chatId, setChats }) {
                     isStreaming={!!message.isStreaming}
                     reasoning={reasoning}
                 />
+                {message.slowWarning && message.isStreaming && (
+                    <div className="slow-warning-banner">{t('slowWarning')}</div>
+                )}
                 <div className="message-markdown prose">
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>
                         {answer}
                     </ReactMarkdown>
                 </div>
+
+                {message.agentError && message.retry && (
+                    <div className="retry-panel">
+                        {message.retry.load?.showLoad && (
+                            <div className="retry-load">
+                                {t('overloadWithLoad').replace('{n}', String(message.retry.load.count))}
+                            </div>
+                        )}
+                        <button type="button" className="retry-btn" onClick={() => onRetry?.(message)}>
+                            {t('retryButton')}
+                        </button>
+                    </div>
+                )}
 
                 {message.sources?.length > 0 && <SourcesBlock sources={message.sources} />}
 

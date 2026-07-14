@@ -584,7 +584,7 @@ function App() {
     });
   };
 
-  const handleSendMessage = async (text) => {
+  const handleSendMessage = async (text, { retryOf = null } = {}) => {
     const trimmedText = text.trim();
     const targetChatId = activeChatId;
 
@@ -611,11 +611,15 @@ function App() {
       return;
     }
 
+    // Retry re-runs the same user turn: drop the errored assistant message and
+    // reuse the existing user message instead of appending a duplicate.
+    const isRetry = !!retryOf;
     const userMessage = { role: 'user', content: trimmedText };
-    const messageHistory = [...targetChat.messages, userMessage];
+    const baseMessages = isRetry ? targetChat.messages.filter((m) => m !== retryOf) : targetChat.messages;
+    const messageHistory = isRetry ? baseMessages : [...baseMessages, userMessage];
 
     setChats((prev) => updateChatById(prev, targetChatId, (chat) => {
-      const nextMessages = [...chat.messages, userMessage];
+      const nextMessages = isRetry ? chat.messages.filter((m) => m !== retryOf) : [...chat.messages, userMessage];
       return {
         ...chat,
         messages: nextMessages,
@@ -998,6 +1002,13 @@ function App() {
     }
   };
 
+  // Re-run the same user question after an interrupted answer. handleSendMessage
+  // guards against an empty text / an in-flight chat, and `retryOf` makes it
+  // reuse the existing user message rather than appending a duplicate.
+  const handleRetryMessage = (message) => {
+    void handleSendMessage(message?.retry?.userText || '', { retryOf: message });
+  };
+
   const sortedChats = [...chats].sort((a, b) => b.updatedAt - a.updatedAt);
 
   return (
@@ -1064,6 +1075,7 @@ function App() {
                 messages={activeChat.messages}
                 isGenerating={isGeneratingNow}
                 onSendMessage={handleSendMessage}
+                onRetry={handleRetryMessage}
                 modelsAvailable={models.length > 0}
                 kbs={kbs}
                 selectedKb={selectedKb}

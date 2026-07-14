@@ -1,3 +1,31 @@
+/* Slow / overload / retry affordances (graceful overload UX) */
+.slow-warning-banner {
+    font-size: 0.85rem;
+    opacity: 0.75;
+    margin: 0.25rem 0;
+}
+.retry-panel {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+    flex-wrap: wrap;
+}
+.retry-load {
+    font-size: 0.85rem;
+    opacity: 0.8;
+}
+.retry-btn {
+    padding: 0.25rem 0.75rem;
+    border-radius: 6px;
+    cursor: pointer;
+    border: 1px solid var(--border, #d0d0d0);
+    background: var(--surface, transparent);
+}
+.retry-btn:hover {
+    opacity: 0.85;
+}
+
 .chat-container {
     flex: 1;
     display: flex;

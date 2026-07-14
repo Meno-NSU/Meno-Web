@@ -29,6 +29,7 @@ import {
 import { useAuth } from './store/authStore.js';
 import SurveyModal from './components/SurveyModal.jsx';
 import { submitSurvey } from './services/api.js';
+import { decideSurvey, readSurveyState, writeSurveyState } from './services/surveyGate.js';
 import { translateOnce as i18nLookup } from './i18n.js';
 import { buildErrorMessage } from './services/errorMessage.js';
 import './index.css';
@@ -485,7 +486,17 @@ function App() {
       (m) => m.role === 'assistant' && (m.completionId || m.isArena),
     );
     if (!hadAnswer) return;
-    setSurveySessionId(prevId);
+    // Throttle the survey so it stops nagging: every answered dialogue consumes
+    // one opportunity (mark it surveyed so revisiting the chat can't recount),
+    // but only every Nth one actually opens the modal. See services/surveyGate.js.
+    // The prevActiveChatRef guard above makes the setChats re-render a no-op
+    // (prevId === activeChatId on the re-run), so this cannot loop.
+    const { show, next } = decideSurvey(readSurveyState());
+    writeSurveyState(next);
+    setChats((prev) => prev.map((chat) => (
+      chat.id === prevId ? { ...chat, surveyed: true } : chat
+    )));
+    if (show) setSurveySessionId(prevId);
   }, [activeChatId, chats, generatingChats]);
 
   // Both outcomes mark the chat surveyed locally first (never nag twice, even

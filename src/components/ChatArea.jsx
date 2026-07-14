@@ -265,11 +265,6 @@ function MessageBubble({ message, chatId, setChats, onRetry }) {
 
                 {message.agentError && message.retry && (
                     <div className="retry-panel">
-                        {message.retry.load?.showLoad && (
-                            <div className="retry-load">
-                                {t('overloadWithLoad').replace('{n}', String(message.retry.load.count))}
-                            </div>
-                        )}
                         <button type="button" className="retry-btn" onClick={() => onRetry?.(message)}>
                             {t('retryButton')}
                         </button>

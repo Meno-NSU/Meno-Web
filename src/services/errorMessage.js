@@ -6,9 +6,12 @@ import { translateOnce } from '../i18n.js';
 //
 // Localized strings are resolved at error time and written into chat state once;
 // they are not retroactively re-translated on a later language switch.
-export function buildErrorMessage(error) {
+export function buildErrorMessage(error, { load } = {}) {
   if (error.code === 'chat_timeout') {
-    return `⚠ ${translateOnce('chatTimeoutWarning')}`;
+    if (load && load.showLoad) {
+      return translateOnce('overloadWithLoad').replace('{n}', String(load.count));
+    }
+    return translateOnce('overloadBusy');
   }
   if (error.code === 'model_rate_limited') {
     const until = error.until ? new Date(error.until) : null;

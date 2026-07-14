@@ -32,3 +32,25 @@ describe('buildErrorMessage — friendly localized fallback', () => {
     expect(buildErrorMessage({ code: 'model_rate_limited', until: null })).toContain('rate-limited');
   });
 });
+
+describe('buildErrorMessage — chat_timeout becomes an overload message', () => {
+  it('shows the load count when showLoad is true (RU)', () => {
+    setLanguage('ru');
+    const msg = buildErrorMessage({ code: 'chat_timeout' }, { load: { showLoad: true, count: 12 } });
+    expect(msg).toContain('перегружен');
+    expect(msg).toContain('12');
+    expect(msg).not.toContain('{n}');
+  });
+
+  it('shows the busy message when showLoad is false (EN)', () => {
+    setLanguage('en');
+    const msg = buildErrorMessage({ code: 'chat_timeout' }, { load: { showLoad: false, count: 2 } });
+    expect(msg).toContain('busy');
+    expect(msg).not.toContain('2 requests');
+  });
+
+  it('falls back to the busy message when no load is provided', () => {
+    setLanguage('en');
+    expect(buildErrorMessage({ code: 'chat_timeout' })).toContain('busy');
+  });
+});

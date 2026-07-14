@@ -479,6 +479,9 @@ function App() {
   // switch, new chat). Generation in flight defers the prompt — switching
   // away mid-answer shouldn't interrupt with a modal.
   const prevActiveChatRef = useRef(null);
+  // Per-chat AbortController so a "Stop waiting" click can cancel the in-flight
+  // request; an abort surfaces as ChatTimeoutError -> the overload/retry state.
+  const abortControllersRef = useRef(new Map());
   useEffect(() => {
     const prevId = prevActiveChatRef.current;
     prevActiveChatRef.current = activeChatId;
@@ -816,8 +819,11 @@ function App() {
           messages: [...chat.messages, assistantMessage],
         })));
 
+        const controller = new AbortController();
+        abortControllersRef.current.set(targetChatId, controller);
         const result = await sendChatMessage({
           messages: messageHistory,
+          signal: controller.signal,
           modelId: requestConfig.modelId,
           knowledgeBaseId: requestConfig.knowledgeBaseId,
           sessionId: requestConfig.sessionId,
@@ -999,7 +1005,15 @@ function App() {
         next.delete(targetChatId);
         return next;
       });
+      abortControllersRef.current.delete(targetChatId);
     }
+  };
+
+  // Stop waiting: abort the in-flight request for the active chat. The abort
+  // unwinds to the catch above, which renders the overload/retry state.
+  const handleStopWaiting = () => {
+    const controller = abortControllersRef.current.get(activeChatId);
+    if (controller) controller.abort();
   };
 
   // Re-run the same user question after an interrupted answer. handleSendMessage
@@ -1076,6 +1090,7 @@ function App() {
                 isGenerating={isGeneratingNow}
                 onSendMessage={handleSendMessage}
                 onRetry={handleRetryMessage}
+                onStop={handleStopWaiting}
                 modelsAvailable={models.length > 0}
                 kbs={kbs}
                 selectedKb={selectedKb}

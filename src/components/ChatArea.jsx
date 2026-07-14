@@ -95,7 +95,7 @@ function ThinkBlock({ content, thinkTime, streaming }) {
 }
 
 // ── Main ChatArea ────────────────────────────────────────────────────────────
-export default function ChatArea({ messages, isGenerating, onSendMessage, onRetry, kbs, selectedKb, onKbChange, modelsAvailable, chatId, setChats, voteIsPending }) {
+export default function ChatArea({ messages, isGenerating, onSendMessage, onRetry, onStop, kbs, selectedKb, onKbChange, modelsAvailable, chatId, setChats, voteIsPending }) {
     const { t } = useTranslation();
     const messagesEndRef = useRef(null);
 
@@ -181,6 +181,8 @@ export default function ChatArea({ messages, isGenerating, onSendMessage, onRetr
             <div className={`chat-input-wrapper ${isEmpty ? 'centered' : ''}`}>
                 <ChatInput
                     onSend={onSendMessage}
+                    onStop={onStop}
+                    generating={isGenerating}
                     disabled={isGenerating || voteIsPending}
                     modelsAvailable={modelsAvailable}
                     kbs={kbs}

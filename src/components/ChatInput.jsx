@@ -3,7 +3,7 @@ import { SendHorizontal, Database } from './icons.jsx';
 import { useTranslation } from '../i18n.js';
 import './ChatInput.css';
 
-export default function ChatInput({ onSend, disabled, modelsAvailable = true, kbs = [], selectedKb = '', onKbChange, voteIsPending = false }) {
+export default function ChatInput({ onSend, onStop, generating = false, disabled, modelsAvailable = true, kbs = [], selectedKb = '', onKbChange, voteIsPending = false }) {
     const { t } = useTranslation();
     const [input, setInput] = useState('');
     const textareaRef = useRef(null);
@@ -94,14 +94,25 @@ export default function ChatInput({ onSend, disabled, modelsAvailable = true, kb
                     )}
 
                     <div className="send-btn-wrapper">
-                        <button
-                            type="submit"
-                            className={`send-btn ${input.trim() && !isDisabled ? 'active' : ''}`}
-                            disabled={!input.trim() || isDisabled}
-                            title={isSendBlocked ? t('noModelsSendBlocked') : 'Send message'}
-                        >
-                            <SendHorizontal size={20} />
-                        </button>
+                        {generating ? (
+                            <button
+                                type="button"
+                                className="send-btn stop"
+                                onClick={onStop}
+                                title={t('stopWaiting')}
+                            >
+                                {t('stopWaiting')}
+                            </button>
+                        ) : (
+                            <button
+                                type="submit"
+                                className={`send-btn ${input.trim() && !isDisabled ? 'active' : ''}`}
+                                disabled={!input.trim() || isDisabled}
+                                title={isSendBlocked ? t('noModelsSendBlocked') : 'Send message'}
+                            >
+                                <SendHorizontal size={20} />
+                            </button>
+                        )}
                         {isSendBlocked && (
                             <div className="no-models-tooltip">{t('noModelsSendBlocked')}</div>
                         )}

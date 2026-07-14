@@ -389,6 +389,8 @@ export async function sendChatMessage({
             err.code = parsed?.error?.code;
             err.until = parsed?.error?.until;
             err.retryAfterSec = parsed?.error?.retry_after_sec;
+            err.activeRequests = parsed?.error?.active_requests;
+            err.limit = parsed?.error?.limit;
             err.httpStatus = res.status;
             throw err;
         }

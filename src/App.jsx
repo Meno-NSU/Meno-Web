@@ -11,7 +11,9 @@ import {
   fetchModels,
   refreshModels,
   sendChatMessage,
+  fetchServiceStatus,
 } from './services/api.js';
+import { resolveOverload } from './services/chatWaitState.js';
 import {
   buildArenaPool,
   pickArenaPair,
@@ -177,8 +179,8 @@ function finalizeLastArenaMessage(chats, chatId) {
   });
 }
 
-function applyLastMessageError(chats, chatId, error) {
-  const errorMessage = buildErrorMessage(error);
+function applyLastMessageError(chats, chatId, error, opts = {}) {
+  const errorMessage = buildErrorMessage(error, { load: opts.load });
 
   return updateLastMessageInChat(chats, chatId, (message) => {
     if (!message) {
@@ -211,7 +213,9 @@ function applyLastMessageError(chats, chatId, error) {
       content: errorMessage,
       responseModelId: message.responseModelId || message.requestModelId || null,
       isStreaming: false,
+      slowWarning: false,
       agentError: true,
+      retry: { userText: opts.userText || '', load: opts.load || null },
     };
   });
 }
@@ -870,6 +874,14 @@ function App() {
               return;
             }
 
+            if (event.type === 'slow_warning') {
+              setChats((prev) => updateLastMessageInChat(prev, targetChatId, (message) => {
+                if (message?.isArena || message?.role !== 'assistant') return message;
+                return { ...message, slowWarning: true };
+              }));
+              return;
+            }
+
             if (event.type === 'thinking') {
               setChats((prev) => updateLastMessageInChat(prev, targetChatId, (message) => {
                 if (message?.isArena || message?.role !== 'assistant') {
@@ -965,7 +977,17 @@ function App() {
       }
     } catch (error) {
       console.error(error);
-      setChats((prev) => applyLastMessageError(prev, targetChatId, error));
+      // Overload UX: for a timeout, fetch live load so the message can show
+      // "~N in progress" past the threshold. Retry re-runs this same user turn.
+      const load =
+        error?.code === 'chat_timeout'
+          ? resolveOverload(await fetchServiceStatus())
+          : resolveOverload(
+              error?.httpStatus === 503
+                ? { active: error?.activeRequests, limit: error?.limit }
+                : {},
+            );
+      setChats((prev) => applyLastMessageError(prev, targetChatId, error, { load, userText: trimmedText }));
       refreshModelsAndApplyState();
     } finally {
       setGeneratingChats((prev) => {

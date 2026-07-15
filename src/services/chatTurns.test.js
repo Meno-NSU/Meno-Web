@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildOutgoingHistory, dropTrailingNotice, isInterruptedAssistant } from './chatTurns.js';
+import { dropTrailingNotice, isInterruptedAssistant } from './chatTurns.js';
 
 const U = (content) => ({ role: 'user', content });
 const A = (content) => ({ role: 'assistant', content });
@@ -16,17 +16,6 @@ describe('isInterruptedAssistant', () => {
     expect(isInterruptedAssistant(A('ok'))).toBe(false);
     expect(isInterruptedAssistant(U('q'))).toBe(false);
     expect(isInterruptedAssistant({ role: 'assistant', isArena: true, notice: {} })).toBe(false);
-  });
-});
-
-describe('buildOutgoingHistory', () => {
-  it('keeps users and clean answers verbatim', () => {
-    const msgs = [U('q1'), A('a1'), U('q2')];
-    expect(buildOutgoingHistory(msgs)).toEqual(msgs);
-  });
-  it('strips interrupted/errored assistant turns (new and legacy)', () => {
-    const msgs = [U('q1'), AN(''), U('q2'), AErr('Ой-ой')];
-    expect(buildOutgoingHistory(msgs)).toEqual([U('q1'), U('q2')]);
   });
 });
 

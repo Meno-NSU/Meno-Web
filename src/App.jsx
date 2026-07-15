@@ -34,7 +34,7 @@ import { submitSurvey } from './services/api.js';
 import { decideSurvey, readSurveyState, writeSurveyState } from './services/surveyGate.js';
 import { translateOnce as i18nLookup } from './i18n.js';
 import { buildErrorNotice, buildStopNotice } from './services/chatNotice.js';
-import { buildOutgoingHistory, dropTrailingNotice } from './services/chatTurns.js';
+import { dropTrailingNotice } from './services/chatTurns.js';
 import './index.css';
 
 const LAST_USED_MODEL_KEY = 'lastUsedModelId';
@@ -616,10 +616,12 @@ function App() {
     const isRetry = !!retryOf;
     const userMessage = { role: 'user', content: trimmedText };
     // Retry re-runs the last turn: drop the trailing interrupted assistant so the
-    // list ends on its user question. buildOutgoingHistory then strips any other
-    // interrupted turns so stale error text never re-enters model context.
-    const baseMessages = isRetry ? dropTrailingNotice(targetChat.messages) : [...targetChat.messages, userMessage];
-    const messageHistory = buildOutgoingHistory(baseMessages);
+    // list ends on its user question; a normal send appends the new question.
+    // Interrupted turns are otherwise KEPT: their error text lives in `notice`,
+    // not `content`, so nothing stale leaks, and keeping the assistant slot
+    // preserves the strict user/assistant alternation the backend requires —
+    // stripping them would create consecutive user turns and 500 there.
+    const messageHistory = isRetry ? dropTrailingNotice(targetChat.messages) : [...targetChat.messages, userMessage];
 
     setChats((prev) => updateChatById(prev, targetChatId, (chat) => {
       const nextMessages = isRetry ? dropTrailingNotice(chat.messages) : [...chat.messages, userMessage];

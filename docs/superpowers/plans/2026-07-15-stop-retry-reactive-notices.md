@@ -1238,3 +1238,25 @@ Invoke superpowers:finishing-a-development-branch to choose merge / PR / cleanup
 **Placeholder scan:** none — every code step carries full code; every run step has an expected result.
 
 **Type/name consistency:** `notice = { kind, key, params? }`, `buildErrorNotice`, `buildStopNotice`, `formatNotice(t, notice)`, `buildOutgoingHistory`, `dropTrailingNotice`, `isInterruptedAssistant`, `abortErrorFor`, `ChatAbortedError`, `applyLastMessageNotice`, `interrupted` prop, `.message-notice` / `.retry-btn` classes — all used identically across tasks.
+
+---
+
+## Post-review correction (2026-07-15)
+
+Final review surfaced a backend-contract bug in the `buildOutgoingHistory` design
+(Task 3 / Task 7): stripping interrupted assistant turns from the outgoing
+`messages` yields consecutive `user` turns after 2+ interruptions
+(stop/error → new question). RAG-Core's `prepare_dialogue_history`
+(`src/meno_rag/stand/dialogue_history.py`) requires strict user/assistant
+alternation and raises `ValueError` (→ 500) on that shape; the dev **stub**
+backend doesn't validate, so the browser test gave a false green. Verified against
+the real `extract_question_and_history` + `prepare_dialogue_history`.
+
+**Resolution (commit `fix(chat): keep interrupted turns in history …`):**
+`buildOutgoingHistory` was **removed**. Interrupted assistant turns are now KEPT in
+the outgoing history — their error text lives in `notice`, not `content`, so
+nothing stale leaks, and keeping the assistant slot preserves alternation. Retry
+still drops only the trailing interrupted turn via `dropTrailingNotice`. See
+[[reference-backend-dialogue-alternation]]. Deferred minors from the review
+(dead `agentError` branch in `ReasoningBlock`; arena notice hardcodes `error`
+styling) are non-blocking follow-ups.

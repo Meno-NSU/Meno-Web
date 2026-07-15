@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Copy, Check, ChevronDown, Brain, ExternalLink, Trophy, ArrowCircleLeft, ArrowCircleRight, Handshake, ThumbsDown } from './icons.jsx';
+import { Copy, Check, ChevronDown, Brain, ExternalLink, Trophy, ArrowCircleLeft, ArrowCircleRight, Handshake, ThumbsDown, Stop, AlertCircle } from './icons.jsx';
 import { useTranslation } from '../i18n.js';
 import ChatInput from './ChatInput.jsx';
 import MessageFeedback from './MessageFeedback.jsx';
 import { submitArenaVote } from '../services/api.js';
+import { formatNotice } from '../services/chatNotice.js';
 import { buildArenaHistories, arenaTurnIndex } from '../services/arenaHistory.js';
 import { groupSourcesByTitle, formatSourceUrl } from '../services/sourceGrouping.js';
 import './ChatArea.css';
@@ -143,7 +144,7 @@ export default function ChatArea({ messages, isGenerating, onSendMessage, onRetr
                                 : messages.slice(0, index);
                             return <ArenaMessageBubble key={index} message={msg} chatId={chatId} setChats={setChats} isGenerating={isGenerating} question={question} messagesBeforeRound={messagesBeforeRound} />;
                         }
-                        return <MessageBubble key={index} message={msg} chatId={chatId} setChats={setChats} onRetry={onRetry} />;
+                        return <MessageBubble key={index} message={msg} chatId={chatId} setChats={setChats} onRetry={onRetry} isLast={index === messages.length - 1} />;
                     })}
 
                     {isGenerating && (() => {
@@ -272,7 +273,7 @@ function SourcesBlock({ sources }) {
 }
 
 // ── Message bubble ───────────────────────────────────────────────────────────
-function MessageBubble({ message, chatId, setChats, onRetry }) {
+function MessageBubble({ message, chatId, setChats, onRetry, isLast }) {
     const { t } = useTranslation();
     const isUser = message.role === 'user';
     const [copied, setCopied] = useState(false);
@@ -305,10 +306,23 @@ function MessageBubble({ message, chatId, setChats, onRetry }) {
                 <ReasoningBlock
                     stages={message.agentStages || []}
                     summary={message.agentSummary || null}
-                    agentError={!!message.agentError}
+                    interrupted={!!message.interrupted || !!message.agentError}
                     isStreaming={!!message.isStreaming}
                     reasoning={reasoning}
                 />
+                {message.notice && (
+                    <div className={`message-notice ${message.notice.kind}`}>
+                        {message.notice.kind === 'stopped'
+                            ? <Stop size={14} className="message-notice-icon" />
+                            : <AlertCircle size={14} className="message-notice-icon" />}
+                        <span className="message-notice-text">{formatNotice(t, message.notice)}</span>
+                        {isLast && message.retry && (
+                            <button type="button" className="retry-btn" onClick={() => onRetry?.(message)}>
+                                {t('retryButton')}
+                            </button>
+                        )}
+                    </div>
+                )}
                 {message.slowWarning && message.isStreaming && (
                     <div className="slow-warning-banner">{t('slowWarning')}</div>
                 )}
@@ -317,14 +331,6 @@ function MessageBubble({ message, chatId, setChats, onRetry }) {
                         {answer}
                     </ReactMarkdown>
                 </div>
-
-                {message.agentError && message.retry && (
-                    <div className="retry-panel">
-                        <button type="button" className="retry-btn" onClick={() => onRetry?.(message)}>
-                            {t('retryButton')}
-                        </button>
-                    </div>
-                )}
 
                 {message.sources?.length > 0 && <SourcesBlock sources={message.sources} />}
 
@@ -508,6 +514,9 @@ export function ArenaMessageBubble({ message, chatId, setChats, isGenerating, qu
                                 <ReactMarkdown key={i} remarkPlugins={[remarkGfm]} components={MARKDOWN_COMPONENTS}>{seg.content}</ReactMarkdown>
                             )
                         )}
+                        {!arenaData.a.content && arenaData.a.notice && (
+                            <div className="message-notice error"><AlertCircle size={14} className="message-notice-icon" /><span className="message-notice-text">{formatNotice(t, arenaData.a.notice)}</span></div>
+                        )}
                         {arenaData.a.isStreaming && <LoadingPhrase />}
                     </div>
                     {canVote && (
@@ -532,6 +541,9 @@ export function ArenaMessageBubble({ message, chatId, setChats, isGenerating, qu
                             ) : (
                                 <ReactMarkdown key={i} remarkPlugins={[remarkGfm]} components={MARKDOWN_COMPONENTS}>{seg.content}</ReactMarkdown>
                             )
+                        )}
+                        {!arenaData.b.content && arenaData.b.notice && (
+                            <div className="message-notice error"><AlertCircle size={14} className="message-notice-icon" /><span className="message-notice-text">{formatNotice(t, arenaData.b.notice)}</span></div>
                         )}
                         {arenaData.b.isStreaming && <LoadingPhrase />}
                     </div>

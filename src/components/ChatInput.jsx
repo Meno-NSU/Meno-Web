@@ -102,7 +102,7 @@ export default function ChatInput({ onSend, onStop, generating = false, disabled
                                 title={t('stopWaiting')}
                                 aria-label={t('stopWaiting')}
                             >
-                                <Stop size={15} />
+                                <Stop size={16} />
                             </button>
                         ) : (
                             <button

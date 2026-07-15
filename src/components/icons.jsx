@@ -18,6 +18,7 @@ import TrophyIcon from './icons-custom/trophy.svg?react';
 import CheckSquareIcon from './icons-custom/check.svg?react';
 import SurveyIcon from './icons-custom/survey.svg?react';
 import ArenaIcon from './icons-custom/arena.svg?react';
+import StopIcon from './icons-custom/stop.svg?react';
 
 // ── Phosphor (regular) for everything without a custom glyph ──
 import SunSvg from '@phosphor-icons/core/assets/regular/sun.svg?react';
@@ -44,7 +45,6 @@ import ArrowCircleRightSvg from '@phosphor-icons/core/assets/regular/arrow-circl
 import ClockSvg from '@phosphor-icons/core/assets/regular/clock.svg?react';
 import CloudSlashSvg from '@phosphor-icons/core/assets/regular/cloud-slash.svg?react';
 import CircleFillSvg from '@phosphor-icons/core/assets/fill/circle-fill.svg?react';
-import SquareFillSvg from '@phosphor-icons/core/assets/fill/square-fill.svg?react';
 
 // `forceFill` makes the root <svg> inherit fill="currentColor". Phosphor glyphs
 // declare no per-path fill, so they depend on it. The custom Менон SVGs colour
@@ -97,6 +97,7 @@ export const ExternalLink = makeCustomIcon(ExternalIcon, 'ExternalLink');  // so
 export const SendHorizontal = makeCustomIcon(SendIcon, 'SendHorizontal');  // send
 export const RateReview = makeCustomIcon(SurveyIcon, 'RateReview');    // end-of-session survey
 export const Swords = makeCustomIcon(ArenaIcon, 'Swords');             // arena toggle
+export const Stop = makeCustomIcon(StopIcon, 'Stop');                  // stop generation (rounded square, Менон-head radius)
 
 // ── Phosphor exports (no custom glyph) ──
 export const Sun = makeIcon(SunSvg, 'Sun');
@@ -122,6 +123,5 @@ export const ArrowCircleLeft = makeIcon(ArrowCircleLeftSvg, 'ArrowCircleLeft');
 export const ArrowCircleRight = makeIcon(ArrowCircleRightSvg, 'ArrowCircleRight');
 // model-status dots
 export const Circle = makeIcon(CircleFillSvg, 'Circle');        // available
-export const Stop = makeIcon(SquareFillSvg, 'Stop');            // stop generation
 export const Schedule = makeIcon(ClockSvg, 'Schedule');         // rate-limited
 export const CloudOff = makeIcon(CloudSlashSvg, 'CloudOff');    // unreachable

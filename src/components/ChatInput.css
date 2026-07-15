@@ -143,16 +143,17 @@
     transform: scale(0.95);
 }
 
-/* Stop-generation button: a filled square in an actionable circle (no text —
-   the label lives in the tooltip / aria-label). */
+/* Stop-generation button: same treatment as the active send button — an accent
+   circle with a white rounded-square glyph (no text; the label is the tooltip /
+   aria-label). The square's corner radius echoes the Менон logo head. */
 .send-btn.stop {
-    background-color: var(--bg-tertiary);
-    color: var(--text-primary);
+    background-color: var(--accent-primary);
+    color: var(--accent-text);
     cursor: pointer;
 }
 
 .send-btn.stop:hover {
-    background-color: var(--border-color);
+    background-color: var(--accent-hover);
     transform: scale(1.05);
 }
 

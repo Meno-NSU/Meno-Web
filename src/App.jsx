@@ -33,7 +33,8 @@ import SurveyModal from './components/SurveyModal.jsx';
 import { submitSurvey } from './services/api.js';
 import { decideSurvey, readSurveyState, writeSurveyState } from './services/surveyGate.js';
 import { translateOnce as i18nLookup } from './i18n.js';
-import { buildErrorMessage } from './services/errorMessage.js';
+import { buildErrorNotice, buildStopNotice } from './services/chatNotice.js';
+import { buildOutgoingHistory, dropTrailingNotice } from './services/chatTurns.js';
 import './index.css';
 
 const LAST_USED_MODEL_KEY = 'lastUsedModelId';
@@ -179,27 +180,22 @@ function finalizeLastArenaMessage(chats, chatId) {
   });
 }
 
-function applyLastMessageError(chats, chatId, error, opts = {}) {
-  const errorMessage = buildErrorMessage(error, { load: opts.load });
-
+function applyLastMessageNotice(chats, chatId, notice, opts = {}) {
   return updateLastMessageInChat(chats, chatId, (message) => {
     if (!message) {
       return message;
     }
 
+    // Arena: attach the notice to any side that produced no content; never
+    // overwrite a side that did stream an answer.
     if (message.isArena) {
+      const withNotice = (side) => (side.content ? side : { ...side, isStreaming: false, notice });
       return {
         ...message,
         arenaData: {
           ...message.arenaData,
-          a: {
-            ...message.arenaData.a,
-            content: message.arenaData.a.content || errorMessage,
-          },
-          b: {
-            ...message.arenaData.b,
-            content: message.arenaData.b.content || errorMessage,
-          },
+          a: withNotice(message.arenaData.a),
+          b: withNotice(message.arenaData.b),
         },
       };
     }
@@ -208,14 +204,15 @@ function applyLastMessageError(chats, chatId, error, opts = {}) {
       return message;
     }
 
+    // content is preserved verbatim — we never wipe what the user already saw.
     return {
       ...message,
-      content: errorMessage,
       responseModelId: message.responseModelId || message.requestModelId || null,
       isStreaming: false,
       slowWarning: false,
-      agentError: true,
-      retry: { userText: opts.userText || '', load: opts.load || null },
+      interrupted: true,
+      notice,
+      retry: { userText: opts.userText || '' },
     };
   });
 }
@@ -618,11 +615,14 @@ function App() {
     // reuse the existing user message instead of appending a duplicate.
     const isRetry = !!retryOf;
     const userMessage = { role: 'user', content: trimmedText };
-    const baseMessages = isRetry ? targetChat.messages.filter((m) => m !== retryOf) : targetChat.messages;
-    const messageHistory = isRetry ? baseMessages : [...baseMessages, userMessage];
+    // Retry re-runs the last turn: drop the trailing interrupted assistant so the
+    // list ends on its user question. buildOutgoingHistory then strips any other
+    // interrupted turns so stale error text never re-enters model context.
+    const baseMessages = isRetry ? dropTrailingNotice(targetChat.messages) : [...targetChat.messages, userMessage];
+    const messageHistory = buildOutgoingHistory(baseMessages);
 
     setChats((prev) => updateChatById(prev, targetChatId, (chat) => {
-      const nextMessages = isRetry ? chat.messages.filter((m) => m !== retryOf) : [...chat.messages, userMessage];
+      const nextMessages = isRetry ? dropTrailingNotice(chat.messages) : [...chat.messages, userMessage];
       return {
         ...chat,
         messages: nextMessages,
@@ -652,7 +652,8 @@ function App() {
               {
                 role: 'assistant',
                 isArena: false,
-                content: '⚠ No available models for arena right now. Refresh to retry.',
+                content: '',
+                notice: { kind: 'error', key: 'arenaNoModels' },
               },
             ],
           })));
@@ -703,7 +704,8 @@ function App() {
               {
                 role: 'assistant',
                 isArena: false,
-                content: '⚠ Need at least two distinct models for an arena round. Try again in a moment.',
+                content: '',
+                notice: { kind: 'error', key: 'arenaNeedTwoModels' },
               },
             ],
           })));
@@ -755,7 +757,7 @@ function App() {
                 ...sideState,
                 model: null,
                 isStreaming: false,
-                content: sideState.content || '⚠ Модель не вернула ответ. Попробуйте новый вопрос.',
+                ...(sideState.content ? {} : { notice: { kind: 'error', key: 'arenaModelNoAnswer' } }),
               })));
               return;
             }
@@ -769,11 +771,11 @@ function App() {
           } catch (error) {
             const isExhausted = error instanceof ArenaPoolExhaustedError;
             if (isExhausted) sideFailedExhaustion[sideKey] = true;
-            const errorMessage = isExhausted
-              ? '⚠ Could not find an available model after several attempts.'
-              : buildErrorMessage(error);
+            const notice = isExhausted
+              ? { kind: 'error', key: 'arenaModelSearchFailed' }
+              : buildErrorNotice(error);
             setChats((prev) => updateLastArenaMessageSide(prev, targetChatId, sideKey, (sideState) => ({
-              ...sideState, isStreaming: false, content: sideState.content || errorMessage,
+              ...sideState, isStreaming: false, ...(sideState.content ? {} : { notice }),
             })));
             refreshModelsAndApplyState();
           }
@@ -792,7 +794,8 @@ function App() {
               {
                 role: 'assistant',
                 isArena: false,
-                content: '⚠ Could not run an arena round (pool exhausted). Try again in a moment.',
+                content: '',
+                notice: { kind: 'error', key: 'arenaPoolExhausted' },
               },
             ],
           })));
@@ -987,18 +990,24 @@ function App() {
       }
     } catch (error) {
       console.error(error);
-      // Overload UX: for a timeout, fetch live load so the message can show
-      // "~N in progress" past the threshold. Retry re-runs this same user turn.
-      const load =
-        error?.code === 'chat_timeout'
-          ? resolveOverload(await fetchServiceStatus())
-          : resolveOverload(
-              error?.httpStatus === 503
-                ? { active: error?.activeRequests, limit: error?.limit }
-                : {},
-            );
-      setChats((prev) => applyLastMessageError(prev, targetChatId, error, { load, userText: trimmedText }));
-      refreshModelsAndApplyState();
+      if (error?.code === 'user_stopped') {
+        // Manual stop: keep whatever streamed, show a neutral "Stopped" notice and
+        // a retry. No /v1/status probe, no model refresh — nothing failed.
+        setChats((prev) => applyLastMessageNotice(prev, targetChatId, buildStopNotice(), { userText: trimmedText }));
+      } else {
+        // Overload UX: for a timeout, fetch live load so the message can show
+        // "~N in progress" past the threshold. Retry re-runs this same user turn.
+        const load =
+          error?.code === 'chat_timeout'
+            ? resolveOverload(await fetchServiceStatus())
+            : resolveOverload(
+                error?.httpStatus === 503
+                  ? { active: error?.activeRequests, limit: error?.limit }
+                  : {},
+              );
+        setChats((prev) => applyLastMessageNotice(prev, targetChatId, buildErrorNotice(error, { load }), { userText: trimmedText }));
+        refreshModelsAndApplyState();
+      }
     } finally {
       setGeneratingChats((prev) => {
         const next = new Set(prev);

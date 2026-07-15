@@ -15,15 +15,48 @@
     font-size: 0.85rem;
     opacity: 0.8;
 }
+
+/* Terminal status row (stopped / error), sitting where the "Обрабатываю…" status
+   was. Icon + localized text + an optional inline Retry. */
+.message-notice {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0.35rem 0 0.5rem;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+.message-notice.error {
+    color: var(--danger);
+}
+.message-notice-icon {
+    flex-shrink: 0;
+}
+.message-notice-text {
+    flex-shrink: 1;
+}
+
+/* Retry: a proper secondary button in the site's language — bordered surface that
+   darkens to --bg-tertiary on hover, same treatment as .agent-thinking-summary. */
 .retry-btn {
-    padding: 0.25rem 0.75rem;
-    border-radius: 6px;
+    margin-left: 0.25rem;
+    padding: 0.3rem 0.85rem;
+    border-radius: 8px;
     cursor: pointer;
-    border: 1px solid var(--border, #d0d0d0);
-    background: var(--surface, transparent);
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 .retry-btn:hover {
-    opacity: 0.85;
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    border-color: var(--text-tertiary);
+}
+.retry-btn:active {
+    transform: translateY(0.5px);
 }
 
 /* Grouped multi-link source (e.g. a summary document) — an expandable disclosure:

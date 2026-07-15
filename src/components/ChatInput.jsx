@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { SendHorizontal, Database } from './icons.jsx';
+import { SendHorizontal, Stop, Database } from './icons.jsx';
 import { useTranslation } from '../i18n.js';
 import './ChatInput.css';
 
@@ -100,8 +100,9 @@ export default function ChatInput({ onSend, onStop, generating = false, disabled
                                 className="send-btn stop"
                                 onClick={onStop}
                                 title={t('stopWaiting')}
+                                aria-label={t('stopWaiting')}
                             >
-                                {t('stopWaiting')}
+                                <Stop size={15} />
                             </button>
                         ) : (
                             <button

@@ -143,6 +143,23 @@
     transform: scale(0.95);
 }
 
+/* Stop-generation button: a filled square in an actionable circle (no text —
+   the label lives in the tooltip / aria-label). */
+.send-btn.stop {
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+    cursor: pointer;
+}
+
+.send-btn.stop:hover {
+    background-color: var(--border-color);
+    transform: scale(1.05);
+}
+
+.send-btn.stop:active {
+    transform: scale(0.95);
+}
+
 /* Tooltip for blocked state */
 .no-models-tooltip {
     position: absolute;

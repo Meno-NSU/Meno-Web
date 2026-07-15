@@ -44,6 +44,7 @@ import ArrowCircleRightSvg from '@phosphor-icons/core/assets/regular/arrow-circl
 import ClockSvg from '@phosphor-icons/core/assets/regular/clock.svg?react';
 import CloudSlashSvg from '@phosphor-icons/core/assets/regular/cloud-slash.svg?react';
 import CircleFillSvg from '@phosphor-icons/core/assets/fill/circle-fill.svg?react';
+import SquareFillSvg from '@phosphor-icons/core/assets/fill/square-fill.svg?react';
 
 // `forceFill` makes the root <svg> inherit fill="currentColor". Phosphor glyphs
 // declare no per-path fill, so they depend on it. The custom Менон SVGs colour
@@ -121,5 +122,6 @@ export const ArrowCircleLeft = makeIcon(ArrowCircleLeftSvg, 'ArrowCircleLeft');
 export const ArrowCircleRight = makeIcon(ArrowCircleRightSvg, 'ArrowCircleRight');
 // model-status dots
 export const Circle = makeIcon(CircleFillSvg, 'Circle');        // available
+export const Stop = makeIcon(SquareFillSvg, 'Stop');            // stop generation
 export const Schedule = makeIcon(ClockSvg, 'Schedule');         // rate-limited
 export const CloudOff = makeIcon(CloudSlashSvg, 'CloudOff');    // unreachable

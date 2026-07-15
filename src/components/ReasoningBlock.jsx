@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { ChevronDown, Loader, CheckCircle, Check } from './icons.jsx';
+import { ChevronDown, Loader, CheckCircle, Check, Stop } from './icons.jsx';
 import { useTranslation } from '../i18n.js';
 import { deriveReasoningStatus, formatDuration } from './reasoning.js';
 
@@ -102,7 +102,7 @@ function StageDetail({ detail, stage }) {
 // One collapsible disclosure per assistant message: pipeline stages + model
 // reasoning, collapsed by default in every state. Running shows the shimmer
 // phrase as the header; done shows the elapsed time; errored stops the spinner.
-export function ReasoningBlock({ stages = [], summary = null, agentError = false, isStreaming = false, reasoning = '' }) {
+export function ReasoningBlock({ stages = [], summary = null, agentError = false, isStreaming = false, reasoning = '', interrupted = false }) {
   const [manualToggle, setManualToggle] = useState(null);
   const { t } = useTranslation();
 
@@ -110,7 +110,7 @@ export function ReasoningBlock({ stages = [], summary = null, agentError = false
   const hasReasoning = !!(reasoning && reasoning.trim());
   if (!hasStages && !hasReasoning) return null;
 
-  const status = deriveReasoningStatus({ summary, agentError, isStreaming });
+  const status = deriveReasoningStatus({ summary, agentError, isStreaming, interrupted });
   const isOpen = manualToggle !== null ? manualToggle : false; // collapsed by default
   const totalMs = summary?.totalMs ?? stages.reduce((sum, s) => sum + (s.durationMs || 0), 0);
 
@@ -119,6 +119,11 @@ export function ReasoningBlock({ stages = [], summary = null, agentError = false
   if (status === 'running') {
     header = <LoadingPhrase />;
     icon = <Loader size={14} className="agent-thinking-icon spinning" />;
+  } else if (status === 'stopped') {
+    // Calm, factual: it did process for a while before the stop. No "!" and no
+    // lingering "processing…" — the "Остановлено" notice row states the outcome.
+    header = <span>{t('agentThoughtFor').replace('{time}', (totalMs / 1000).toFixed(1))}</span>;
+    icon = <Stop size={13} className="agent-thinking-icon" style={{ color: 'var(--text-tertiary)' }} />;
   } else if (status === 'errored') {
     header = <span>{t('agentProcessing')}</span>;
     icon = <span className="agent-thinking-icon" style={{ color: 'var(--danger)' }}>!</span>;
@@ -128,7 +133,7 @@ export function ReasoningBlock({ stages = [], summary = null, agentError = false
   }
 
   return (
-    <div className={`agent-thinking-block ${isOpen ? 'open' : ''} ${status === 'done' ? 'complete' : ''}`}>
+    <div className={`agent-thinking-block ${isOpen ? 'open' : ''} ${status === 'done' ? 'complete' : ''} ${status === 'stopped' ? 'stopped' : ''}`}>
       <button
         className="agent-thinking-summary"
         onClick={() => setManualToggle((prev) => (prev !== null ? !prev : !isOpen))}

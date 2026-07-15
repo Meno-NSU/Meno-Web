@@ -42,4 +42,14 @@ describe('ReasoningBlock', () => {
     expect(container.querySelector('.spinning')).toBeNull();
     expect(container.querySelector('.loading-phrase')).toBeNull();
   });
+
+  it('renders a neutral interrupted header — stopped marker, no spinner, no "!"', () => {
+    const { container, queryByText } = render(
+      <ReasoningBlock stages={RUNNING} summary={null} interrupted={true} isStreaming={false} />
+    );
+    expect(container.querySelector('.agent-thinking-block.stopped')).not.toBeNull(); // positive marker unique to 'stopped'
+    expect(container.querySelector('.spinning')).toBeNull();
+    expect(container.querySelector('.loading-phrase')).toBeNull();
+    expect(queryByText('!')).toBeNull();
+  });
 });

@@ -315,6 +315,23 @@ export class ChatTimeoutError extends Error {
     }
 }
 
+export class ChatAbortedError extends Error {
+    constructor(modelId) {
+        super(`Chat aborted by user (model=${modelId || 'unknown'})`);
+        this.name = 'ChatAbortedError';
+        this.code = 'user_stopped';
+    }
+}
+
+// Classify an abort of the streaming request. The internal aborter fires from
+// exactly two sources: the 120s timeout (timeoutFired) or the external signal
+// (the user's "Stop waiting"). A non-abort error passes through untouched.
+export function abortErrorFor({ timeoutFired, error, modelId }) {
+    if (timeoutFired) return new ChatTimeoutError(modelId);
+    if (error?.name === 'AbortError') return new ChatAbortedError(modelId);
+    return error;
+}
+
 export async function sendChatMessage({
     messages,
     modelId,
@@ -375,7 +392,7 @@ export async function sendChatMessage({
             firstTokenTimer.clear();
             if (signal) signal.removeEventListener('abort', externalAbortHandler);
             if (timeoutFired || err?.name === 'AbortError') {
-                throw new ChatTimeoutError(modelId);
+                throw abortErrorFor({ timeoutFired, error: err, modelId });
             }
             throw err;
         }
@@ -568,7 +585,7 @@ export async function sendChatMessage({
         if (signal) signal.removeEventListener('abort', externalAbortHandler);
         if (readError) {
             if (timeoutFired || readError?.name === 'AbortError') {
-                throw new ChatTimeoutError(modelId);
+                throw abortErrorFor({ timeoutFired, error: readError, modelId });
             }
             throw readError;
         }

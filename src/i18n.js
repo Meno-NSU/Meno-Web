@@ -19,6 +19,15 @@ const translations = {
         overloadBusy: "Не получилось получить ответ вовремя — сервис сейчас загружен.",
         retryButton: "Повторить запрос",
         stopWaiting: "Остановить ожидание",
+        stopped: "Остановлено",
+        modelRateLimited: "⚠ Модель ограничена по частоте до {hh}:{mm} (~{mins} мин). Попробуйте другую модель.",
+        modelUnreachable: "⚠ Модель сейчас недоступна. Попробуйте другую модель.",
+        coreModelUnavailable: "⚠ Внутренняя RAG-модель недоступна — бэкенд не может выполнить поиск.",
+        arenaNoModels: "⚠ Нет доступных моделей для арены. Обновите и попробуйте снова.",
+        arenaNeedTwoModels: "⚠ Для раунда арены нужно минимум две разные модели. Попробуйте чуть позже.",
+        arenaPoolExhausted: "⚠ Не удалось провести раунд арены (модели закончились). Попробуйте чуть позже.",
+        arenaModelNoAnswer: "⚠ Модель не вернула ответ. Попробуйте новый вопрос.",
+        arenaModelSearchFailed: "⚠ Не удалось найти доступную модель после нескольких попыток.",
         noModelsAvailable: "Нет доступных моделей",
         noModelsSendBlocked: "Отправка заблокирована: нет доступных моделей",
         thinking: "Размышляю...",
@@ -139,6 +148,15 @@ const translations = {
         overloadBusy: "Couldn't get a response in time — the service is busy right now.",
         retryButton: "Retry",
         stopWaiting: "Stop waiting",
+        stopped: "Stopped",
+        modelRateLimited: "⚠ Model is rate-limited until {hh}:{mm} (~{mins} min). Try another model.",
+        modelUnreachable: "⚠ Model is currently unreachable. Try another model.",
+        coreModelUnavailable: "⚠ Internal RAG model unavailable — backend cannot run retrieval.",
+        arenaNoModels: "⚠ No available models for arena right now. Refresh to retry.",
+        arenaNeedTwoModels: "⚠ Need at least two distinct models for an arena round. Try again in a moment.",
+        arenaPoolExhausted: "⚠ Could not run an arena round (pool exhausted). Try again in a moment.",
+        arenaModelNoAnswer: "⚠ The model returned no answer. Try a new question.",
+        arenaModelSearchFailed: "⚠ Could not find an available model after several attempts.",
         noModelsAvailable: "No models available",
         noModelsSendBlocked: "Sending blocked: no models available",
         thinking: "Thinking...",
@@ -270,6 +288,13 @@ export const setLanguage = (lang) => {
 };
 
 export const getLanguage = () => currentLang;
+
+// Test/introspection helper: the set of translation keys defined for a language.
+// Used by the ru/en parity guard so a key added to one language but not the other
+// fails CI instead of silently falling back at runtime.
+export function translationKeys(lang) {
+    return Object.keys(translations[lang] || {});
+}
 
 // Non-reactive lookup helper for plain functions (error builders, services)
 // that need a localized string but don't sit inside a React component.

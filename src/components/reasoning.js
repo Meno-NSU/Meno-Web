@@ -25,7 +25,8 @@ export function extractReasoning(raw) {
 }
 
 // Terminal vs running state for the reasoning disclosure.
-export function deriveReasoningStatus({ summary, agentError, isStreaming }) {
+export function deriveReasoningStatus({ summary, agentError, isStreaming, interrupted }) {
+  if (interrupted) return 'stopped';
   if (agentError) return 'errored';
   if (summary != null) return 'done';
   if (!isStreaming) return 'done';

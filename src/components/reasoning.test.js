@@ -30,6 +30,19 @@ describe('deriveReasoningStatus', () => {
   });
 });
 
+describe('deriveReasoningStatus — interrupted', () => {
+  it('returns "stopped" when interrupted, ahead of streaming/error', () => {
+    expect(deriveReasoningStatus({ interrupted: true, isStreaming: true })).toBe('stopped');
+    expect(deriveReasoningStatus({ interrupted: true, agentError: true })).toBe('stopped');
+  });
+  it('is unchanged for the existing cases', () => {
+    expect(deriveReasoningStatus({ agentError: true })).toBe('errored');
+    expect(deriveReasoningStatus({ summary: { totalMs: 1 } })).toBe('done');
+    expect(deriveReasoningStatus({ isStreaming: true })).toBe('running');
+    expect(deriveReasoningStatus({ isStreaming: false })).toBe('done');
+  });
+});
+
 describe('formatDuration', () => {
   it('formats sub-second as ms and seconds with one decimal', () => {
     expect(formatDuration(450)).toBe('450ms');

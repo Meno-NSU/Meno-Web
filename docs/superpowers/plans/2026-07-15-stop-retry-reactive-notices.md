@@ -588,11 +588,11 @@ git commit -m "feat(chat): reasoning status gains a neutral 'stopped' state"
 Add to `src/components/ReasoningBlock.test.jsx`:
 
 ```js
-it('renders a neutral interrupted header — no spinner, no "!"', () => {
+it('renders a neutral interrupted header — stopped marker, no spinner, no "!"', () => {
   const { container, queryByText } = render(
     <ReasoningBlock stages={RUNNING} summary={null} interrupted={true} isStreaming={false} />
   );
-  expect(container.firstChild).not.toBeNull();
+  expect(container.querySelector('.agent-thinking-block.stopped')).not.toBeNull(); // positive marker unique to 'stopped'
   expect(container.querySelector('.spinning')).toBeNull();
   expect(container.querySelector('.loading-phrase')).toBeNull();
   expect(queryByText('!')).toBeNull();
@@ -602,7 +602,7 @@ it('renders a neutral interrupted header — no spinner, no "!"', () => {
 - [ ] **Step 2: Run it to verify it fails**
 
 Run: `npx vitest run src/components/ReasoningBlock.test.jsx`
-Expected: FAIL — `interrupted` is ignored, so status is `running` (spinner + shimmer present).
+Expected: FAIL — pre-Task-6 `ReasoningBlock` does not forward `interrupted` to `deriveReasoningStatus`, so with `isStreaming={false}` the status resolves to `'done'` (the `complete` block, no `stopped` class). `.agent-thinking-block.stopped` is null → the first assertion fails. (The negative assertions already hold under `'done'`; the positive `.stopped` marker is what drives RED.)
 
 - [ ] **Step 3: Implement the interrupted rendering**
 
@@ -640,6 +640,18 @@ Replace the header/icon `if/else` chain with a `stopped` branch added ahead of `
     header = <span>{t('agentThoughtFor').replace('{time}', (totalMs / 1000).toFixed(1))}</span>;
     icon = <CheckCircle size={14} className="agent-thinking-icon complete" />;
   }
+```
+
+Add a `stopped` class to the block wrapper so the state is visible to CSS and tests. Change:
+
+```js
+    <div className={`agent-thinking-block ${isOpen ? 'open' : ''} ${status === 'done' ? 'complete' : ''}`}>
+```
+
+to:
+
+```js
+    <div className={`agent-thinking-block ${isOpen ? 'open' : ''} ${status === 'done' ? 'complete' : ''} ${status === 'stopped' ? 'stopped' : ''}`}>
 ```
 
 Add `Stop` to the icon import at the top of the file:

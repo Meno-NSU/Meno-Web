@@ -253,6 +253,12 @@
     display: none;
 }
 
+/* Legal links pinned to the very bottom of the rail (both layouts). */
+.sidebar-footer {
+    padding: 0.4rem 0.6rem 0.6rem;
+    border-top: 1px solid var(--border-color);
+}
+
 /* Light theme only: a whisper of green-gray so the rail isn't sterile.
    Dark keeps its plain --sidebar-bg. */
 [data-theme='light'] .sidebar {

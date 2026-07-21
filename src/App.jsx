@@ -13,6 +13,9 @@ import {
   refreshModels,
   sendChatMessage,
   fetchServiceStatus,
+  getPrivacySettings,
+  patchPrivacySettings,
+  getLegalDocuments,
 } from './services/api.js';
 import { resolveOverload } from './services/chatWaitState.js';
 import {
@@ -32,7 +35,9 @@ import {
 } from './store/chatStore.js';
 import { useAuth } from './store/authStore.js';
 import SurveyModal from './components/SurveyModal.jsx';
+import ConsentGate from './components/ConsentGate.jsx';
 import { submitSurvey } from './services/api.js';
+import { createConsentChecker, CONSENT_KIND } from './services/consentGate.js';
 import { decideSurvey, readSurveyState, writeSurveyState } from './services/surveyGate.js';
 import { translateOnce as i18nLookup } from './i18n.js';
 import { buildErrorNotice, buildStopNotice } from './services/chatNotice.js';
@@ -251,10 +256,32 @@ function App() {
   // End-of-session survey (S2): chat id awaiting the one-question survey.
   const [surveySessionId, setSurveySessionId] = useState(null);
 
+  // Consent gate (Stage 2b): block the first processed message until the user
+  // consents. One checker for the app lifetime (caches the server read); the
+  // pending send is stashed so it can auto-resume after the choice.
+  const consentCheckerRef = useRef(null);
+  if (consentCheckerRef.current === null) {
+    consentCheckerRef.current = createConsentChecker(getPrivacySettings);
+  }
+  const consentVersionRef = useRef(null);
+  const pendingSendRef = useRef(null);
+  const [isConsentGateOpen, setIsConsentGateOpen] = useState(false);
+  const [consentBusy, setConsentBusy] = useState(false);
+  const [consentError, setConsentError] = useState(null);
+
   // Initialize data and migrate stored chats to the chat-scoped config shape.
   useEffect(() => {
-    // Mint a guest session on first load so anonymous requests carry X-Guest-Token.
-    void ensureGuestSession();
+    // Mint a guest session on first load so anonymous requests carry X-Guest-Token,
+    // then prime the consent check and read the current consent-document version.
+    ensureGuestSession().then(() => {
+      void consentCheckerRef.current.needsConsent();
+      getLegalDocuments()
+        .then((docs) => {
+          const consentDoc = docs.find((doc) => doc.kind === CONSENT_KIND);
+          if (consentDoc) consentVersionRef.current = consentDoc.version;
+        })
+        .catch(() => { /* version is fetched lazily on grant if still missing */ });
+    });
     const initData = async () => {
       const [{ models: fetchedModels, coreModelId: fetchedCoreModelId }, fetchedKbs] = await Promise.all([
         fetchModels(),
@@ -606,6 +633,15 @@ function App() {
     const targetChatId = activeChatId;
 
     if (!trimmedText || !targetChatId || generatingChats.has(targetChatId)) {
+      return;
+    }
+
+    // Consent gate: before the first processed message, block and capture consent
+    // (the user may look around until they try to send). Fail-closed; auto-resumes.
+    if (await consentCheckerRef.current.needsConsent()) {
+      pendingSendRef.current = { text, retryOf };
+      setConsentError(null);
+      setIsConsentGateOpen(true);
       return;
     }
 
@@ -1051,6 +1087,41 @@ function App() {
     void handleSendMessage(message?.retry?.userText || '', { retryOf: message });
   };
 
+  // Consent gate resolution: record the choice, then resume the stashed send. On
+  // failure the gate stays open with a retryable error. Both buttons grant
+  // SERVICE_AND_HISTORY (the backend requires it); the choice toggles improvement.
+  const handleConsentGrant = async (menoImprovement) => {
+    setConsentBusy(true);
+    setConsentError(null);
+    try {
+      let version = consentVersionRef.current;
+      if (!version) {
+        const docs = await getLegalDocuments();
+        version = docs.find((doc) => doc.kind === CONSENT_KIND)?.version || null;
+        consentVersionRef.current = version;
+      }
+      if (!version) throw new Error('consent document version unavailable');
+      await patchPrivacySettings({
+        documentVersion: version,
+        serviceAndHistory: true,
+        menoImprovement,
+        source: 'first_run_gate',
+      });
+      consentCheckerRef.current.markGranted();
+      setIsConsentGateOpen(false);
+      const pending = pendingSendRef.current;
+      pendingSendRef.current = null;
+      if (pending) {
+        void handleSendMessage(pending.text, { retryOf: pending.retryOf });
+      }
+    } catch (error) {
+      console.warn('Consent grant failed', error);
+      setConsentError(i18nLookup('consentError'));
+    } finally {
+      setConsentBusy(false);
+    }
+  };
+
   const sortedChats = [...chats].sort((a, b) => b.updatedAt - a.updatedAt);
 
   return (
@@ -1145,6 +1216,13 @@ function App() {
         isOpen={surveySessionId !== null}
         onAnswer={handleSurveyDone}
         onSkip={() => handleSurveyDone('skipped')}
+      />
+
+      <ConsentGate
+        isOpen={isConsentGateOpen}
+        onGrant={handleConsentGrant}
+        busy={consentBusy}
+        error={consentError}
       />
     </div>
   );

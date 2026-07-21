@@ -293,6 +293,74 @@ export async function updateNickname(nickname) {
     return (await res.json()).user;
 }
 
+// --- Privacy & legal (Stage 2b) ---
+
+function mapPrivacySettings(data) {
+    return {
+        serviceAndHistory: !!data.service_and_history,
+        menoImprovement: !!data.meno_improvement,
+    };
+}
+
+function mapLegalDocument(doc) {
+    const mapped = {
+        kind: doc.kind,
+        version: doc.version,
+        url: doc.url,
+        sha256: doc.sha256,
+        effectiveAt: doc.effective_at ?? null,
+    };
+    // The list endpoint omits content; the single-document endpoint includes it.
+    if (doc.content !== undefined) {
+        mapped.content = doc.content;
+    }
+    return mapped;
+}
+
+// Current consent state for the subject the request authenticates as (JWT or
+// X-Guest-Token, injected by fetchWithLogging). A subject with no consent
+// events reads back { serviceAndHistory: false, menoImprovement: false }.
+export async function getPrivacySettings() {
+    const res = await fetchWithLogging(`${API_BASE_URL}/v1/privacy/settings`);
+    if (!res.ok) throw await buildError(res, 'Failed to read privacy settings');
+    return mapPrivacySettings(await res.json());
+}
+
+// Record a consent change. `documentVersion` must match the current consent
+// document (409 otherwise); `serviceAndHistory:false` is refused by the backend
+// (400 — revoking requires deletion). Returns the new state.
+export async function patchPrivacySettings({ documentVersion, serviceAndHistory, menoImprovement, source }) {
+    const res = await fetchWithLogging(`${API_BASE_URL}/v1/privacy/settings`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            document_version: documentVersion,
+            service_and_history: serviceAndHistory,
+            meno_improvement: menoImprovement,
+            source,
+        }),
+    });
+    if (!res.ok) throw await buildError(res, 'Failed to update privacy settings');
+    return mapPrivacySettings(await res.json());
+}
+
+// A single published legal document (with markdown `content`). `kind` is the
+// backend key: personal_data_consent | privacy_policy | terms_of_use.
+export async function getLegalDocument(kind) {
+    const res = await fetchWithLogging(`${API_BASE_URL}/v1/legal/documents/${encodeURIComponent(kind)}`);
+    if (!res.ok) throw await buildError(res, 'Failed to load document');
+    return mapLegalDocument(await res.json());
+}
+
+// Metadata for all legal documents (no content) — used to read the current
+// consent-document version for the consent PATCH without hardcoding it.
+export async function getLegalDocuments() {
+    const res = await fetchWithLogging(`${API_BASE_URL}/v1/legal/documents`);
+    if (!res.ok) throw await buildError(res, 'Failed to load documents');
+    const data = await res.json();
+    return (data.documents || []).map(mapLegalDocument);
+}
+
 // --- Feedback (S2) ---
 
 export async function submitFeedback({ completionId, sessionId, value, comment = null }) {

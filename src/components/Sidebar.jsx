@@ -12,6 +12,7 @@ import {
     Swords,
 } from './icons.jsx';
 import { useTranslation } from '../i18n.js';
+import LegalLinks from './LegalLinks.jsx';
 import './Sidebar.css';
 
 export default function Sidebar({
@@ -175,6 +176,10 @@ export default function Sidebar({
                                 : (lang === 'ru' ? 'Светлая тема' : 'Light theme')}
                         </span>
                     </button>
+                </div>
+
+                <div className="sidebar-footer">
+                    <LegalLinks />
                 </div>
             </aside>
         </>

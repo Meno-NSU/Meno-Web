@@ -1,0 +1,132 @@
+.consent-gate-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(10, 12, 16, 0.4);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 1rem;
+    animation: consentGateFadeIn 0.15s ease;
+}
+
+@keyframes consentGateFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.consent-gate-card {
+    position: relative;
+    width: min(460px, 100%);
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 1rem;
+    box-shadow: var(--shadow-lg);
+    padding: 1.75rem 1.75rem 1.5rem;
+    animation: consentGateIn 0.18s ease;
+}
+
+@keyframes consentGateIn {
+    from { opacity: 0; transform: translateY(8px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.consent-gate-title {
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 0.6rem;
+}
+
+.consent-gate-body {
+    font-size: 0.95rem;
+    line-height: 1.55;
+    color: var(--text-secondary);
+    margin: 0 0 1rem;
+}
+
+.consent-gate-docs {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem 0.75rem;
+    margin-bottom: 1.25rem;
+    font-size: 0.85rem;
+}
+
+.consent-gate-docs-intro {
+    color: var(--text-tertiary);
+}
+
+.consent-gate-doc {
+    color: var(--accent-primary);
+    background: none;
+    border: none;
+    padding: 0;
+    font-size: 0.85rem;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    cursor: pointer;
+}
+
+.consent-gate-doc:hover {
+    color: var(--accent-hover);
+}
+
+.consent-gate-error {
+    font-size: 0.85rem;
+    color: var(--danger);
+    margin: 0 0 0.9rem;
+}
+
+.consent-gate-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.consent-gate-primary,
+.consent-gate-secondary {
+    width: 100%;
+    padding: 0.7rem 1rem;
+    border-radius: 0.6rem;
+    font-size: 0.95rem;
+    font-weight: 500;
+    transition: all 0.15s ease;
+    border: 1px solid var(--border-color);
+}
+
+.consent-gate-primary {
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+    color: var(--accent-text);
+}
+
+.consent-gate-primary:hover:not(:disabled) {
+    background: var(--accent-hover);
+    border-color: var(--accent-hover);
+}
+
+.consent-gate-secondary {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+}
+
+.consent-gate-secondary:hover:not(:disabled) {
+    background: var(--bg-tertiary);
+    border-color: var(--text-tertiary);
+}
+
+.consent-gate-primary:disabled,
+.consent-gate-secondary:disabled {
+    opacity: 0.6;
+    cursor: default;
+}
+
+@media (max-width: 480px) {
+    .consent-gate-card {
+        padding: 1.4rem 1.25rem 1.25rem;
+    }
+}

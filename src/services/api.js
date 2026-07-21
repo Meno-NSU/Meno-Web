@@ -29,6 +29,48 @@ export function setAuthToken(token) {
     }
 }
 
+// --- Guest token (anonymous browser identity; sent as X-Guest-Token when not signed in) ---
+export const GUEST_TOKEN_KEY = 'meno.guestToken';
+
+export function getGuestToken() {
+    try {
+        return localStorage.getItem(GUEST_TOKEN_KEY);
+    } catch {
+        return null;
+    }
+}
+
+export function setGuestToken(token) {
+    try {
+        if (token) {
+            localStorage.setItem(GUEST_TOKEN_KEY, token);
+        } else {
+            localStorage.removeItem(GUEST_TOKEN_KEY);
+        }
+    } catch {
+        /* localStorage unavailable — guest identity simply won't persist */
+    }
+}
+
+// Mint a guest session once and cache its secret token locally. Idempotent: a
+// no-op when a token already exists. Returns the token, or null on failure.
+export async function ensureGuestSession() {
+    const existing = getGuestToken();
+    if (existing) return existing;
+    try {
+        const res = await fetch(`${API_BASE_URL}/v1/guest/session`, { method: 'POST' });
+        if (!res.ok) return null;
+        const data = await res.json();
+        if (data?.guest_token) {
+            setGuestToken(data.guest_token);
+            return data.guest_token;
+        }
+        return null;
+    } catch {
+        return null;
+    }
+}
+
 const generateRequestId = () => Math.random().toString(36).substring(2, 10);
 
 // Parse a FastAPI-style error body ({"detail": ...} or {"error": {"message": ...}})
@@ -96,12 +138,16 @@ async function fetchWithLogging(url, options = {}) {
     const method = options.method || 'GET';
     const startTime = performance.now();
 
-    // Inject the bearer token (when signed in) on every request. The backend
-    // treats it as optional — anonymous calls just omit it.
+    // Signed-in requests carry the JWT; guests carry their X-Guest-Token. The
+    // backend treats both as optional, and only one is ever needed at a time.
     const token = getAuthToken();
-    const authedOptions = token
-        ? { ...options, headers: { ...(options.headers || {}), Authorization: `Bearer ${token}` } }
-        : options;
+    const guestToken = getGuestToken();
+    let authedOptions = options;
+    if (token) {
+        authedOptions = { ...options, headers: { ...(options.headers || {}), Authorization: `Bearer ${token}` } };
+    } else if (guestToken) {
+        authedOptions = { ...options, headers: { ...(options.headers || {}), 'X-Guest-Token': guestToken } };
+    }
 
     // Never log request bodies or headers: they can carry email, password,
     // message text, or the bearer token. Log only the safe request line.

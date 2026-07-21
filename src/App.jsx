@@ -7,6 +7,7 @@ import Leaderboard from './components/Leaderboard.jsx';
 import AuthModal from './components/AuthModal.jsx';
 import {
   clearChatHistory,
+  ensureGuestSession,
   fetchKnowledgeBases,
   fetchModels,
   refreshModels,
@@ -252,6 +253,8 @@ function App() {
 
   // Initialize data and migrate stored chats to the chat-scoped config shape.
   useEffect(() => {
+    // Mint a guest session on first load so anonymous requests carry X-Guest-Token.
+    void ensureGuestSession();
     const initData = async () => {
       const [{ models: fetchedModels, coreModelId: fetchedCoreModelId }, fetchedKbs] = await Promise.all([
         fetchModels(),

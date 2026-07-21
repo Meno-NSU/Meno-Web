@@ -259,6 +259,23 @@
     border-top: 1px solid var(--border-color);
 }
 
+.sidebar-privacy-btn {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    padding: 0.4rem 0.25rem;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    background: none;
+    border: none;
+    cursor: pointer;
+    transition: color 0.15s ease;
+}
+
+.sidebar-privacy-btn:hover {
+    color: var(--text-primary);
+}
+
 /* Light theme only: a whisper of green-gray so the rail isn't sterile.
    Dark keeps its plain --sidebar-bg. */
 [data-theme='light'] .sidebar {

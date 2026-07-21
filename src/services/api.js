@@ -103,10 +103,9 @@ async function fetchWithLogging(url, options = {}) {
         ? { ...options, headers: { ...(options.headers || {}), Authorization: `Bearer ${token}` } }
         : options;
 
-    apiLogger.info(`--> [${requestId}] ${method} ${url}`, {
-        headers: options.headers,
-        bodyPreview: options.body ? (options.body.length > 200 ? options.body.substring(0, 200) + '...' : options.body) : undefined
-    });
+    // Never log request bodies or headers: they can carry email, password,
+    // message text, or the bearer token. Log only the safe request line.
+    apiLogger.info(`--> [${requestId}] ${method} ${url}`);
 
     try {
         // Here we track network errors. A TypeError implies CORS failure or server unreachable.

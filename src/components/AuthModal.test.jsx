@@ -78,4 +78,20 @@ describe('AuthModal', () => {
         fireEvent.keyDown(document, { key: 'Escape' });
         expect(onClose).toHaveBeenCalled();
     });
+
+    it('shows a consent notice with document links only on the register tab', () => {
+        const { container } = renderModal();
+        expect(container.querySelector('.auth-consent-notice')).toBeNull();
+
+        fireEvent.click(screen.getAllByRole('tab')[1]); // switch to register
+        const notice = container.querySelector('.auth-consent-notice');
+        expect(notice).not.toBeNull();
+        const links = [...notice.querySelectorAll('a')];
+        expect(links.map((a) => a.getAttribute('href'))).toEqual(
+            expect.arrayContaining(['/terms', '/privacy']),
+        );
+        for (const a of links) {
+            expect(a.getAttribute('target')).toBe('_blank');
+        }
+    });
 });

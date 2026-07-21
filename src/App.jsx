@@ -35,9 +35,9 @@ import {
 } from './store/chatStore.js';
 import { useAuth } from './store/authStore.js';
 import SurveyModal from './components/SurveyModal.jsx';
-import ConsentGate from './components/ConsentGate.jsx';
+import ConsentBanner from './components/ConsentBanner.jsx';
 import { submitSurvey } from './services/api.js';
-import { createConsentChecker, CONSENT_KIND } from './services/consentGate.js';
+import { shouldShowImprovementBanner, hasSeenImprovementBanner, setImprovementBannerSeen, CONSENT_KIND } from './services/consentGate.js';
 import { decideSurvey, readSurveyState, writeSurveyState } from './services/surveyGate.js';
 import { translateOnce as i18nLookup } from './i18n.js';
 import { buildErrorNotice, buildStopNotice } from './services/chatNotice.js';
@@ -256,31 +256,31 @@ function App() {
   // End-of-session survey (S2): chat id awaiting the one-question survey.
   const [surveySessionId, setSurveySessionId] = useState(null);
 
-  // Consent gate (Stage 2b): block the first processed message until the user
-  // consents. One checker for the app lifetime (caches the server read); the
-  // pending send is stashed so it can auto-resume after the choice.
-  const consentCheckerRef = useRef(null);
-  if (consentCheckerRef.current === null) {
-    consentCheckerRef.current = createConsentChecker(getPrivacySettings);
-  }
+  // Consent (Stage 2b, soft model): a non-blocking improvement opt-in banner.
+  // Service consent is conclusive (the act of sending) + persistent notices — it
+  // is never gated here. See spec 2026-07-22-soft-consent-model.
   const consentVersionRef = useRef(null);
-  const pendingSendRef = useRef(null);
-  const [isConsentGateOpen, setIsConsentGateOpen] = useState(false);
-  const [consentBusy, setConsentBusy] = useState(false);
-  const [consentError, setConsentError] = useState(null);
+  const [isBannerVisible, setIsBannerVisible] = useState(false);
 
   // Initialize data and migrate stored chats to the chat-scoped config shape.
   useEffect(() => {
     // Mint a guest session on first load so anonymous requests carry X-Guest-Token,
-    // then prime the consent check and read the current consent-document version.
-    ensureGuestSession().then(() => {
-      void consentCheckerRef.current.needsConsent();
+    // then decide whether to show the (non-blocking) improvement banner and read
+    // the current consent-document version.
+    ensureGuestSession().then(async () => {
+      let serverState = null;
+      try {
+        serverState = await getPrivacySettings();
+      } catch { /* unknown — the banner may still show */ }
+      if (shouldShowImprovementBanner({ seen: hasSeenImprovementBanner(), serverState })) {
+        setIsBannerVisible(true);
+      }
       getLegalDocuments()
         .then((docs) => {
           const consentDoc = docs.find((doc) => doc.kind === CONSENT_KIND);
           if (consentDoc) consentVersionRef.current = consentDoc.version;
         })
-        .catch(() => { /* version is fetched lazily on grant if still missing */ });
+        .catch(() => { /* version fetched on demand when a choice is made */ });
     });
     const initData = async () => {
       const [{ models: fetchedModels, coreModelId: fetchedCoreModelId }, fetchedKbs] = await Promise.all([
@@ -633,15 +633,6 @@ function App() {
     const targetChatId = activeChatId;
 
     if (!trimmedText || !targetChatId || generatingChats.has(targetChatId)) {
-      return;
-    }
-
-    // Consent gate: before the first processed message, block and capture consent
-    // (the user may look around until they try to send). Fail-closed; auto-resumes.
-    if (await consentCheckerRef.current.needsConsent()) {
-      pendingSendRef.current = { text, retryOf };
-      setConsentError(null);
-      setIsConsentGateOpen(true);
       return;
     }
 
@@ -1087,39 +1078,56 @@ function App() {
     void handleSendMessage(message?.retry?.userText || '', { retryOf: message });
   };
 
-  // Consent gate resolution: record the choice, then resume the stashed send. On
-  // failure the gate stays open with a retryable error. Both buttons grant
-  // SERVICE_AND_HISTORY (the backend requires it); the choice toggles improvement.
-  const handleConsentGrant = async (menoImprovement) => {
-    setConsentBusy(true);
-    setConsentError(null);
+  // Current consent-document version, fetched on demand if the mount prime missed it.
+  const resolveConsentVersion = async () => {
+    if (consentVersionRef.current) return consentVersionRef.current;
     try {
-      let version = consentVersionRef.current;
-      if (!version) {
-        const docs = await getLegalDocuments();
-        version = docs.find((doc) => doc.kind === CONSENT_KIND)?.version || null;
-        consentVersionRef.current = version;
-      }
-      if (!version) throw new Error('consent document version unavailable');
+      const docs = await getLegalDocuments();
+      consentVersionRef.current = docs.find((doc) => doc.kind === CONSENT_KIND)?.version || null;
+    } catch { /* leave null — the choice just won't be recorded this time */ }
+    return consentVersionRef.current;
+  };
+
+  // Non-blocking banner: hide it and record the improvement choice (best-effort).
+  // Recording service + improvement together keeps a single consent artifact.
+  const handleBannerDecide = async (improve) => {
+    setImprovementBannerSeen();
+    setIsBannerVisible(false);
+    const version = await resolveConsentVersion();
+    if (!version) return;
+    try {
       await patchPrivacySettings({
         documentVersion: version,
         serviceAndHistory: true,
-        menoImprovement,
-        source: 'first_run_gate',
+        menoImprovement: improve,
+        source: 'consent_banner',
       });
-      consentCheckerRef.current.markGranted();
-      setIsConsentGateOpen(false);
-      const pending = pendingSendRef.current;
-      pendingSendRef.current = null;
-      if (pending) {
-        void handleSendMessage(pending.text, { retryOf: pending.retryOf });
-      }
     } catch (error) {
-      console.warn('Consent grant failed', error);
-      setConsentError(i18nLookup('consentError'));
-    } finally {
-      setConsentBusy(false);
+      console.warn('Consent choice not recorded', error);
     }
+  };
+
+  // X on the banner: defer without recording (safe default — improvement stays OFF).
+  const handleBannerDismiss = () => {
+    setImprovementBannerSeen();
+    setIsBannerVisible(false);
+  };
+
+  // Registration records service consent (best-effort) so the account starts
+  // consented; improvement stays opt-in via the banner.
+  const handleRegister = async (email, password, nickname) => {
+    const user = await auth.register(email, password, nickname);
+    setIsBannerVisible(false);
+    const version = await resolveConsentVersion();
+    if (version) {
+      patchPrivacySettings({
+        documentVersion: version,
+        serviceAndHistory: true,
+        menoImprovement: false,
+        source: 'registration',
+      }).catch((error) => console.warn('Registration consent not recorded', error));
+    }
+    return user;
   };
 
   const sortedChats = [...chats].sort((a, b) => b.updatedAt - a.updatedAt);
@@ -1209,7 +1217,7 @@ function App() {
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
         login={auth.login}
-        register={auth.register}
+        register={handleRegister}
       />
 
       <SurveyModal
@@ -1218,12 +1226,9 @@ function App() {
         onSkip={() => handleSurveyDone('skipped')}
       />
 
-      <ConsentGate
-        isOpen={isConsentGateOpen}
-        onGrant={handleConsentGrant}
-        busy={consentBusy}
-        error={consentError}
-      />
+      {isBannerVisible && (
+        <ConsentBanner onDecide={handleBannerDecide} onDismiss={handleBannerDismiss} />
+      )}
     </div>
   );
 }

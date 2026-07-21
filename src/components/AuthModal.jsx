@@ -160,6 +160,15 @@ function AuthModalCard({ onClose, login, register }) {
                     <button className="btn-primary auth-submit" type="submit" disabled={pending}>
                         {pending ? '…' : mode === 'login' ? t('authSubmitSignIn') : t('authSubmitRegister')}
                     </button>
+
+                    {mode === 'register' && (
+                        <p className="auth-consent-notice">
+                            {t('authConsentNoticePrefix')}{' '}
+                            <a href="/terms" target="_blank" rel="noopener noreferrer">{t('consentReadTerms')}</a>
+                            {' '}{t('authConsentNoticeAnd')}{' '}
+                            <a href="/privacy" target="_blank" rel="noopener noreferrer">{t('consentReadPrivacy')}</a>.
+                        </p>
+                    )}
                 </form>
 
                 <button

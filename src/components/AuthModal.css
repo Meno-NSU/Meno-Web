@@ -170,3 +170,15 @@
 .auth-switch:hover {
     color: var(--accent-hover);
 }
+
+.auth-consent-notice {
+    font-size: 0.75rem;
+    line-height: 1.45;
+    color: var(--text-tertiary);
+    text-align: center;
+    margin: 0.5rem 0 0;
+}
+
+.auth-consent-notice a {
+    color: var(--accent-primary);
+}

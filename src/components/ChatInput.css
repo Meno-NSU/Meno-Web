@@ -190,6 +190,19 @@
     margin-top: 0.75rem;
 }
 
+.input-disclaimer,
+.input-consent-notice {
+    display: block;
+}
+
+.input-consent-notice {
+    margin-top: 0.15rem;
+}
+
+.input-consent-notice a {
+    color: var(--accent-primary);
+}
+
 @media (max-width: 768px) {
     .input-container {
         padding: 0.5rem;

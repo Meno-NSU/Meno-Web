@@ -22,6 +22,7 @@ import {
 } from './services/arenaMatching.js';
 import { buildArenaHistories } from './services/arenaHistory.js';
 import {
+  clearChats,
   createNewChat,
   generateTitle,
   loadChats,
@@ -573,6 +574,19 @@ function App() {
     setActiveChatId(nextChat.id);
   };
 
+  // Logout wipes account-specific local state so the next person on this browser
+  // cannot see the previous session's history (privacy: shared-device leak).
+  const handleLogout = () => {
+    auth.logout();
+    clearChats();
+    const fresh = createNewChat({
+      modelId: resolveValidId(models, localStorage.getItem(LAST_USED_MODEL_KEY), models[0]?.id || ''),
+      knowledgeBaseId: resolveValidId(kbs, localStorage.getItem(LAST_USED_KB_KEY), kbs[0]?.id || ''),
+    });
+    setChats([fresh]);
+    setActiveChatId(fresh.id);
+  };
+
   const handleDeleteChat = (id) => {
     setChats((prev) => prev.filter((chat) => chat.id !== id));
     if (activeChatId === id) {
@@ -1058,7 +1072,7 @@ function App() {
         setIsArenaMode={setIsArenaMode}
         user={auth.user}
         onOpenAuth={() => setIsAuthModalOpen(true)}
-        onLogout={auth.logout}
+        onLogout={handleLogout}
       />
 
       <main className="main-content">
@@ -1079,7 +1093,7 @@ function App() {
           onOpenSidebar={() => setIsSidebarOpen(true)}
           user={auth.user}
           onOpenAuth={() => setIsAuthModalOpen(true)}
-          onLogout={auth.logout}
+          onLogout={handleLogout}
         />
         {currentView === 'chat' ? (
           (() => {

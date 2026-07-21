@@ -1,8 +1,8 @@
 const STORAGE_KEY = 'meno_core_chats';
 const DEFAULT_CHAT_TITLE = 'New Conversation';
 
-// Generate a simple unique ID
-const generateId = () => Math.random().toString(36).substring(2, 11);
+// Generate a unique id (crypto UUID; also reused as the backend session id).
+const generateId = () => crypto.randomUUID();
 
 function normalizeConfiguredId(value, validIds, fallbackId = '') {
     const normalized = typeof value === 'string' ? value.trim() : '';
@@ -32,6 +32,14 @@ export function saveChats(chats) {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(chats));
     } catch (error) {
         console.error('Failed to save chats to localStorage', error);
+    }
+}
+
+export function clearChats() {
+    try {
+        localStorage.removeItem(STORAGE_KEY);
+    } catch (error) {
+        console.error('Failed to clear chats from localStorage', error);
     }
 }
 

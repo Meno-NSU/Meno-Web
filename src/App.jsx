@@ -36,6 +36,7 @@ import {
 import { useAuth } from './store/authStore.js';
 import SurveyModal from './components/SurveyModal.jsx';
 import ConsentBanner from './components/ConsentBanner.jsx';
+import PrivacySettingsModal from './components/PrivacySettingsModal.jsx';
 import { submitSurvey } from './services/api.js';
 import { shouldShowImprovementBanner, hasSeenImprovementBanner, setImprovementBannerSeen, CONSENT_KIND } from './services/consentGate.js';
 import { decideSurvey, readSurveyState, writeSurveyState } from './services/surveyGate.js';
@@ -261,6 +262,8 @@ function App() {
   // is never gated here. See spec 2026-07-22-soft-consent-model.
   const consentVersionRef = useRef(null);
   const [isBannerVisible, setIsBannerVisible] = useState(false);
+  const [isPrivacySettingsOpen, setIsPrivacySettingsOpen] = useState(false);
+  const [improvementEnabled, setImprovementEnabled] = useState(null);
 
   // Initialize data and migrate stored chats to the chat-scoped config shape.
   useEffect(() => {
@@ -1130,6 +1133,43 @@ function App() {
     return user;
   };
 
+  // «Данные и конфиденциальность»: open with a fresh read of the improvement state.
+  const handleOpenPrivacySettings = async () => {
+    setIsPrivacySettingsOpen(true);
+    try {
+      const state = await getPrivacySettings();
+      setImprovementEnabled(!!state.menoImprovement);
+    } catch { /* leave unknown; the toggle still works optimistically */ }
+  };
+
+  const handleToggleImprovement = async (next) => {
+    setImprovementEnabled(next); // optimistic
+    const version = await resolveConsentVersion();
+    if (!version) return;
+    try {
+      await patchPrivacySettings({
+        documentVersion: version,
+        serviceAndHistory: true,
+        menoImprovement: next,
+        source: 'settings',
+      });
+    } catch (error) {
+      console.warn('Improvement setting not saved', error);
+      setImprovementEnabled(!next); // revert
+    }
+  };
+
+  const handleClearLocalHistory = () => {
+    clearChats();
+    const fresh = createNewChat({
+      modelId: resolveValidId(models, localStorage.getItem(LAST_USED_MODEL_KEY), models[0]?.id || ''),
+      knowledgeBaseId: resolveValidId(kbs, localStorage.getItem(LAST_USED_KB_KEY), kbs[0]?.id || ''),
+    });
+    setChats([fresh]);
+    setActiveChatId(fresh.id);
+    setIsPrivacySettingsOpen(false);
+  };
+
   const sortedChats = [...chats].sort((a, b) => b.updatedAt - a.updatedAt);
 
   return (
@@ -1155,6 +1195,7 @@ function App() {
         user={auth.user}
         onOpenAuth={() => setIsAuthModalOpen(true)}
         onLogout={handleLogout}
+        onOpenPrivacySettings={handleOpenPrivacySettings}
       />
 
       <main className="main-content">
@@ -1229,6 +1270,14 @@ function App() {
       {isBannerVisible && (
         <ConsentBanner onDecide={handleBannerDecide} onDismiss={handleBannerDismiss} />
       )}
+
+      <PrivacySettingsModal
+        isOpen={isPrivacySettingsOpen}
+        onClose={() => setIsPrivacySettingsOpen(false)}
+        improvementEnabled={improvementEnabled}
+        onToggleImprovement={handleToggleImprovement}
+        onClearHistory={handleClearLocalHistory}
+      />
     </div>
   );
 }

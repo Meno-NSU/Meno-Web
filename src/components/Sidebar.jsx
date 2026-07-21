@@ -24,6 +24,7 @@ export default function Sidebar({
     theme, toggleTheme,
     isArenaMode, setIsArenaMode,
     user, onOpenAuth, onLogout,
+    onOpenPrivacySettings,
 }) {
     const { t, lang, setLanguage } = useTranslation();
     if (!isOpen) {
@@ -179,6 +180,13 @@ export default function Sidebar({
                 </div>
 
                 <div className="sidebar-footer">
+                    <button
+                        type="button"
+                        className="sidebar-privacy-btn"
+                        onClick={onOpenPrivacySettings}
+                    >
+                        {t('privacySettingsEntry')}
+                    </button>
                     <LegalLinks />
                 </div>
             </aside>

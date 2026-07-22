@@ -51,9 +51,8 @@
     padding-right: 1.5rem; /* leave room for the close button when dismissible */
 }
 
-.consent-modal-grant,
-.consent-modal-body {
-    font-size: 0.9rem;
+.consent-modal-grant {
+    font-size: 0.85rem;
     line-height: 1.55;
     color: var(--text-secondary);
     margin: 0 0 0.8rem;

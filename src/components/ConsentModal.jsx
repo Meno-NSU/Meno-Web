@@ -50,7 +50,6 @@ export default function ConsentModal({ onContinue, onDefer, dismissible = false 
                     </a>
                     {t('consentModalGrantSuffix')}
                 </p>
-                <p className="consent-modal-body">{t('consentModalBody')}</p>
                 <p className="consent-modal-docs">
                     <a href="/privacy" target="_blank" rel="noopener noreferrer">
                         {t('consentModalPolicyLink')}

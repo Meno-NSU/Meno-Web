@@ -344,6 +344,15 @@ export async function patchPrivacySettings({ documentVersion, serviceAndHistory,
     return mapPrivacySettings(await res.json());
 }
 
+// Right to erasure: delete all of the caller's data (and, for a registered user, the
+// account). After this the JWT / guest token no longer resolves — the caller resets
+// local state and mints a fresh guest identity.
+export async function deleteMyData() {
+    const res = await fetchWithLogging(`${API_BASE_URL}/v1/privacy/data`, { method: 'DELETE' });
+    if (!res.ok) throw await buildError(res, 'Failed to delete data');
+    return res.json();
+}
+
 // A single published legal document (with markdown `content`). `kind` is the
 // backend key: personal_data_consent | privacy_policy | terms_of_use.
 export async function getLegalDocument(kind) {

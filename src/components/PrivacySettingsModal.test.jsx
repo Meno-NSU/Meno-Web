@@ -10,6 +10,7 @@ function renderModal(props = {}) {
             improvementEnabled={false}
             onToggleImprovement={vi.fn()}
             onClearHistory={vi.fn()}
+            onDeleteData={vi.fn()}
             {...props}
         />,
     );
@@ -84,5 +85,23 @@ describe('PrivacySettingsModal', () => {
         const { container } = renderModal({ onClose });
         fireEvent.mouseDown(container.querySelector('.privacy-settings-overlay'));
         expect(onClose).toHaveBeenCalled();
+    });
+
+    it('deletes all data only after an inline confirm', () => {
+        const onDeleteData = vi.fn();
+        const { container } = renderModal({ onDeleteData });
+        fireEvent.click(container.querySelector('.privacy-settings-delete'));
+        expect(onDeleteData).not.toHaveBeenCalled();
+        fireEvent.click(container.querySelector('.privacy-settings-delete-confirm'));
+        expect(onDeleteData).toHaveBeenCalled();
+    });
+
+    it('cancels the delete confirmation without deleting', () => {
+        const onDeleteData = vi.fn();
+        const { container } = renderModal({ onDeleteData });
+        fireEvent.click(container.querySelector('.privacy-settings-delete'));
+        fireEvent.click(container.querySelector('.privacy-settings-delete-cancel'));
+        expect(onDeleteData).not.toHaveBeenCalled();
+        expect(container.querySelector('.privacy-settings-delete')).not.toBeNull();
     });
 });

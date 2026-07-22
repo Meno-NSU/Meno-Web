@@ -16,6 +16,8 @@ import {
   getPrivacySettings,
   patchPrivacySettings,
   getLegalDocuments,
+  deleteMyData,
+  setGuestToken,
 } from './services/api.js';
 import { resolveOverload } from './services/chatWaitState.js';
 import {
@@ -38,7 +40,7 @@ import SurveyModal from './components/SurveyModal.jsx';
 import ConsentBanner from './components/ConsentBanner.jsx';
 import PrivacySettingsModal from './components/PrivacySettingsModal.jsx';
 import { submitSurvey } from './services/api.js';
-import { shouldShowImprovementBanner, hasSeenImprovementBanner, setImprovementBannerSeen, CONSENT_KIND } from './services/consentGate.js';
+import { shouldShowImprovementBanner, hasSeenImprovementBanner, setImprovementBannerSeen, IMPROVEMENT_BANNER_FLAG, CONSENT_KIND } from './services/consentGate.js';
 import { decideSurvey, readSurveyState, writeSurveyState } from './services/surveyGate.js';
 import { translateOnce as i18nLookup } from './i18n.js';
 import { buildErrorNotice, buildStopNotice } from './services/chatNotice.js';
@@ -1170,6 +1172,33 @@ function App() {
     setIsPrivacySettingsOpen(false);
   };
 
+  // Right to erasure: delete everything server-side, then reset to a fresh anonymous
+  // identity (the old JWT / guest token no longer resolves).
+  const handleDeleteData = async () => {
+    try {
+      await deleteMyData();
+    } catch (error) {
+      console.warn('Data deletion failed', error);
+      return;
+    }
+    auth.logout();
+    clearChats();
+    setGuestToken(null);
+    try {
+      localStorage.removeItem(IMPROVEMENT_BANNER_FLAG);
+    } catch { /* ignore */ }
+    await ensureGuestSession();
+    const fresh = createNewChat({
+      modelId: resolveValidId(models, localStorage.getItem(LAST_USED_MODEL_KEY), models[0]?.id || ''),
+      knowledgeBaseId: resolveValidId(kbs, localStorage.getItem(LAST_USED_KB_KEY), kbs[0]?.id || ''),
+    });
+    setChats([fresh]);
+    setActiveChatId(fresh.id);
+    setImprovementEnabled(false);
+    setIsPrivacySettingsOpen(false);
+    setIsBannerVisible(true);
+  };
+
   const sortedChats = [...chats].sort((a, b) => b.updatedAt - a.updatedAt);
 
   return (
@@ -1277,6 +1306,7 @@ function App() {
         improvementEnabled={improvementEnabled}
         onToggleImprovement={handleToggleImprovement}
         onClearHistory={handleClearLocalHistory}
+        onDeleteData={handleDeleteData}
       />
     </div>
   );

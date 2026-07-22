@@ -124,6 +124,34 @@
     color: #fff;
 }
 
+.privacy-settings-delete,
+.privacy-settings-delete-confirm,
+.privacy-settings-delete-cancel {
+    flex: none;
+    padding: 0.4rem 0.7rem;
+    border-radius: 0.5rem;
+    font-size: 0.82rem;
+    border: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    transition: all 0.15s ease;
+}
+
+.privacy-settings-delete {
+    color: var(--danger);
+    border-color: var(--danger);
+}
+
+.privacy-settings-delete:hover {
+    background: var(--danger-bg);
+}
+
+.privacy-settings-delete-confirm {
+    background: var(--danger);
+    border-color: var(--danger);
+    color: #fff;
+}
+
 .privacy-settings-docs {
     display: flex;
     flex-wrap: wrap;

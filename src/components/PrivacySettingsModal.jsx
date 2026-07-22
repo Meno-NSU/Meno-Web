@@ -18,9 +18,11 @@ export default function PrivacySettingsModal({
     improvementEnabled,
     onToggleImprovement,
     onClearHistory,
+    onDeleteData,
 }) {
     const { t } = useTranslation();
     const [confirmingClear, setConfirmingClear] = useState(false);
+    const [confirmingDelete, setConfirmingDelete] = useState(false);
 
     useEffect(() => {
         if (!isOpen) return undefined;
@@ -98,6 +100,42 @@ export default function PrivacySettingsModal({
                                 onClick={() => setConfirmingClear(true)}
                             >
                                 {t('privacyClearButton')}
+                            </button>
+                        )}
+                    </div>
+
+                    <div className="privacy-settings-row">
+                        <span className="privacy-settings-row-text">
+                            <span className="privacy-settings-row-label">{t('privacyDeleteLabel')}</span>
+                            <span className="privacy-settings-row-hint">{t('privacyDeleteHint')}</span>
+                        </span>
+                        {confirmingDelete ? (
+                            <span className="privacy-settings-clear-confirm-group">
+                                <button
+                                    type="button"
+                                    className="privacy-settings-delete-confirm"
+                                    onClick={() => {
+                                        setConfirmingDelete(false);
+                                        onDeleteData();
+                                    }}
+                                >
+                                    {t('privacyDeleteConfirm')}
+                                </button>
+                                <button
+                                    type="button"
+                                    className="privacy-settings-delete-cancel"
+                                    onClick={() => setConfirmingDelete(false)}
+                                >
+                                    {t('privacyCancel')}
+                                </button>
+                            </span>
+                        ) : (
+                            <button
+                                type="button"
+                                className="privacy-settings-delete"
+                                onClick={() => setConfirmingDelete(true)}
+                            >
+                                {t('privacyDeleteButton')}
                             </button>
                         )}
                     </div>

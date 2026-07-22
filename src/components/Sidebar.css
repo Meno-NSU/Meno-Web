@@ -253,13 +253,13 @@
     display: none;
 }
 
-/* Legal links pinned to the very bottom of the rail (both layouts). */
+/* Settings entry pinned to the very bottom of the rail (both layouts). */
 .sidebar-footer {
     padding: 0.4rem 0.6rem 0.6rem;
     border-top: 1px solid var(--border-color);
 }
 
-.sidebar-privacy-btn {
+.sidebar-settings-btn {
     display: flex;
     align-items: center;
     width: 100%;
@@ -272,7 +272,7 @@
     transition: color 0.15s ease;
 }
 
-.sidebar-privacy-btn:hover {
+.sidebar-settings-btn:hover {
     color: var(--text-primary);
 }
 

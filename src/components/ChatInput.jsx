@@ -122,10 +122,6 @@ export default function ChatInput({ onSend, onStop, generating = false, disabled
             </form>
             <div className="input-footer">
                 <span className="input-disclaimer">{t("disclaimer")}</span>
-                <span className="input-consent-notice">
-                    {t('inputConsentNoticePrefix')}{' '}
-                    <a href="/privacy" target="_blank" rel="noopener noreferrer">{t('consentReadPrivacy')}</a>.
-                </span>
             </div>
         </div>
     );

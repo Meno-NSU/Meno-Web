@@ -1,52 +1,68 @@
 import { beforeEach, describe, it, expect } from 'vitest';
 import {
   CONSENT_KIND,
-  IMPROVEMENT_BANNER_FLAG,
-  hasSeenImprovementBanner,
-  setImprovementBannerSeen,
-  shouldShowImprovementBanner,
+  CONSENT_DECISION_FLAG,
+  CONSENT_DEFER_UNTIL_KEY,
+  CONSENT_REPROMPT_DAYS,
+  hasDecidedConsent,
+  setConsentDecided,
+  getConsentDeferredUntil,
+  deferConsent,
+  shouldShowConsentModal,
 } from './consentGate.js';
 
-describe('shouldShowImprovementBanner — non-blocking improvement opt-in visibility', () => {
-  it('shows when not seen and the server has no service consent yet', () => {
-    expect(
-      shouldShowImprovementBanner({ seen: false, serverState: { serviceAndHistory: false } }),
-    ).toBe(true);
+describe('shouldShowConsentModal — gate visibility (defer-aware)', () => {
+  const base = { decided: false, deferredUntil: null, improvementGranted: false, now: 1000 };
+
+  it('shows when nothing is decided, deferred, or granted', () => {
+    expect(shouldShowConsentModal(base)).toBe(true);
   });
 
-  it('shows when nothing is known yet (unseen, server state unknown)', () => {
-    expect(shouldShowImprovementBanner({ seen: false, serverState: null })).toBe(true);
-    expect(shouldShowImprovementBanner({ seen: false })).toBe(true);
+  it('hides once the user has made a definitive decision', () => {
+    expect(shouldShowConsentModal({ ...base, decided: true })).toBe(false);
   });
 
-  it('hides once dismissed/decided locally', () => {
-    expect(shouldShowImprovementBanner({ seen: true, serverState: null })).toBe(false);
+  it('hides when the server already shows the improvement opt-in granted', () => {
+    expect(shouldShowConsentModal({ ...base, improvementGranted: true })).toBe(false);
   });
 
-  it('hides when the server already shows service consent (returning/registered user)', () => {
-    expect(
-      shouldShowImprovementBanner({ seen: false, serverState: { serviceAndHistory: true } }),
-    ).toBe(false);
+  it('hides while inside the defer window (now < deferredUntil)', () => {
+    expect(shouldShowConsentModal({ ...base, deferredUntil: 2000, now: 1000 })).toBe(false);
+  });
+
+  it('shows again once the defer window has passed', () => {
+    expect(shouldShowConsentModal({ ...base, deferredUntil: 2000, now: 3000 })).toBe(true);
   });
 });
 
-describe('improvement banner seen flag', () => {
-  beforeEach(() => {
-    localStorage.clear();
+describe('decision flag', () => {
+  beforeEach(() => localStorage.clear());
+
+  it('reports no decision when nothing is stored', () => {
+    expect(hasDecidedConsent()).toBe(false);
   });
 
-  it('reports not seen when nothing is stored', () => {
-    expect(hasSeenImprovementBanner()).toBe(false);
+  it('reports a decision after it has been recorded', () => {
+    setConsentDecided();
+    expect(hasDecidedConsent()).toBe(true);
+    expect(localStorage.getItem(CONSENT_DECISION_FLAG)).toBeTruthy();
+  });
+});
+
+describe('defer', () => {
+  beforeEach(() => localStorage.clear());
+
+  it('has no deferral by default', () => {
+    expect(getConsentDeferredUntil()).toBeNull();
   });
 
-  it('reports seen after it has been recorded', () => {
-    setImprovementBannerSeen();
-    expect(hasSeenImprovementBanner()).toBe(true);
-  });
-
-  it('persists under the documented storage key', () => {
-    setImprovementBannerSeen();
-    expect(localStorage.getItem(IMPROVEMENT_BANNER_FLAG)).toBeTruthy();
+  it('defers into the future by the re-prompt interval', () => {
+    const before = Date.now();
+    deferConsent();
+    const until = getConsentDeferredUntil();
+    expect(until).toBeGreaterThan(before);
+    expect(until).toBeLessThanOrEqual(before + CONSENT_REPROMPT_DAYS * 86400000 + 1000);
+    expect(localStorage.getItem(CONSENT_DEFER_UNTIL_KEY)).toBeTruthy();
   });
 });
 

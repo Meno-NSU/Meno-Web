@@ -34,12 +34,13 @@ describe('AuthModal', () => {
         expect(login).toHaveBeenCalledWith('demo@nsu.ru', 'secret123');
     });
 
-    it('shows the nickname field only on the register tab and submits it', async () => {
+    it('has no nickname field (temporarily removed) and registers without one', async () => {
         const register = vi.fn().mockResolvedValue({});
         const { container } = renderModal({ register });
 
+        fireEvent.click(screen.getAllByRole('tab')[1]); // switch to register
+        // Nickname input is temporarily removed — no text input on either tab.
         expect(container.querySelector('input[type="text"]')).toBeNull();
-        fireEvent.click(screen.getAllByRole('tab')[1]);
 
         fireEvent.change(container.querySelector('input[type="email"]'), {
             target: { value: 'demo@nsu.ru' },
@@ -47,12 +48,9 @@ describe('AuthModal', () => {
         fireEvent.change(container.querySelector('input[type="password"]'), {
             target: { value: 'secret123' },
         });
-        fireEvent.change(container.querySelector('input[type="text"]'), {
-            target: { value: 'Demo' },
-        });
         fireEvent.submit(container.querySelector('form'));
 
-        await waitFor(() => expect(register).toHaveBeenCalledWith('demo@nsu.ru', 'secret123', 'Demo'));
+        await waitFor(() => expect(register).toHaveBeenCalledWith('demo@nsu.ru', 'secret123', null));
     });
 
     it('surfaces a backend error message and keeps the modal open', async () => {

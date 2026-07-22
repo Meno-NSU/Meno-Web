@@ -15,7 +15,6 @@ function AuthModalCard({ onClose, login, register }) {
     const [mode, setMode] = useState('login');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [nickname, setNickname] = useState('');
     const [error, setError] = useState(null);
     const [pending, setPending] = useState(false);
     const emailRef = useRef(null);
@@ -46,7 +45,8 @@ function AuthModalCard({ onClose, login, register }) {
             if (mode === 'login') {
                 await login(email.trim(), password);
             } else {
-                await register(email.trim(), password, nickname.trim() || null);
+                // Nickname input is temporarily removed from the UI — register without one.
+                await register(email.trim(), password, null);
             }
             onClose();
         } catch (err) {
@@ -136,21 +136,6 @@ function AuthModalCard({ onClose, login, register }) {
                         />
                         {mode === 'register' && <span className="auth-hint">{t('authPasswordHint')}</span>}
                     </label>
-                    {mode === 'register' && (
-                        <label className="auth-field">
-                            <span className="auth-label">{t('authNickname')}</span>
-                            <input
-                                className="auth-input"
-                                type="text"
-                                maxLength={64}
-                                value={nickname}
-                                onChange={(e) => setNickname(e.target.value)}
-                                disabled={pending}
-                            />
-                            <span className="auth-hint">{t('authNicknameHint')}</span>
-                        </label>
-                    )}
-
                     {error && (
                         <div className="auth-error" role="alert">
                             {error}

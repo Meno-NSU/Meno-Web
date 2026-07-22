@@ -1,0 +1,195 @@
+.settings-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(10, 12, 16, 0.4);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 1rem;
+    animation: settingsFadeIn 0.15s ease;
+}
+
+@keyframes settingsFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.settings-card {
+    width: min(480px, 100%);
+    max-height: calc(100vh - 2rem);
+    overflow-y: auto;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 1rem;
+    box-shadow: var(--shadow-lg);
+    animation: settingsIn 0.18s ease;
+}
+
+@keyframes settingsIn {
+    from { opacity: 0; transform: translateY(8px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.settings-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.9rem 1.1rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.settings-back,
+.settings-close {
+    width: 32px;
+    height: 32px;
+    flex: none;
+}
+
+.settings-header-spacer {
+    width: 32px;
+    flex: none;
+}
+
+.settings-title {
+    flex: 1;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.settings-body {
+    padding: 0.5rem 1.25rem 1rem;
+}
+
+/* ---- menu view («О сервисе») ---- */
+.settings-section-label {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-tertiary);
+    padding: 0.6rem 0 0.2rem;
+}
+
+.settings-row-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    width: 100%;
+    padding: 0.85rem 0.15rem;
+    border: none;
+    border-bottom: 1px solid var(--border-color);
+    background: transparent;
+    color: var(--text-primary);
+    font-size: 0.92rem;
+    text-align: left;
+    text-decoration: none;
+    cursor: pointer;
+    transition: color 0.15s ease;
+}
+
+.settings-row-nav:last-child {
+    border-bottom: none;
+}
+
+.settings-row-nav:hover {
+    color: var(--accent-primary);
+}
+
+.settings-row-nav svg {
+    flex: none;
+    color: var(--text-tertiary);
+}
+
+.settings-row-nav:hover svg {
+    color: var(--accent-primary);
+}
+
+/* ---- data sub-view («Данные и конфиденциальность») ---- */
+.settings-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.9rem 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.settings-row:last-child {
+    border-bottom: none;
+}
+
+.settings-row-text {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    flex: 1;
+    min-width: 0; /* let the text shrink/wrap so action buttons always fit the card */
+}
+
+.settings-row-label {
+    font-size: 0.92rem;
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+.settings-row-hint {
+    font-size: 0.78rem;
+    color: var(--text-tertiary);
+    line-height: 1.4;
+}
+
+.settings-improvement-toggle {
+    flex: none;
+    width: 18px;
+    height: 18px;
+    accent-color: var(--accent-primary);
+    cursor: pointer;
+}
+
+.settings-clear,
+.settings-clear-confirm,
+.settings-clear-cancel,
+.settings-delete,
+.settings-delete-confirm,
+.settings-delete-cancel {
+    flex: none;
+    padding: 0.4rem 0.7rem;
+    border-radius: 0.5rem;
+    font-size: 0.82rem;
+    border: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    transition: all 0.15s ease;
+}
+
+.settings-clear:hover {
+    border-color: var(--danger);
+    color: var(--danger);
+}
+
+.settings-confirm-group {
+    display: flex;
+    gap: 0.4rem;
+    flex: none;
+}
+
+.settings-clear-confirm,
+.settings-delete-confirm {
+    background: var(--danger);
+    border-color: var(--danger);
+    color: #fff;
+}
+
+.settings-delete {
+    color: var(--danger);
+    border-color: var(--danger);
+}
+
+.settings-delete:hover {
+    background: var(--danger-bg);
+}

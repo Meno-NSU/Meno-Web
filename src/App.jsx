@@ -37,11 +37,11 @@ import {
 } from './store/chatStore.js';
 import { useAuth } from './store/authStore.js';
 import SurveyModal from './components/SurveyModal.jsx';
-import ConsentBanner from './components/ConsentBanner.jsx';
-import PrivacySettingsModal from './components/PrivacySettingsModal.jsx';
+import ConsentModal from './components/ConsentModal.jsx';
+import SettingsModal from './components/SettingsModal.jsx';
 import { submitSurvey } from './services/api.js';
-import { shouldShowImprovementBanner, hasSeenImprovementBanner, setImprovementBannerSeen, IMPROVEMENT_BANNER_FLAG, CONSENT_KIND } from './services/consentGate.js';
-import { decideSurvey, readSurveyState, writeSurveyState } from './services/surveyGate.js';
+import { shouldShowConsentModal, hasDecidedConsent, setConsentDecided, getConsentDeferredUntil, deferConsent, CONSENT_DECISION_FLAG, CONSENT_DEFER_UNTIL_KEY, CONSENT_KIND } from './services/consentGate.js';
+import { shouldShowSurvey } from './services/surveyGate.js';
 import { translateOnce as i18nLookup } from './i18n.js';
 import { buildErrorNotice, buildStopNotice } from './services/chatNotice.js';
 import { dropTrailingNotice } from './services/chatTurns.js';
@@ -259,12 +259,15 @@ function App() {
   // End-of-session survey (S2): chat id awaiting the one-question survey.
   const [surveySessionId, setSurveySessionId] = useState(null);
 
-  // Consent (Stage 2b, soft model): a non-blocking improvement opt-in banner.
-  // Service consent is conclusive (the act of sending) + persistent notices — it
-  // is never gated here. See spec 2026-07-22-soft-consent-model.
+  // Consent (defer model): a gate modal asks the improvement opt-in. «Продолжить»
+  // grants it; «Не сейчас» defers and the gate re-asks later (gently — re-prompts are
+  // dismissible). The chat is always stored (SERVICE_AND_HISTORY, guests included), so
+  // storage never hinges on the choice. See spec 2026-07-22-consent-defer-model.
   const consentVersionRef = useRef(null);
-  const [isBannerVisible, setIsBannerVisible] = useState(false);
-  const [isPrivacySettingsOpen, setIsPrivacySettingsOpen] = useState(false);
+  const [isConsentModalVisible, setIsConsentModalVisible] = useState(false);
+  // A re-prompt (the user deferred before) is dismissible; the first prompt is not.
+  const [consentDismissible, setConsentDismissible] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [improvementEnabled, setImprovementEnabled] = useState(null);
 
   // Initialize data and migrate stored chats to the chat-scoped config shape.
@@ -276,9 +279,17 @@ function App() {
       let serverState = null;
       try {
         serverState = await getPrivacySettings();
-      } catch { /* unknown — the banner may still show */ }
-      if (shouldShowImprovementBanner({ seen: hasSeenImprovementBanner(), serverState })) {
-        setIsBannerVisible(true);
+      } catch { /* unknown — the modal may still show */ }
+      const deferredUntil = getConsentDeferredUntil();
+      const show = shouldShowConsentModal({
+        decided: hasDecidedConsent(),
+        deferredUntil,
+        improvementGranted: !!serverState?.menoImprovement,
+        now: Date.now(),
+      });
+      if (show) {
+        setConsentDismissible(deferredUntil != null); // deferred before → gentle re-prompt
+        setIsConsentModalVisible(true);
       }
       getLegalDocuments()
         .then((docs) => {
@@ -526,17 +537,15 @@ function App() {
       (m) => m.role === 'assistant' && (m.completionId || m.isArena),
     );
     if (!hadAnswer) return;
-    // Throttle the survey so it stops nagging: every answered dialogue consumes
-    // one opportunity (mark it surveyed so revisiting the chat can't recount),
-    // but only every Nth one actually opens the modal. See services/surveyGate.js.
+    // Each answered dialogue is one survey opportunity: mark it surveyed so
+    // revisiting the chat can't re-roll, then give it an independent
+    // SURVEY_PROBABILITY chance of opening the modal. See services/surveyGate.js.
     // The prevActiveChatRef guard above makes the setChats re-render a no-op
     // (prevId === activeChatId on the re-run), so this cannot loop.
-    const { show, next } = decideSurvey(readSurveyState());
-    writeSurveyState(next);
     setChats((prev) => prev.map((chat) => (
       chat.id === prevId ? { ...chat, surveyed: true } : chat
     )));
-    if (show) setSurveySessionId(prevId);
+    if (shouldShowSurvey()) setSurveySessionId(prevId);
   }, [activeChatId, chats, generatingChats]);
 
   // Both outcomes mark the chat surveyed locally first (never nag twice, even
@@ -1093,11 +1102,9 @@ function App() {
     return consentVersionRef.current;
   };
 
-  // Non-blocking banner: hide it and record the improvement choice (best-effort).
-  // Recording service + improvement together keeps a single consent artifact.
-  const handleBannerDecide = async (improve) => {
-    setImprovementBannerSeen();
-    setIsBannerVisible(false);
+  // Records service consent (chat storage) + the improvement opt-in. `improve` is
+  // true for «Продолжить», false for «Не сейчас» — either way the chat is stored.
+  const recordConsent = async (improve, source) => {
     const version = await resolveConsentVersion();
     if (!version) return;
     try {
@@ -1105,24 +1112,37 @@ function App() {
         documentVersion: version,
         serviceAndHistory: true,
         menoImprovement: improve,
-        source: 'consent_banner',
+        source,
       });
     } catch (error) {
       console.warn('Consent choice not recorded', error);
     }
   };
 
-  // X on the banner: defer without recording (safe default — improvement stays OFF).
-  const handleBannerDismiss = () => {
-    setImprovementBannerSeen();
-    setIsBannerVisible(false);
+  // «Продолжить»: grant the improvement opt-in (definitive — the gate won't nag again).
+  const handleConsentContinue = async () => {
+    setConsentDecided();
+    setImprovementEnabled(true); // consent granted → the settings toggle reflects it
+    setIsConsentModalVisible(false);
+    await recordConsent(true, 'consent_modal');
+  };
+
+  // «Не сейчас» (or X / Esc / backdrop on a re-prompt): defer. The chat is still
+  // stored (service consent recorded), improvement stays off, and the gate re-asks
+  // after CONSENT_REPROMPT_DAYS — gently, as a dismissible re-prompt.
+  const handleConsentDefer = async () => {
+    deferConsent();
+    setConsentDismissible(true); // next appearance is a gentle re-prompt
+    setImprovementEnabled(false); // deferred → improvement stays off (matches «Не сейчас»)
+    setIsConsentModalVisible(false);
+    await recordConsent(false, 'consent_modal_defer');
   };
 
   // Registration records service consent (best-effort) so the account starts
   // consented; improvement stays opt-in via the banner.
   const handleRegister = async (email, password, nickname) => {
     const user = await auth.register(email, password, nickname);
-    setIsBannerVisible(false);
+    setIsConsentModalVisible(false);
     const version = await resolveConsentVersion();
     if (version) {
       patchPrivacySettings({
@@ -1135,9 +1155,10 @@ function App() {
     return user;
   };
 
-  // «Данные и конфиденциальность»: open with a fresh read of the improvement state.
-  const handleOpenPrivacySettings = async () => {
-    setIsPrivacySettingsOpen(true);
+  // «Настройки»: open on the «О сервисе» menu; pre-fetch the improvement state so
+  // the «Данные и конфиденциальность» sub-view is ready when the user drills in.
+  const handleOpenSettings = async () => {
+    setIsSettingsOpen(true);
     try {
       const state = await getPrivacySettings();
       setImprovementEnabled(!!state.menoImprovement);
@@ -1146,6 +1167,7 @@ function App() {
 
   const handleToggleImprovement = async (next) => {
     setImprovementEnabled(next); // optimistic
+    setConsentDecided(); // an explicit settings choice — the gate should stop prompting
     const version = await resolveConsentVersion();
     if (!version) return;
     try {
@@ -1169,7 +1191,7 @@ function App() {
     });
     setChats([fresh]);
     setActiveChatId(fresh.id);
-    setIsPrivacySettingsOpen(false);
+    setIsSettingsOpen(false);
   };
 
   // Right to erasure: delete everything server-side, then reset to a fresh anonymous
@@ -1185,8 +1207,10 @@ function App() {
     clearChats();
     setGuestToken(null);
     try {
-      localStorage.removeItem(IMPROVEMENT_BANNER_FLAG);
+      localStorage.removeItem(CONSENT_DECISION_FLAG);
+      localStorage.removeItem(CONSENT_DEFER_UNTIL_KEY);
     } catch { /* ignore */ }
+    setConsentDismissible(false); // fresh identity → next prompt is a first prompt
     await ensureGuestSession();
     const fresh = createNewChat({
       modelId: resolveValidId(models, localStorage.getItem(LAST_USED_MODEL_KEY), models[0]?.id || ''),
@@ -1195,8 +1219,8 @@ function App() {
     setChats([fresh]);
     setActiveChatId(fresh.id);
     setImprovementEnabled(false);
-    setIsPrivacySettingsOpen(false);
-    setIsBannerVisible(true);
+    setIsSettingsOpen(false);
+    setIsConsentModalVisible(true);
   };
 
   const sortedChats = [...chats].sort((a, b) => b.updatedAt - a.updatedAt);
@@ -1224,7 +1248,7 @@ function App() {
         user={auth.user}
         onOpenAuth={() => setIsAuthModalOpen(true)}
         onLogout={handleLogout}
-        onOpenPrivacySettings={handleOpenPrivacySettings}
+        onOpenSettings={handleOpenSettings}
       />
 
       <main className="main-content">
@@ -1296,13 +1320,17 @@ function App() {
         onSkip={() => handleSurveyDone('skipped')}
       />
 
-      {isBannerVisible && (
-        <ConsentBanner onDecide={handleBannerDecide} onDismiss={handleBannerDismiss} />
+      {isConsentModalVisible && (
+        <ConsentModal
+          onContinue={handleConsentContinue}
+          onDefer={handleConsentDefer}
+          dismissible={consentDismissible}
+        />
       )}
 
-      <PrivacySettingsModal
-        isOpen={isPrivacySettingsOpen}
-        onClose={() => setIsPrivacySettingsOpen(false)}
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
         improvementEnabled={improvementEnabled}
         onToggleImprovement={handleToggleImprovement}
         onClearHistory={handleClearLocalHistory}

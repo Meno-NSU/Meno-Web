@@ -55,7 +55,19 @@ describe('request auth headers', () => {
 
         await fetchModels();
         const opts = fetchMock.mock.calls[0][1] || {};
-        expect(opts.headers?.Authorization).toBe('Bearer jwt');
+        expect(opts.headers?.['X-Auth-Token']).toBe('jwt');
         expect(opts.headers?.['X-Guest-Token']).toBeUndefined();
+    });
+
+    it('never sets Authorization — the edge gate owns that header', async () => {
+        // The public edge gates the site with HTTP Basic Auth on Authorization. Setting it
+        // here would replace the browser's gate credentials and trigger a 401 prompt storm.
+        setAuthToken('jwt');
+        const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ data: [] }) });
+        vi.stubGlobal('fetch', fetchMock);
+
+        await fetchModels();
+        const opts = fetchMock.mock.calls[0][1] || {};
+        expect(opts.headers?.Authorization).toBeUndefined();
     });
 });

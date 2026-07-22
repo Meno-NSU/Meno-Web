@@ -140,11 +140,16 @@ async function fetchWithLogging(url, options = {}) {
 
     // Signed-in requests carry the JWT; guests carry their X-Guest-Token. The
     // backend treats both as optional, and only one is ever needed at a time.
+    //
+    // The JWT deliberately rides in X-Auth-Token, NOT `Authorization: Bearer`: the public
+    // edge gates the whole site with HTTP Basic Auth, which lives in Authorization. A
+    // header set here replaces the browser's gate credentials, so nginx answers 401 with
+    // WWW-Authenticate and the browser pops its native sign-in dialog on every request.
     const token = getAuthToken();
     const guestToken = getGuestToken();
     let authedOptions = options;
     if (token) {
-        authedOptions = { ...options, headers: { ...(options.headers || {}), Authorization: `Bearer ${token}` } };
+        authedOptions = { ...options, headers: { ...(options.headers || {}), 'X-Auth-Token': token } };
     } else if (guestToken) {
         authedOptions = { ...options, headers: { ...(options.headers || {}), 'X-Guest-Token': guestToken } };
     }

@@ -12,7 +12,6 @@ import {
     Swords,
 } from './icons.jsx';
 import { useTranslation } from '../i18n.js';
-import LegalLinks from './LegalLinks.jsx';
 import './Sidebar.css';
 
 export default function Sidebar({
@@ -24,7 +23,7 @@ export default function Sidebar({
     theme, toggleTheme,
     isArenaMode, setIsArenaMode,
     user, onOpenAuth, onLogout,
-    onOpenPrivacySettings,
+    onOpenSettings,
 }) {
     const { t, lang, setLanguage } = useTranslation();
     if (!isOpen) {
@@ -182,12 +181,11 @@ export default function Sidebar({
                 <div className="sidebar-footer">
                     <button
                         type="button"
-                        className="sidebar-privacy-btn"
-                        onClick={onOpenPrivacySettings}
+                        className="sidebar-settings-btn"
+                        onClick={onOpenSettings}
                     >
-                        {t('privacySettingsEntry')}
+                        {t('settingsEntry')}
                     </button>
-                    <LegalLinks />
                 </div>
             </aside>
         </>

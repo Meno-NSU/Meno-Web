@@ -62,10 +62,12 @@ function ModelGroup({ title, subtitle, items, selectedModel, onSelect, onRequire
     if (items.length === 0) return null;
     return (
         <div className="model-dropdown-group">
-            <div className="model-dropdown-group-header">
-                <span>{title}</span>
-                {subtitle && <span className="model-dropdown-group-sub">{subtitle}</span>}
-            </div>
+            {title && (
+                <div className="model-dropdown-group-header">
+                    <span>{title}</span>
+                    {subtitle && <span className="model-dropdown-group-sub">{subtitle}</span>}
+                </div>
+            )}
             {items.map(m => (
                 <ModelItem key={m.id} model={m} selected={m.id === selectedModel} onSelect={onSelect} onRequireAuth={onRequireAuth} />
             ))}
@@ -189,8 +191,8 @@ export default function SettingsBar({
                         <div className="model-dropdown-menu">
                             {hasModels ? (
                                 <>
+                                    <div className="model-dropdown-hint">{t('modelDropdownHint')}</div>
                                     <ModelGroup
-                                        title="vLLM — all stages"
                                         items={models.filter(m => m.provider === 'vllm')}
                                         selectedModel={selectedModel}
                                         onSelect={handleSelectModel}
@@ -198,8 +200,7 @@ export default function SettingsBar({
                                         coreModelId={coreModelId}
                                     />
                                     <ModelGroup
-                                        title="OpenRouter — generation only"
-                                        subtitle={coreModelId ? `rewrite/rerank: ${coreModelId}` : null}
+                                        title={t('modelGroupOther')}
                                         items={models.filter(m => m.provider === 'openrouter' && m.featured)}
                                         selectedModel={selectedModel}
                                         onSelect={handleSelectModel}

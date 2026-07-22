@@ -1,12 +1,19 @@
-// Consent is soft and non-blocking (see spec 2026-07-22-soft-consent-model):
-// service processing (answering) rests on the user's conclusive action plus a
-// persistent notice — it is NOT gated. Only the improvement/analysis opt-in is an
-// explicit choice, offered by a non-blocking banner. This module holds just the
-// banner-visibility policy and its localStorage flag.
+// Consent gate (see spec 2026-07-22-consent-defer-model). On first use a blocking
+// modal asks the improvement/analysis opt-in. «Продолжить» grants it; «Не сейчас»
+// DEFERS — nothing is granted and the gate re-asks after CONSENT_REPROMPT_DAYS
+// (gently: later prompts are dismissible). The chat itself is always stored
+// (SERVICE_AND_HISTORY) regardless, so the user can return to their history —
+// guests included. This module holds the gate-visibility policy and its flags.
 
 // Backend document key (NOT the /consent URL slug) — see GET /v1/legal/documents.
 export const CONSENT_KIND = 'personal_data_consent';
-export const IMPROVEMENT_BANNER_FLAG = 'meno.improvementBannerSeen';
+// Set once the user makes a definitive choice (grants via the modal, or toggles the
+// improvement setting either way) — stops the modal from ever nagging again.
+export const CONSENT_DECISION_FLAG = 'meno.consentDecided';
+// «Не сейчас» stores a re-prompt-after timestamp (ms) here.
+export const CONSENT_DEFER_UNTIL_KEY = 'meno.consentDeferredUntil';
+// Gentle cadence for re-asking after a defer. The single knob to tune the nag.
+export const CONSENT_REPROMPT_DAYS = 7;
 
 // The three published legal documents, mapped to their i18n title keys. Shared by
 // the LegalDocument reader and the routed LegalPage.
@@ -16,27 +23,47 @@ export const LEGAL_DOC_TITLE_KEYS = {
   terms_of_use: 'consentReadTerms',
 };
 
-// Pure decision for the non-blocking improvement banner. `serverState` is
-// { serviceAndHistory, menoImprovement } from GET /v1/privacy/settings, or
-// null/undefined when unknown. Hidden once dismissed/decided locally, or once the
-// server already shows the user consented to service (returning/registered — don't nag).
-export function shouldShowImprovementBanner({ seen, serverState } = {}) {
-  if (seen) return false;
-  return !serverState?.serviceAndHistory;
+// Pure gate decision. Hidden once the user decided (locally) or the server shows the
+// improvement opt-in granted, and hidden while inside an active defer window.
+export function shouldShowConsentModal({ decided, deferredUntil, improvementGranted, now } = {}) {
+  if (decided) return false;
+  if (improvementGranted) return false;
+  if (deferredUntil && now < deferredUntil) return false;
+  return true;
 }
 
-export function hasSeenImprovementBanner() {
+export function hasDecidedConsent() {
   try {
-    return localStorage.getItem(IMPROVEMENT_BANNER_FLAG) === '1';
+    return localStorage.getItem(CONSENT_DECISION_FLAG) === '1';
   } catch {
     return false;
   }
 }
 
-export function setImprovementBannerSeen() {
+export function setConsentDecided() {
   try {
-    localStorage.setItem(IMPROVEMENT_BANNER_FLAG, '1');
+    localStorage.setItem(CONSENT_DECISION_FLAG, '1');
   } catch {
-    // localStorage unavailable — non-fatal; the banner may reappear next load.
+    // localStorage unavailable — non-fatal; the modal may reappear next load.
+  }
+}
+
+export function getConsentDeferredUntil() {
+  try {
+    const raw = localStorage.getItem(CONSENT_DEFER_UNTIL_KEY);
+    if (!raw) return null;
+    const parsed = Number(raw);
+    return Number.isFinite(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+export function deferConsent() {
+  try {
+    const until = Date.now() + CONSENT_REPROMPT_DAYS * 86400000;
+    localStorage.setItem(CONSENT_DEFER_UNTIL_KEY, String(until));
+  } catch {
+    // localStorage unavailable — non-fatal; the modal may reappear next load.
   }
 }

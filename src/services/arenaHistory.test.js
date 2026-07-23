@@ -145,10 +145,35 @@ describe('arenaTurnIndex', () => {
     expect(arenaTurnIndex(messages)).toBe(2);
   });
 
-  it('does not count a still-pending arena round', () => {
+  it('counts a still-pending arena round same as a voted one', () => {
+    // The index identifies the round itself, not whether it has been voted on yet,
+    // so a pending round still occupies a slot. (This test used to assert the
+    // opposite — that pending rounds were skipped — which was the bug: it let the
+    // next round's vote reuse an index already claimed by a comparison still
+    // awaiting a vote.)
     const messages = [
       { role: 'user', content: 'q1' },
       { role: 'assistant', isArena: true, arenaData: { voted: false, winner: null, a: { content: '' }, b: { content: '' } } },
+    ];
+    expect(arenaTurnIndex(messages)).toBe(1);
+  });
+
+  it('does not reuse an index when an earlier round went unvoted', () => {
+    // The index identifies the round, and the backend stores one arena turn per
+    // (session_id, turn_index). Counting votes instead of rounds made a skipped vote
+    // collapse two different comparisons onto one stored turn.
+    const messages = [
+      { role: 'user', content: 'q1' },
+      { role: 'assistant', isArena: true, arenaData: { voted: false, winner: null, a: { content: '' }, b: { content: '' } } },
+      { role: 'user', content: 'q2' },
+    ];
+    expect(arenaTurnIndex(messages)).toBe(1);
+  });
+
+  it('counts an ordinary assistant answer as no round at all', () => {
+    const messages = [
+      { role: 'user', content: 'q' },
+      { role: 'assistant', content: 'a' },
     ];
     expect(arenaTurnIndex(messages)).toBe(0);
   });

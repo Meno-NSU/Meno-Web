@@ -50,9 +50,12 @@ export function buildArenaHistories(messages) {
 }
 
 export function arenaTurnIndex(messages) {
+    // The ordinal of the next arena round in this chat — every comparison counts, voted or
+    // not. The backend keys a stored arena turn on (session_id, turn_index), so counting only
+    // voted rounds made a skipped vote hand the next comparison an index already in use.
     let count = 0;
     for (const msg of messages || []) {
-        if (msg?.isArena && msg?.arenaData?.voted) count++;
+        if (msg?.isArena) count++;
     }
     return count;
 }

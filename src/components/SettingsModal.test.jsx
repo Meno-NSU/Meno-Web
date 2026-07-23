@@ -88,6 +88,23 @@ describe('SettingsModal', () => {
             expect(onClearHistory).toHaveBeenCalled();
         });
 
+        // Signed in, `chats` (what this button clears) is the guest's hidden
+        // pre-sign-in history, not what the sidebar renders (serverChats) — the
+        // control would silently destroy it while looking like a no-op. Offering
+        // it only as a guest keeps the control's visible effect honest.
+        it('hides the local-history control while signed in', () => {
+            const { container } = renderModal({ isAuthenticated: true });
+            openData(container);
+            expect(container.querySelector('.settings-clear')).toBeNull();
+            expect(container.querySelector('.settings-clear-confirm')).toBeNull();
+        });
+
+        it('shows the local-history control for a guest (the default)', () => {
+            const { container } = renderModal();
+            openData(container);
+            expect(container.querySelector('.settings-clear')).not.toBeNull();
+        });
+
         // Three distinct destructive actions, and each must stay distinct: clearing this
         // browser, erasing the server history but keeping the account, and full erasure.
         it('deletes the server history only after an inline confirm, without touching the others', () => {

@@ -20,6 +20,7 @@ export default function SettingsModal({
     onClose,
     improvementEnabled,
     onToggleImprovement,
+    isAuthenticated = false,
     onClearHistory,
     onDeleteServerHistory,
     onDeleteData,
@@ -107,38 +108,46 @@ export default function SettingsModal({
                             />
                         </label>
 
-                        <div className="settings-row">
-                            <span className="settings-row-text">
-                                <span className="settings-row-label">{t('privacyClearLabel')}</span>
-                                <span className="settings-row-hint">{t('privacyClearHint')}</span>
-                            </span>
-                            {confirmingClear ? (
-                                <span className="settings-confirm-group">
-                                    <button
-                                        type="button"
-                                        className="settings-clear-confirm"
-                                        onClick={() => { setConfirmingClear(false); onClearHistory(); }}
-                                    >
-                                        {t('privacyClearConfirm')}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className="settings-clear-cancel"
-                                        onClick={() => setConfirmingClear(false)}
-                                    >
-                                        {t('privacyCancel')}
-                                    </button>
+                        {/* Clears only `chats`, the localStorage-backed guest list — never
+                            the signed-in account's server history. While signed in that
+                            list is hidden (not deleted; see chatsForIdentity) and the
+                            sidebar renders serverChats instead, so this control would
+                            silently wipe it while APPEARING to do nothing. Offered only
+                            as a guest, where the effect is exactly what's on screen. */}
+                        {!isAuthenticated && (
+                            <div className="settings-row">
+                                <span className="settings-row-text">
+                                    <span className="settings-row-label">{t('privacyClearLabel')}</span>
+                                    <span className="settings-row-hint">{t('privacyClearHint')}</span>
                                 </span>
-                            ) : (
-                                <button
-                                    type="button"
-                                    className="settings-clear"
-                                    onClick={() => setConfirmingClear(true)}
-                                >
-                                    {t('privacyClearButton')}
-                                </button>
-                            )}
-                        </div>
+                                {confirmingClear ? (
+                                    <span className="settings-confirm-group">
+                                        <button
+                                            type="button"
+                                            className="settings-clear-confirm"
+                                            onClick={() => { setConfirmingClear(false); onClearHistory(); }}
+                                        >
+                                            {t('privacyClearConfirm')}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="settings-clear-cancel"
+                                            onClick={() => setConfirmingClear(false)}
+                                        >
+                                            {t('privacyCancel')}
+                                        </button>
+                                    </span>
+                                ) : (
+                                    <button
+                                        type="button"
+                                        className="settings-clear"
+                                        onClick={() => setConfirmingClear(true)}
+                                    >
+                                        {t('privacyClearButton')}
+                                    </button>
+                                )}
+                            </div>
+                        )}
 
                         {/* Erasing the server-side history without giving up the account —
                             the middle step between clearing this browser and deleting

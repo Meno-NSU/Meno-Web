@@ -1426,7 +1426,15 @@ function App() {
     }
   };
 
+  // Guest-only, by design: this clears `chats` (the localStorage-backed list),
+  // never serverChats. While signed in, `chats` IS the guest's pre-sign-in
+  // history — hidden, not deleted (chatsForIdentity) — so running this here
+  // would silently destroy it while the sidebar (rendering serverChats)
+  // shows no effect at all: the same promise handleLogout above protects by
+  // never touching `chats`. Inert while signed in; SettingsModal is told
+  // (isAuthenticated) to not offer a control that would do nothing.
   const handleClearLocalHistory = () => {
+    if (auth.isAuthenticated) return;
     clearChats();
     const fresh = createNewChat({
       modelId: resolveValidId(models, localStorage.getItem(LAST_USED_MODEL_KEY), models[0]?.id || ''),
@@ -1598,6 +1606,7 @@ function App() {
         onClose={() => setIsSettingsOpen(false)}
         improvementEnabled={improvementEnabled}
         onToggleImprovement={handleToggleImprovement}
+        isAuthenticated={auth.isAuthenticated}
         onClearHistory={handleClearLocalHistory}
         onDeleteServerHistory={handleDeleteServerHistory}
         onDeleteData={handleDeleteData}

@@ -17,6 +17,7 @@ import {
   patchPrivacySettings,
   getLegalDocuments,
   deleteMyData,
+  deleteServerHistory,
   setGuestToken,
 } from './services/api.js';
 import { resolveOverload } from './services/chatWaitState.js';
@@ -1194,6 +1195,25 @@ function App() {
     setIsSettingsOpen(false);
   };
 
+  // Erase the server-side history but stay signed in — the identity survives, so only
+  // the chat list resets. Distinct from handleDeleteData, which also drops the account.
+  const handleDeleteServerHistory = async () => {
+    try {
+      await deleteServerHistory();
+    } catch (error) {
+      console.warn('Server history deletion failed', error);
+      return;
+    }
+    clearChats();
+    const fresh = createNewChat({
+      modelId: resolveValidId(models, localStorage.getItem(LAST_USED_MODEL_KEY), models[0]?.id || ''),
+      knowledgeBaseId: resolveValidId(kbs, localStorage.getItem(LAST_USED_KB_KEY), kbs[0]?.id || ''),
+    });
+    setChats([fresh]);
+    setActiveChatId(fresh.id);
+    setIsSettingsOpen(false);
+  };
+
   // Right to erasure: delete everything server-side, then reset to a fresh anonymous
   // identity (the old JWT / guest token no longer resolves).
   const handleDeleteData = async () => {
@@ -1334,6 +1354,7 @@ function App() {
         improvementEnabled={improvementEnabled}
         onToggleImprovement={handleToggleImprovement}
         onClearHistory={handleClearLocalHistory}
+        onDeleteServerHistory={handleDeleteServerHistory}
         onDeleteData={handleDeleteData}
       />
     </div>

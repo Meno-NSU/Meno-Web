@@ -21,11 +21,13 @@ export default function SettingsModal({
     improvementEnabled,
     onToggleImprovement,
     onClearHistory,
+    onDeleteServerHistory,
     onDeleteData,
 }) {
     const { t } = useTranslation();
     const [view, setView] = useState('menu');
     const [confirmingClear, setConfirmingClear] = useState(false);
+    const [confirmingServerHistory, setConfirmingServerHistory] = useState(false);
     const [confirmingDelete, setConfirmingDelete] = useState(false);
 
     // Every (re)open starts on the menu with no confirmations pending. Adjusting
@@ -37,6 +39,7 @@ export default function SettingsModal({
         if (isOpen) {
             setView('menu');
             setConfirmingClear(false);
+            setConfirmingServerHistory(false);
             setConfirmingDelete(false);
         }
     }
@@ -137,6 +140,42 @@ export default function SettingsModal({
                             )}
                         </div>
 
+                        {/* Erasing the server-side history without giving up the account —
+                            the middle step between clearing this browser and deleting
+                            everything, which the legal package requires as its own action. */}
+                        <div className="settings-row">
+                            <span className="settings-row-text">
+                                <span className="settings-row-label">{t('privacyServerHistoryLabel')}</span>
+                                <span className="settings-row-hint">{t('privacyServerHistoryHint')}</span>
+                            </span>
+                            {confirmingServerHistory ? (
+                                <span className="settings-confirm-group">
+                                    <button
+                                        type="button"
+                                        className="settings-history-confirm"
+                                        onClick={() => { setConfirmingServerHistory(false); onDeleteServerHistory(); }}
+                                    >
+                                        {t('privacyServerHistoryConfirm')}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="settings-history-cancel"
+                                        onClick={() => setConfirmingServerHistory(false)}
+                                    >
+                                        {t('privacyCancel')}
+                                    </button>
+                                </span>
+                            ) : (
+                                <button
+                                    type="button"
+                                    className="settings-history"
+                                    onClick={() => setConfirmingServerHistory(true)}
+                                >
+                                    {t('privacyServerHistoryButton')}
+                                </button>
+                            )}
+                        </div>
+
                         <div className="settings-row">
                             <span className="settings-row-text">
                                 <span className="settings-row-label">{t('privacyDeleteLabel')}</span>
@@ -193,6 +232,9 @@ export default function SettingsModal({
                                 <ExternalLink size={16} />
                             </a>
                         ))}
+                        {/* Stands in for a cookie banner: the service sets no cookies at all,
+                            so what needs disclosing is the browser's local storage. */}
+                        <p className="settings-storage-note">{t('settingsStorageNote')}</p>
                     </div>
                 )}
             </div>

@@ -11,6 +11,7 @@ function renderModal(props = {}) {
             improvementEnabled={false}
             onToggleImprovement={vi.fn()}
             onClearHistory={vi.fn()}
+            onDeleteServerHistory={vi.fn()}
             onDeleteData={vi.fn()}
             {...props}
         />,
@@ -85,6 +86,32 @@ describe('SettingsModal', () => {
             expect(onClearHistory).not.toHaveBeenCalled();
             fireEvent.click(container.querySelector('.settings-clear-confirm'));
             expect(onClearHistory).toHaveBeenCalled();
+        });
+
+        // Three distinct destructive actions, and each must stay distinct: clearing this
+        // browser, erasing the server history but keeping the account, and full erasure.
+        it('deletes the server history only after an inline confirm, without touching the others', () => {
+            const onDeleteServerHistory = vi.fn();
+            const onClearHistory = vi.fn();
+            const onDeleteData = vi.fn();
+            const { container } = renderModal({ onDeleteServerHistory, onClearHistory, onDeleteData });
+            openData(container);
+            fireEvent.click(container.querySelector('.settings-history'));
+            expect(onDeleteServerHistory).not.toHaveBeenCalled();
+            fireEvent.click(container.querySelector('.settings-history-confirm'));
+            expect(onDeleteServerHistory).toHaveBeenCalled();
+            expect(onClearHistory).not.toHaveBeenCalled();
+            expect(onDeleteData).not.toHaveBeenCalled();
+        });
+
+        it('cancels the server-history confirm without deleting', () => {
+            const onDeleteServerHistory = vi.fn();
+            const { container } = renderModal({ onDeleteServerHistory });
+            openData(container);
+            fireEvent.click(container.querySelector('.settings-history'));
+            fireEvent.click(container.querySelector('.settings-history-cancel'));
+            expect(onDeleteServerHistory).not.toHaveBeenCalled();
+            expect(container.querySelector('.settings-history')).not.toBeNull();
         });
 
         it('deletes all data only after an inline confirm', () => {

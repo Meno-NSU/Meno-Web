@@ -146,11 +146,16 @@ function AuthModalCard({ onClose, login, register }) {
                         {pending ? '…' : mode === 'login' ? t('authSubmitSignIn') : t('authSubmitRegister')}
                     </button>
 
+                    {/* Stated as consent to account processing — not as "you accept the
+                        Policy": reading a policy is not consent to process data. */}
                     {mode === 'register' && (
                         <p className="auth-consent-notice">
-                            {t('authConsentNoticePrefix')}{' '}
+                            {t('authConsentNoticePrefix')}
+                            {' '}{t('authConsentNoticeDocs')}{' '}
+                            <a href="/consent" target="_blank" rel="noopener noreferrer">{t('consentReadConsent')}</a>
+                            {', '}
                             <a href="/terms" target="_blank" rel="noopener noreferrer">{t('consentReadTerms')}</a>
-                            {' '}{t('authConsentNoticeAnd')}{' '}
+                            {', '}
                             <a href="/privacy" target="_blank" rel="noopener noreferrer">{t('consentReadPrivacy')}</a>.
                         </p>
                     )}

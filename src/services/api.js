@@ -428,6 +428,15 @@ export async function submitArenaVote(payload) {
     if (!res.ok) throw await buildError(res, `Vote POST ${res.status}`);
 }
 
+// This is a small metadata write (the answers are already fully generated and on
+// screen) — not a generation, so it gets nowhere near CHAT_FIRST_TOKEN_TIMEOUT_MS's
+// 120s. But it isn't unbounded either: the caller awaits it before isGenerating
+// clears, and the arena flow never registers an entry in abortControllersRef, so
+// a hang here would leave the user staring at a Stop button that does nothing.
+// 10s is generous for a single-row DB write even under load, while still bounding
+// the wait to something far shorter than a generation timeout.
+const RECORD_ARENA_TURN_TIMEOUT_MS = 10_000;
+
 // Posted once when both arena sides have finished, not when the user votes — so an unvoted
 // comparison is stored too. The vote endpoint later sets the winner on this turn.
 export async function recordArenaTurn({ sessionId, question, turnIndex, sides }) {
@@ -446,6 +455,7 @@ export async function recordArenaTurn({ sessionId, question, turnIndex, sides })
                 sources: side.sources || [],
             })),
         }),
+        signal: AbortSignal.timeout(RECORD_ARENA_TURN_TIMEOUT_MS),
     });
     if (!res.ok) throw await buildError(res, `Arena turn POST ${res.status}`);
 }

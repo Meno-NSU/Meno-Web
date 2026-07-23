@@ -790,6 +790,12 @@ function App() {
           // tokens lands in the success branch and the bubble becomes
           // votable on a blank response — user reported exactly this.
           let receivedContent = false;
+          // Sources shown for this side's answer, captured off the stream so
+          // recordArenaTurn can send what the bubble actually displays instead
+          // of an empty list. Reset on substitution (below) so a burned
+          // attempt's sources never end up attached to the replacement
+          // model's answer.
+          let sideSources = [];
           try {
             const { model, result } = await runArenaSideWithSubstitution({
               pool, exclude: sideExclude, kbId, messages: sideMessages, sessionId: requestConfig.sessionId,
@@ -801,11 +807,16 @@ function App() {
               // why this column is still spinning. The hint is overwritten
               // by the next model's content as soon as it starts streaming.
               onSubstitution: () => {
+                sideSources = [];
                 setChats((prev) => updateLastArenaMessageSide(prev, targetChatId, sideKey, (sideState) => ({
                   ...sideState, content: `⏳ ${i18nLookup('arenaModelSwitched')}`,
                 })));
               },
               onEvent: (event) => {
+                if (event.type === 'sources') {
+                  sideSources = event.sources || [];
+                  return;
+                }
                 if (event.type !== 'content') return;
                 if (event.fullContent && event.fullContent.length > 0) {
                   receivedContent = true;
@@ -832,7 +843,7 @@ function App() {
             // though the other side may still be streaming. Avoids the
             // "two thinking phrases when only one is actually working"
             // confusion.
-            sideResults[sideKey] = { model: model.id, content: result?.content || '' };
+            sideResults[sideKey] = { model: model.id, content: result?.content || '', sources: sideSources };
             setChats((prev) => updateLastArenaMessageSide(prev, targetChatId, sideKey, (sideState) => ({
               ...sideState, model: model.id, isStreaming: false,
             })));
@@ -882,8 +893,8 @@ function App() {
               question: userMessage.content,
               turnIndex: arenaTurnIndex(historyBefore),
               sides: [
-                { key: 'a', model: sideResults.a.model, knowledgeBaseId: kbId, content: sideResults.a.content, sources: [] },
-                { key: 'b', model: sideResults.b.model, knowledgeBaseId: kbId, content: sideResults.b.content, sources: [] },
+                { key: 'a', model: sideResults.a.model, knowledgeBaseId: kbId, content: sideResults.a.content, sources: sideResults.a.sources },
+                { key: 'b', model: sideResults.b.model, knowledgeBaseId: kbId, content: sideResults.b.content, sources: sideResults.b.sources },
               ],
             });
           } catch (error) {

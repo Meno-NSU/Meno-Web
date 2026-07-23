@@ -442,7 +442,11 @@ export function ArenaMessageBubble({ message, chatId, setChats, isGenerating, qu
         // POST fails. We finalise `voted: true` only after a successful POST.
         updateBubble({ namesRevealed: true, winner });
 
-        const turnIndex = arenaTurnIndex(messagesBeforeRound || []);
+        // A comparison restored from the server carries the index it was stored under.
+        // Recomputing over a restored message array is wrong: rounds that were never stored
+        // leave gaps, so the recomputed number can name a different comparison — and the
+        // backend would then set the winner on that one rather than refuse.
+        const turnIndex = arenaData.turnIndex ?? arenaTurnIndex(messagesBeforeRound || []);
         const { historyA, historyB } = buildArenaHistories(messagesBeforeRound || []);
         const historyLenA = historyA.length;
         const historyLenB = historyB.length;

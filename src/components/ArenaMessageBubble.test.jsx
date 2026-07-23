@@ -133,4 +133,92 @@ describe('ArenaMessageBubble vote handling', () => {
             expect.stringContaining('Arena vote refused'),
         );
     });
+
+    it('votes on the index the turn was stored under, not a recomputed one', async () => {
+        // Simulates a chat restored from the server: round 1 failed and was
+        // never posted, so this comparison — the third round — was stored
+        // under index 2. A restored message array only ever holds the
+        // comparisons that exist, so recomputing over it (arenaTurnIndex on
+        // an empty messagesBeforeRound) would wrongly say 0.
+        const bubble = {
+            role: 'assistant',
+            isArena: true,
+            arenaData: {
+                bubbleId: 'bubble-restored',
+                turnIndex: 2,
+                voted: false,
+                winner: null,
+                a: { model: 'qwen', kb: 'kb1', content: 'A' },
+                b: { model: 'llama', kb: 'kb1', content: 'B' },
+            },
+        };
+        const setChats = vi.fn();
+        const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+        vi.stubGlobal('fetch', fetchMock);
+
+        render(
+            <ArenaMessageBubble
+                message={bubble}
+                chatId="chat-1"
+                setChats={setChats}
+                isGenerating={false}
+                question="q"
+                messagesBeforeRound={[]}
+            />,
+        );
+
+        const leftBtn = screen.getByText(/Левый|Left/i);
+        await act(async () => {
+            fireEvent.click(leftBtn);
+        });
+
+        await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+        const [, options] = fetchMock.mock.calls[0];
+        expect(JSON.parse(options.body)).toMatchObject({ turn_index: 2 });
+    });
+
+    it('falls back to the recomputed index for a comparison made in this session', async () => {
+        // No stored turnIndex — this comparison was never restored, it was
+        // just created live in this session — so the index must come from
+        // counting arena rounds in messagesBeforeRound (one prior round here).
+        const bubble = {
+            role: 'assistant',
+            isArena: true,
+            arenaData: {
+                bubbleId: 'bubble-fresh',
+                voted: false,
+                winner: null,
+                a: { model: 'qwen', kb: 'kb1', content: 'A' },
+                b: { model: 'llama', kb: 'kb1', content: 'B' },
+            },
+        };
+        const before = [
+            { role: 'user', content: 'q1' },
+            { role: 'assistant', isArena: true, arenaData: { voted: true, winner: 'a', a: {}, b: {} } },
+            { role: 'user', content: 'q2' },
+        ];
+        const setChats = vi.fn();
+        const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+        vi.stubGlobal('fetch', fetchMock);
+
+        render(
+            <ArenaMessageBubble
+                message={bubble}
+                chatId="chat-1"
+                setChats={setChats}
+                isGenerating={false}
+                question="q"
+                messagesBeforeRound={before}
+            />,
+        );
+
+        const leftBtn = screen.getByText(/Левый|Left/i);
+        await act(async () => {
+            fireEvent.click(leftBtn);
+        });
+
+        await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+        const [, options] = fetchMock.mock.calls[0];
+        expect(JSON.parse(options.body)).toMatchObject({ turn_index: 1 });
+    });
 });

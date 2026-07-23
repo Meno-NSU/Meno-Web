@@ -121,6 +121,20 @@ Testing Library.
 - A guest sees the notice that chats live only in this browser.
 - The i18n ru/en parity guard keeps passing — every new string exists in both.
 
+## Follow-ups
+
+- **A network failure is indistinguishable from an empty history.** With the server as the only
+  source of chats for a signed-in user, `fetchConversations` swallows a failed request and
+  returns an empty list, so an offline user is told they have no conversations. That is the
+  honest cost of the server-only decision, but it deserves a distinct error state — "could not
+  load your history" rather than silence — before this is in front of many users.
+
+- **Rounds that were never stored leave gaps in `turn_index`.** A comparison where one side
+  failed is counted locally but never posted, and because `arena: true` suppresses the backend's
+  own writes, such a round leaves no user turn on the server either: the question disappears from
+  stored history entirely. The restored conversation is therefore missing that exchange. Storing
+  the question even when a side fails would need the backend to accept a partial comparison.
+
 ## Out of scope
 
 - Uploading guest chats into an account on sign-in. Decided against in Part A.

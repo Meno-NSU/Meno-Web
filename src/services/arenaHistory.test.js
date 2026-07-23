@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { buildArenaHistories, arenaTurnIndex, nextArenaTurnIndex } from './arenaHistory.js';
+import {
+  buildArenaHistories,
+  arenaTurnIndex,
+  nextArenaTurnIndex,
+  projectArenaMessagesForContinuation,
+} from './arenaHistory.js';
 
 describe('buildArenaHistories', () => {
   it('returns empty histories for an empty chat', () => {
@@ -320,5 +325,163 @@ describe('recorder/voter turnIndex agreement', () => {
     const voterIndex = arenaTurnIndex(voterMessagesBeforeRound(fullMessages, arenaIndex));
 
     expect(recorderIndex).toBe(voterIndex);
+  });
+});
+
+// The normal (non-arena) send path forwards a chat's flat message array to the
+// backend as the request body verbatim (src/App.jsx's handleSendMessage,
+// non-arena branch). The backend's ChatMessage schema requires `content` on
+// every message; an arena message — live or restored — has none at the top
+// level (its answer lives in arenaData, per side), so sending it unprojected
+// 422s the whole request. This is the single-linear-continuation analogue of
+// buildArenaHistories: ONE assistant turn per arena round instead of two
+// branches.
+describe('projectArenaMessagesForContinuation', () => {
+  it('returns an empty array for an empty chat', () => {
+    expect(projectArenaMessagesForContinuation([])).toEqual([]);
+  });
+
+  it('passes a plain user/assistant history through unchanged', () => {
+    const messages = [
+      { role: 'user', content: 'q1' },
+      { role: 'assistant', content: 'a1', completionId: 'c1' },
+      { role: 'user', content: 'q2' },
+      { role: 'assistant', content: 'a2' },
+    ];
+    const result = projectArenaMessagesForContinuation(messages);
+    expect(result).toEqual(messages);
+    expect(result.every((m) => typeof m.content === 'string')).toBe(true);
+  });
+
+  it('collapses a voted "a" round to one assistant turn carrying A\'s content', () => {
+    const messages = [
+      { role: 'user', content: 'q1' },
+      {
+        role: 'assistant', isArena: true,
+        arenaData: { a: { content: 'A1' }, b: { content: 'B1' }, voted: true, winner: 'a' },
+      },
+    ];
+    const result = projectArenaMessagesForContinuation(messages);
+    expect(result).toEqual([
+      { role: 'user', content: 'q1' },
+      { role: 'assistant', content: 'A1' },
+    ]);
+  });
+
+  it('collapses a voted "b" round to one assistant turn carrying B\'s content', () => {
+    const messages = [
+      { role: 'user', content: 'q1' },
+      {
+        role: 'assistant', isArena: true,
+        arenaData: { a: { content: 'A1' }, b: { content: 'B1' }, voted: true, winner: 'b' },
+      },
+    ];
+    const result = projectArenaMessagesForContinuation(messages);
+    expect(result).toEqual([
+      { role: 'user', content: 'q1' },
+      { role: 'assistant', content: 'B1' },
+    ]);
+  });
+
+  it('drops an unvoted round entirely, matching buildArenaHistories', () => {
+    const messages = [
+      { role: 'user', content: 'q1' },
+      {
+        role: 'assistant', isArena: true,
+        arenaData: { a: { content: 'A1' }, b: { content: 'B1' }, voted: false, winner: null },
+      },
+      { role: 'user', content: 'q2' },
+      { role: 'assistant', content: 'a2' },
+    ];
+    const result = projectArenaMessagesForContinuation(messages);
+    expect(result).toEqual([
+      { role: 'user', content: 'q1' },
+      { role: 'user', content: 'q2' },
+      { role: 'assistant', content: 'a2' },
+    ]);
+  });
+
+  it('does not crash on an unvoted round that is not the last message', () => {
+    // voteIsPending (App.jsx) only gates the composer when the unvoted round
+    // is the LAST message; a restored chat can hold one earlier in the
+    // history (e.g. a round abandoned mid-vote on another device), and this
+    // must handle it rather than throw.
+    const messages = [
+      { role: 'user', content: 'q1' },
+      {
+        role: 'assistant', isArena: true,
+        arenaData: { a: { content: 'A1' }, b: { content: 'B1' }, voted: false, winner: null },
+      },
+      { role: 'user', content: 'q2' },
+      { role: 'assistant', content: 'a2' },
+      { role: 'user', content: 'q3' },
+    ];
+    expect(() => projectArenaMessagesForContinuation(messages)).not.toThrow();
+    const result = projectArenaMessagesForContinuation(messages);
+    expect(result.every((m) => typeof m.content === 'string')).toBe(true);
+  });
+
+  // No single "winner" answer exists for a tie or a both_bad vote —
+  // buildArenaHistories diverges into two branches there, which a single
+  // linear continuation cannot do; a choice has to be made. Falls back to
+  // side A's content: the same fallback the backend itself uses for the
+  // arena row's generic top-level `content` column (RAG-Core's
+  // ArenaTurn.content: "mirrored from the stored row's NOT NULL `content`
+  // column ... a generic consumer that doesn't special-case 'arena' turns
+  // still gets a sensible string here"). Matching that existing precedent
+  // beats inventing a second, different convention for the same situation.
+  it('falls back to side A\'s content on a tie, mirroring the backend\'s own fallback', () => {
+    const messages = [
+      { role: 'user', content: 'q1' },
+      {
+        role: 'assistant', isArena: true,
+        arenaData: { a: { content: 'A1' }, b: { content: 'B1' }, voted: true, winner: 'tie' },
+      },
+    ];
+    const result = projectArenaMessagesForContinuation(messages);
+    expect(result).toEqual([
+      { role: 'user', content: 'q1' },
+      { role: 'assistant', content: 'A1' },
+    ]);
+  });
+
+  it('falls back to side A\'s content on both_bad, same as tie', () => {
+    const messages = [
+      { role: 'user', content: 'q1' },
+      {
+        role: 'assistant', isArena: true,
+        arenaData: { a: { content: 'A1' }, b: { content: 'B1' }, voted: true, winner: 'both_bad' },
+      },
+    ];
+    const result = projectArenaMessagesForContinuation(messages);
+    expect(result).toEqual([
+      { role: 'user', content: 'q1' },
+      { role: 'assistant', content: 'A1' },
+    ]);
+  });
+
+  it('never emits a message without a content string, over a mixed history', () => {
+    const messages = [
+      { role: 'user', content: 'q1' },
+      { role: 'assistant', content: 'plain answer' },
+      { role: 'user', content: 'q2' },
+      {
+        role: 'assistant', isArena: true,
+        arenaData: { a: { content: 'A2' }, b: { content: 'B2' }, voted: true, winner: 'a' },
+      },
+      { role: 'user', content: 'q3' },
+      {
+        role: 'assistant', isArena: true,
+        arenaData: { a: { content: 'A3' }, b: { content: 'B3' }, voted: false, winner: null },
+      },
+      { role: 'user', content: 'q4' },
+      {
+        role: 'assistant', isArena: true,
+        arenaData: { a: { content: 'A4' }, b: { content: 'B4' }, voted: true, winner: 'tie' },
+      },
+      { role: 'user', content: 'q5' },
+    ];
+    const result = projectArenaMessagesForContinuation(messages);
+    expect(result.every((m) => typeof m.content === 'string')).toBe(true);
   });
 });

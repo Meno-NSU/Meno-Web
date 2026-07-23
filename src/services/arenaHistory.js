@@ -86,3 +86,47 @@ export function nextArenaTurnIndex(messages) {
     }
     return highest >= 0 ? highest + 1 : arenaTurnIndex(messages);
 }
+
+// The normal (non-arena) send path (src/App.jsx's handleSendMessage) forwards
+// a chat's flat message array to the backend as the request body verbatim.
+// The backend's ChatMessage schema requires `content` on every message — an
+// arena message (live or restored) has none at the top level, its answer
+// lives in arenaData, per side — so sending it unprojected 422s the whole
+// request. This is buildArenaHistories' collapse logic, but for a SINGLE
+// linear continuation (one assistant turn per round) rather than two
+// diverging branches:
+//   - a voted a/b round becomes one assistant turn carrying the winner's
+//     content;
+//   - an unvoted round is skipped entirely, matching buildArenaHistories
+//     ("pending rounds are skipped defensively") — safe even when the
+//     unvoted round isn't the last message (a restored chat can hold one
+//     earlier in the history; voteIsPending in App.jsx only gates the
+//     composer when it's last);
+//   - a tie / both_bad round has no single winner — buildArenaHistories
+//     diverges into two branches there, which a linear continuation can't
+//     do. Falls back to side A's content: the same fallback the backend
+//     itself uses for the arena row's generic top-level `content` column
+//     (RAG-Core's ArenaTurn.content — "mirrored from the stored row's NOT
+//     NULL `content` column ... a generic consumer that doesn't
+//     special-case 'arena' turns still gets a sensible string here").
+//     Matching that existing precedent beats inventing a second, different
+//     convention for the same situation.
+//
+// A non-arena message is passed through unchanged — this must never reshape
+// an ordinary chat's history.
+export function projectArenaMessagesForContinuation(messages) {
+    const projected = [];
+    for (const msg of messages || []) {
+        if (msg?.isArena) {
+            const ad = msg.arenaData;
+            if (!ad?.voted) continue; // pending round: skip, matches buildArenaHistories
+            const contentA = ad.a?.content || '';
+            const contentB = ad.b?.content || '';
+            const content = ad.winner === 'b' ? contentB : contentA; // 'a', tie, and both_bad all fall to A
+            projected.push({ role: 'assistant', content });
+            continue;
+        }
+        projected.push(msg);
+    }
+    return projected;
+}

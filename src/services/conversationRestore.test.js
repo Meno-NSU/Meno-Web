@@ -17,8 +17,13 @@ describe('messagesFromTurns', () => {
     expect(messages).toHaveLength(2);
     expect(messages[0]).toMatchObject({ role: 'user', content: 'Вопрос?' });
     expect(messages[1]).toMatchObject({
-      role: 'assistant', content: 'Ответ.', model: 'qwen', completionId: 'run-1', sources: SOURCES,
+      role: 'assistant', content: 'Ответ.', completionId: 'run-1', sources: SOURCES,
     });
+    // ChatArea reads `responseModelId || requestModelId` for the label under the
+    // bubble — the same field the live streaming path finalises onto an assistant
+    // message. A restored answer mapped onto a differently-named field (`model`)
+    // left every restored answer with no model label at all.
+    expect(messages[1].responseModelId).toBe('qwen');
     expect(messages[1].isArena).toBeFalsy();
   });
 

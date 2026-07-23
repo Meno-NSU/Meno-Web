@@ -33,7 +33,12 @@ export function messagesFromTurns(turns) {
             messages.push({
                 role: 'assistant',
                 content: turn.content || '',
-                model: turn.model ?? null,
+                // Named to match what the LIVE streaming path finalises onto an assistant
+                // message (App.jsx's 'model' event / result.modelId handling) — ChatArea
+                // reads `responseModelId || requestModelId` to render the label under the
+                // bubble. A restored turn has no separate "requested vs. answered" model
+                // (there is only ever the one on record), so only this field is set.
+                responseModelId: turn.model ?? null,
                 // The backend's request_id is what the feedback endpoints key on, and what
                 // this client has always called completionId.
                 completionId: turn.request_id ?? null,

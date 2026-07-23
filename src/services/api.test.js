@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
-import { ensureGuestSession, fetchModels, getGuestToken, setAuthToken, setGuestToken } from './api.js';
+import { ensureGuestSession, fetchModels, getGuestToken, sendChatMessage, setAuthToken, setGuestToken } from './api.js';
 
 beforeEach(() => {
     localStorage.clear();
@@ -69,5 +69,33 @@ describe('request auth headers', () => {
         await fetchModels();
         const opts = fetchMock.mock.calls[0][1] || {};
         expect(opts.headers?.Authorization).toBeUndefined();
+    });
+});
+
+describe('arena chat requests', () => {
+    it('marks the request so the backend does not persist each side separately', async () => {
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            json: async () => ({ id: 'c1', choices: [{ message: { content: 'a' } }], sources: [] }),
+        });
+        vi.stubGlobal('fetch', fetchMock);
+
+        await sendChatMessage({ messages: [], modelId: 'm', knowledgeBaseId: 'kb', sessionId: 's', arena: true });
+
+        const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+        expect(body.arena).toBe(true);
+    });
+
+    it('omits the flag for an ordinary chat request', async () => {
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            json: async () => ({ id: 'c1', choices: [{ message: { content: 'a' } }], sources: [] }),
+        });
+        vi.stubGlobal('fetch', fetchMock);
+
+        await sendChatMessage({ messages: [], modelId: 'm', knowledgeBaseId: 'kb', sessionId: 's' });
+
+        const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+        expect(body.arena).toBeUndefined();
     });
 });

@@ -790,6 +790,7 @@ function App() {
               pool, exclude: sideExclude, kbId, messages: sideMessages, sessionId: requestConfig.sessionId,
               initialCandidate: sideInitial,
               sendChat: sendChatMessage,
+              arena: true,
               // Notify the user the moment we burn a model and pick another:
               // briefly write a hint into this side's content so they know
               // why this column is still spinning. The hint is overwritten

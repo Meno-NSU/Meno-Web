@@ -478,6 +478,7 @@ export async function sendChatMessage({
     knowledgeBaseId,
     sessionId,
     stream = false,
+    arena = false,
     onEvent = null,
     signal = null,
 }) {
@@ -495,6 +496,11 @@ export async function sendChatMessage({
             stream,
             user: sessionId,
             knowledge_base_id: knowledgeBaseId,
+            // Both arena sides share one session_id. Without this the backend persists each
+            // side separately, writing the question twice and two assistant rows in a racing
+            // order — history that breaks the strict user/assistant alternation it requires.
+            // The finished comparison is posted once to /v1/arena/turn instead.
+            ...(arena ? { arena: true } : {}),
         };
 
         // Wrap the fetch in a timeout that aborts if the FIRST content

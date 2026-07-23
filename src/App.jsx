@@ -30,7 +30,11 @@ import {
   runArenaSideWithSubstitution,
   ArenaPoolExhaustedError,
 } from './services/arenaMatching.js';
-import { buildArenaHistories, nextArenaTurnIndex } from './services/arenaHistory.js';
+import {
+  buildArenaHistories,
+  nextArenaTurnIndex,
+  projectArenaMessagesForContinuation,
+} from './services/arenaHistory.js';
 import { messagesFromTurns } from './services/conversationRestore.js';
 import {
   chatFromSummary,
@@ -922,6 +926,20 @@ function App() {
     // race the background fetch and lose the fetched history underneath it.
     const existingMessages = targetChat.messages || [];
     const messageHistory = isRetry ? dropTrailingNotice(existingMessages) : [...existingMessages, userMessage];
+    // The NORMAL (non-arena) send below forwards its history to the backend as
+    // the request body verbatim, and the backend requires `content` on every
+    // message. An arena message — restored from the server, or produced live
+    // in this same session — has none at the top level (its answer lives in
+    // arenaData, per side), so it 422s there unprojected. Collapsed here, once,
+    // for both the retry and non-retry construction of messageHistory above.
+    //
+    // Deliberately NOT applied to messageHistory itself: the arena branch
+    // below re-derives its own two branch histories from the RAW array via
+    // buildArenaHistories/nextArenaTurnIndex, both of which key off
+    // `msg.isArena`/`arenaData.turnIndex` — already-collapsed messages would
+    // look like plain assistant turns to them and silently corrupt arena
+    // continuation (a tie's divergence into two branches in particular).
+    const messageHistoryForSend = projectArenaMessagesForContinuation(messageHistory);
 
     setActiveChats((prev) => updateChatById(prev, targetChatId, (chat) => {
       const chatMessages = chat.messages || [];
@@ -1185,7 +1203,7 @@ function App() {
         const controller = new AbortController();
         abortControllersRef.current.set(targetChatId, controller);
         const result = await sendChatMessage({
-          messages: messageHistory,
+          messages: messageHistoryForSend,
           signal: controller.signal,
           modelId: requestConfig.modelId,
           knowledgeBaseId: requestConfig.knowledgeBaseId,

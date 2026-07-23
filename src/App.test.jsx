@@ -64,6 +64,7 @@ import {
   fetchMe,
   login,
   submitSurvey,
+  sendChatMessage,
 } from './services/api.js';
 import { shouldShowSurvey } from './services/surveyGate.js';
 
@@ -432,5 +433,62 @@ describe('App — survey submission refused by ownership (404)', () => {
     fireEvent.click(screen.getByText('Диалог с ошибкой'));
     await waitFor(() => expect(screen.getByText(/сейчас не в форме/i)).toBeTruthy());
     expect(screen.queryByText(/принадлежит другому профилю/i)).toBeNull();
+  });
+});
+
+describe('App — continuing a restored chat that contains an arena round', () => {
+  it('sends a content-bearing history instead of the raw arena message (422 regression)', async () => {
+    // A signed-in, returning user (cold start, like the "not-yet-loaded
+    // conversation" test above) whose one server conversation contains an
+    // arena round — exactly conversationRestore.js's ArenaTurn shape.
+    getAuthToken.mockReturnValue('tok-existing');
+    fetchMe.mockResolvedValue({ id: 'u1', email: 'demo@nsu.ru', nickname: 'Demo' });
+    fetchConversations.mockResolvedValue([
+      { id: 'srv-1', preview: 'Первый вопрос', updated_at: '2026-07-20T00:00:00Z' },
+    ]);
+    fetchConversation.mockResolvedValue({
+      turns: [
+        { kind: 'user', content: 'Первый вопрос', created_at: 'x' },
+        {
+          kind: 'arena',
+          content: 'Ответ A',
+          created_at: 'x',
+          winner: 'a',
+          turn_index: 0,
+          sides: [
+            { key: 'a', model: 'm1', knowledge_base_id: 'kb1', content: 'Ответ A', sources: [] },
+            { key: 'b', model: 'm2', knowledge_base_id: 'kb1', content: 'Ответ B', sources: [] },
+          ],
+        },
+      ],
+    });
+    sendChatMessage.mockResolvedValue({});
+
+    const { container } = render(<App />);
+    // The restored arena bubble rendered — both answers are on screen.
+    await waitFor(() => expect(screen.getByText('Ответ A')).toBeTruthy());
+    expect(screen.getByText('Ответ B')).toBeTruthy();
+
+    // Continue the chat with an ordinary message. isArenaMode defaults to
+    // false (it never persists across a reload), so this goes down the
+    // NORMAL send path — the one that used to forward the arena message
+    // verbatim and 422 at the backend's ChatMessage schema.
+    fireEvent.change(container.querySelector('.chat-textarea'), {
+      target: { value: 'Продолжение разговора' },
+    });
+    fireEvent.submit(container.querySelector('.input-form'));
+
+    await waitFor(() => expect(sendChatMessage).toHaveBeenCalledTimes(1));
+    const { messages } = sendChatMessage.mock.calls[0][0];
+
+    // The property that was violated: every outgoing message must carry a
+    // content string — a raw arena message has none at the top level.
+    expect(messages.every((m) => typeof m.content === 'string')).toBe(true);
+    // Specifically: the voted (winner 'a') round collapsed to A's answer.
+    expect(messages).toEqual([
+      { role: 'user', content: 'Первый вопрос' },
+      { role: 'assistant', content: 'Ответ A' },
+      { role: 'user', content: 'Продолжение разговора' },
+    ]);
   });
 });

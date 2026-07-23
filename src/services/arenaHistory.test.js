@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildArenaHistories, arenaTurnIndex } from './arenaHistory.js';
+import { buildArenaHistories, arenaTurnIndex, nextArenaTurnIndex } from './arenaHistory.js';
 
 describe('buildArenaHistories', () => {
   it('returns empty histories for an empty chat', () => {
@@ -176,6 +176,59 @@ describe('arenaTurnIndex', () => {
       { role: 'assistant', content: 'a' },
     ];
     expect(arenaTurnIndex(messages)).toBe(0);
+  });
+});
+
+describe('nextArenaTurnIndex', () => {
+  it('is 0 for an empty chat (falls back to the count)', () => {
+    expect(nextArenaTurnIndex([])).toBe(0);
+  });
+
+  it('falls back to the count when nothing carries a stored turnIndex (a chat never restored)', () => {
+    const messages = [
+      { role: 'user', content: 'q1' },
+      { role: 'assistant', isArena: true, arenaData: { voted: true, winner: 'a', a: {}, b: {} } },
+      { role: 'user', content: 'q2' },
+      { role: 'assistant', isArena: true, arenaData: { voted: true, winner: 'tie', a: {}, b: {} } },
+    ];
+    expect(nextArenaTurnIndex(messages)).toBe(2);
+  });
+
+  it('is one more than the highest stored turnIndex, not the count, for a restored conversation with a gap', () => {
+    // Round 1 failed on one side and was never posted: a restored conversation
+    // holds only the comparisons that made it to the server, at indices 0 and 2.
+    // Counting arena messages (2) would collide with the round already at index 2;
+    // the next free index is 3.
+    const messages = [
+      { role: 'user', content: 'q1' },
+      { role: 'assistant', isArena: true, arenaData: { turnIndex: 0, voted: true, winner: 'a', a: {}, b: {} } },
+      { role: 'user', content: 'q3' },
+      { role: 'assistant', isArena: true, arenaData: { turnIndex: 2, voted: false, winner: null, a: {}, b: {} } },
+    ];
+    expect(nextArenaTurnIndex(messages)).toBe(3);
+  });
+
+  it('keeps using the highest stored index once a live-session round has been stamped with one', () => {
+    // Continuing the SAME restored-with-a-gap conversation a second time: the
+    // round just recorded (turnIndex 3) must count too, or the next one would
+    // recompute 3 again and collide with what was just posted.
+    const messages = [
+      { role: 'user', content: 'q1' },
+      { role: 'assistant', isArena: true, arenaData: { turnIndex: 0, voted: true, winner: 'a', a: {}, b: {} } },
+      { role: 'user', content: 'q3' },
+      { role: 'assistant', isArena: true, arenaData: { turnIndex: 2, voted: false, winner: null, a: {}, b: {} } },
+      { role: 'user', content: 'q4' },
+      { role: 'assistant', isArena: true, arenaData: { turnIndex: 3, voted: false, winner: null, a: {}, b: {} } },
+    ];
+    expect(nextArenaTurnIndex(messages)).toBe(4);
+  });
+
+  it('finds the maximum regardless of array order', () => {
+    const messages = [
+      { role: 'assistant', isArena: true, arenaData: { turnIndex: 5, voted: true, winner: 'a', a: {}, b: {} } },
+      { role: 'assistant', isArena: true, arenaData: { turnIndex: 1, voted: true, winner: 'b', a: {}, b: {} } },
+    ];
+    expect(nextArenaTurnIndex(messages)).toBe(6);
   });
 });
 

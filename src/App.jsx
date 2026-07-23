@@ -30,7 +30,7 @@ import {
   runArenaSideWithSubstitution,
   ArenaPoolExhaustedError,
 } from './services/arenaMatching.js';
-import { buildArenaHistories, arenaTurnIndex } from './services/arenaHistory.js';
+import { buildArenaHistories, nextArenaTurnIndex } from './services/arenaHistory.js';
 import { messagesFromTurns } from './services/conversationRestore.js';
 import {
   chatFromSummary,
@@ -104,7 +104,16 @@ function getLatestChatId(chats) {
 }
 
 function updateChatById(chats, chatId, updater) {
-  return chats.map((chat) => (chat.id === chatId ? updater(chat) : chat));
+  // Returning the exact same array reference when nothing matched (rather than a
+  // new-but-identical one from .map) lets React's setState bail-out skip a
+  // re-render entirely, and stops an unrelated chat mutation from being mistaken,
+  // by reference, for a real change to chats/serverChats it never touched — see
+  // the conversation-load effect below, which used to depend on that reference.
+  const index = chats.findIndex((chat) => chat.id === chatId);
+  if (index === -1) return chats;
+  const next = chats.slice();
+  next[index] = updater(chats[index]);
+  return next;
 }
 
 function replaceLastMessage(messages, updater) {
@@ -213,6 +222,22 @@ function finalizeLastArenaMessage(chats, chatId) {
         b: finalizeArenaSideThink(message.arenaData.b),
       },
     };
+  });
+}
+
+// Records, locally, the turn_index a just-recorded round was ACTUALLY posted
+// under. Without this, a later vote on this same round (ChatArea.handleVote)
+// would have no stored arenaData.turnIndex to prefer and would fall back to
+// recomputing one via nextArenaTurnIndex/arenaTurnIndex over the same
+// historyBefore the recorder used — landing on the SAME index the recorder
+// just avoided reusing, in a conversation with an earlier gap. Stamping it
+// here is what keeps the recorder and the voter in agreement for this round.
+function stampLastArenaTurnIndex(chats, chatId, turnIndex) {
+  return updateLastMessageInChat(chats, chatId, (message) => {
+    if (!message?.isArena) {
+      return message;
+    }
+    return { ...message, arenaData: { ...message.arenaData, turnIndex } };
   });
 }
 
@@ -471,24 +496,45 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [auth.isAuthenticated]);
 
-  // Load one conversation's content the first time it's opened. `messages !==
-  // null` is the guard that stops this re-firing for a chat it already
-  // filled — which matters, because serverChats is in the dependency array.
+  // Whether the active chat is a server chat still waiting on its content fetch.
+  // Deliberately a primitive, not the serverChats array itself: updateChatById /
+  // updateLastMessageInChat return a NEW array reference on every streamed token
+  // for whichever chat is generating, even a completely unrelated one, and the
+  // load effect below used to depend on that array directly — restarting this
+  // fetch on every one of those unrelated changes (measured at one GET per
+  // streamed token). A boolean only changes when THIS chat's loaded state
+  // actually does.
+  const activeServerChat = auth.isAuthenticated
+    ? serverChats.find((c) => c.id === activeChatId)
+    : undefined;
+  const activeChatStillLoading = !!activeServerChat && activeServerChat.messages === null;
+
+  // Per-chat guard against firing this fetch twice for the same id while one is
+  // already outstanding (e.g. React's dev-mode double-invoke of effects) — belt
+  // and suspenders alongside the dependency fix above.
+  const conversationFetchesInFlightRef = useRef(new Set());
+
+  // Load one conversation's content the first time it's opened.
   useEffect(() => {
-    if (!auth.isAuthenticated || !activeChatId) return;
-    const active = serverChats.find((c) => c.id === activeChatId);
-    if (!active || active.messages !== null) return;
+    if (!auth.isAuthenticated || !activeChatId || !activeChatStillLoading) return;
+    if (conversationFetchesInFlightRef.current.has(activeChatId)) return;
+    conversationFetchesInFlightRef.current.add(activeChatId);
+    const chatIdBeingFetched = activeChatId;
     let cancelled = false;
     (async () => {
-      const conversation = await fetchConversation(activeChatId);
-      if (cancelled) return;
-      // 404 (or a network failure — fetchConversation reads the same either
-      // way) means gone or not ours; show it empty rather than spinning forever.
-      const messages = conversation ? messagesFromTurns(conversation.turns) : [];
-      setServerChats((prev) => prev.map((c) => (c.id === activeChatId ? { ...c, messages } : c)));
+      try {
+        const conversation = await fetchConversation(chatIdBeingFetched);
+        if (cancelled) return;
+        // 404 (or a network failure — fetchConversation reads the same either
+        // way) means gone or not ours; show it empty rather than spinning forever.
+        const messages = conversation ? messagesFromTurns(conversation.turns) : [];
+        setServerChats((prev) => prev.map((c) => (c.id === chatIdBeingFetched ? { ...c, messages } : c)));
+      } finally {
+        conversationFetchesInFlightRef.current.delete(chatIdBeingFetched);
+      }
     })();
     return () => { cancelled = true; };
-  }, [auth.isAuthenticated, activeChatId, serverChats]);
+  }, [auth.isAuthenticated, activeChatId, activeChatStillLoading]);
 
   useEffect(() => {
     if (visibleChats.length === 0) {
@@ -1012,16 +1058,25 @@ function App() {
           // Store the comparison itself. Best-effort: the answer is already on screen, and a
           // failure here must never surface as a chat error. It is also a no-op server-side
           // without the history consent.
+          //
+          // Computed once, from the restored+live history actually in front of us right now
+          // (not a plain count — see nextArenaTurnIndex for why a restored conversation with
+          // an earlier unposted round needs this instead of arenaTurnIndex).
+          const turnIndexForThisRound = nextArenaTurnIndex(historyBefore);
           try {
             await recordArenaTurn({
               sessionId: requestConfig.sessionId,
               question: userMessage.content,
-              turnIndex: arenaTurnIndex(historyBefore),
+              turnIndex: turnIndexForThisRound,
               sides: [
                 { key: 'a', model: sideResults.a.model, knowledgeBaseId: kbId, content: sideResults.a.content, sources: sideResults.a.sources },
                 { key: 'b', model: sideResults.b.model, knowledgeBaseId: kbId, content: sideResults.b.content, sources: sideResults.b.sources },
               ],
             });
+            // Stamp the index this round actually landed on so a later vote
+            // (ChatArea.handleVote) uses it directly instead of recomputing —
+            // see stampLastArenaTurnIndex.
+            setActiveChats((prev) => stampLastArenaTurnIndex(prev, targetChatId, turnIndexForThisRound));
           } catch (error) {
             console.error('Failed to record the arena turn:', error);
           }

@@ -166,4 +166,10 @@ describe('conversation history', () => {
         vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
         expect(await fetchConversation('nope')).toBeNull();
     });
+
+    it('shows no history rather than propagating a network failure', async () => {
+        vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')));
+        expect(await fetchConversations()).toEqual([]);
+        expect(await fetchConversation('c1')).toBeNull();
+    });
 });

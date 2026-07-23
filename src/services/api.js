@@ -258,22 +258,36 @@ export async function clearChatHistory(chatId) {
     return res.json();
 }
 
+// fetchWithLogging returns the Response even when it is not ok, but re-throws on a network
+// failure (backend unreachable, CORS, etc.) — caught below so a network blip reads as "no
+// history" instead of an unhandled rejection reaching Task 6's React load effects.
 export async function fetchConversations() {
     // The caller's conversations, newest first. Identity comes from the auth header, so a guest
     // and a signed-in user see different lists from the same call.
-    const res = await fetchWithLogging(`${API_BASE_URL}/v1/conversations`);
-    if (!res || !res.ok) return [];
-    const data = await res.json();
-    return data?.conversations || [];
+    try {
+        const res = await fetchWithLogging(`${API_BASE_URL}/v1/conversations`);
+        if (!res.ok) return [];
+        const data = await res.json();
+        return data?.conversations || [];
+    } catch (error) {
+        apiLogger.error('Error fetching conversations in API client:', error);
+        return [];
+    }
 }
 
 export async function fetchConversation(conversationId) {
     // Full renderable state for one conversation: turns, per-answer feedback, survey answer.
     // Returns null when it is gone or belongs to somebody else — the backend answers 404 for
-    // both, deliberately, so the caller cannot tell them apart.
-    const res = await fetchWithLogging(`${API_BASE_URL}/v1/conversations/${encodeURIComponent(conversationId)}`);
-    if (!res || !res.ok) return null;
-    return res.json();
+    // both, deliberately, so the caller cannot tell them apart. A network failure reads the
+    // same as "gone" here too — see fetchConversations above for why.
+    try {
+        const res = await fetchWithLogging(`${API_BASE_URL}/v1/conversations/${encodeURIComponent(conversationId)}`);
+        if (!res.ok) return null;
+        return await res.json();
+    } catch (error) {
+        apiLogger.error('Error fetching conversation in API client:', error);
+        return null;
+    }
 }
 
 // --- Auth (S3) ---

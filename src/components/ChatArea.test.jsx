@@ -55,3 +55,12 @@ describe('ChatArea — stop / retry', () => {
     expect(queryByText('!')).toBeNull();
   });
 });
+
+describe('ChatArea — a chat whose content has not loaded yet', () => {
+  // A signed-in chat restored from a server conversation summary carries
+  // `messages: null` until its content is fetched (see chatFromSummary /
+  // App.jsx). This must render as the empty state, not crash.
+  it('renders the empty state instead of crashing when messages is null', () => {
+    expect(() => render(<ChatArea {...baseProps} messages={null} />)).not.toThrow();
+  });
+});

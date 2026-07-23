@@ -97,9 +97,15 @@ function ThinkBlock({ content, thinkTime, streaming }) {
 }
 
 // ── Main ChatArea ────────────────────────────────────────────────────────────
-export default function ChatArea({ messages, isGenerating, onSendMessage, onRetry, onStop, kbs, selectedKb, onKbChange, modelsAvailable, chatId, setChats, voteIsPending }) {
+export default function ChatArea({ messages: rawMessages, isGenerating, onSendMessage, onRetry, onStop, kbs, selectedKb, onKbChange, modelsAvailable, chatId, setChats, voteIsPending }) {
     const { t } = useTranslation();
     const messagesEndRef = useRef(null);
+
+    // A chat restored from a server conversation summary (see chatFromSummary /
+    // App.jsx) carries `messages: null` until its content is fetched. Treat that
+    // the same as "no messages yet" instead of crashing — the empty-chat view is
+    // exactly right for it, and the real content replaces it once the fetch lands.
+    const messages = rawMessages || [];
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });

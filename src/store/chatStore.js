@@ -110,6 +110,30 @@ export function createNewChat({ modelId = '', knowledgeBaseId = '' } = {}) {
     };
 }
 
+export function chatsForIdentity({ isAuthenticated, localChats = [], serverChats = [] }) {
+    // A signed-in user sees only what the server has: the account is the source of truth, and
+    // a shared computer must never show the previous person's conversations. A guest's chats
+    // are hidden while signed in, not deleted — signing out brings them back.
+    return isAuthenticated ? serverChats : localChats;
+}
+
+export function chatFromSummary(summary, { defaultModelId = '', defaultKnowledgeBaseId = '' } = {}) {
+    // The server has no title, only a preview of the first question, and no per-chat model
+    // selection — so a restored chat opens on the defaults. `messages: null` marks it as
+    // not-yet-loaded; the conversation is fetched when it is opened.
+    return {
+        id: summary.id,
+        title: summary.preview || DEFAULT_CHAT_TITLE,
+        messages: null,
+        updatedAt: summary.updated_at || null,
+        runtimeConfig: buildRuntimeConfig({
+            chatId: summary.id,
+            modelId: defaultModelId,
+            knowledgeBaseId: defaultKnowledgeBaseId,
+        }),
+    };
+}
+
 export function generateTitle(messages) {
     if (!messages || messages.length === 0) return DEFAULT_CHAT_TITLE;
 

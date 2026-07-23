@@ -582,6 +582,115 @@ git commit -m "feat(history): map a fetched conversation back into messages"
 
 ---
 
+## Task 4a: A restored comparison votes on its own stored index
+
+Added after a code review of the arena write path. Task 1 changed `turn_index` from a count of
+votes to a count of rounds. That removed index *reuse* and introduced index *gaps*: a round where
+one side failed is counted locally but never posted, and because `arena: true` suppresses the
+backend's own writes, such a round leaves no user turn on the server either — the question
+disappears from stored history entirely, not just its comparison.
+
+So a chat with rounds 0, 1 (failed), 2 stores turns at indices **0 and 2**, while the restored
+message array has only two comparisons. `ChatArea.handleVote` recomputes the index from that array
+and would send **1** for the comparison stored at 2. If any turn ever occupies index 1, the
+backend sets the winner on the **wrong comparison** rather than failing — a silent wrong-data bug,
+which is worse than a lost vote.
+
+The backend anticipated this: `ArenaTurn.turn_index` is in the published schema precisely so a
+restoring client can send back the index the turn was stored under. Task 4's mapper already puts
+it on `arenaData.turnIndex`. This task makes the vote use it.
+
+**Files:**
+- Modify: `src/components/ChatArea.jsx` (`handleVote`)
+- Modify: `src/components/ArenaMessageBubble.test.jsx`
+
+- [ ] **Step 1: Write the failing test**
+
+Append to `src/components/ArenaMessageBubble.test.jsx`, following the file's existing render
+helper and vote-button interaction:
+
+```jsx
+  it('votes on the index the turn was stored under, not a recomputed one', async () => {
+    // A restored conversation can be missing rounds that were never stored, so recomputing the
+    // index over it can land on a different comparison than the one the user is looking at.
+    const message = {
+      role: 'assistant', isArena: true,
+      arenaData: {
+        bubbleId: 'b1', turnIndex: 2, voted: false, winner: null,
+        a: { model: 'qwen', kb: 'kb1', content: 'A' },
+        b: { model: 'llama', kb: 'kb1', content: 'B' },
+      },
+    };
+    render(<ArenaMessageBubble {...baseProps} message={message} messagesBeforeRound={[]} />);
+
+    await userEvent.click(screen.getByRole('button', { name: /A лучше|A is better/i }));
+
+    expect(submitArenaVote).toHaveBeenCalledWith(expect.objectContaining({ turn_index: 2 }));
+  });
+
+  it('falls back to the recomputed index for a comparison made in this session', async () => {
+    const message = {
+      role: 'assistant', isArena: true,
+      arenaData: {
+        bubbleId: 'b1', voted: false, winner: null,
+        a: { model: 'qwen', kb: 'kb1', content: 'A' },
+        b: { model: 'llama', kb: 'kb1', content: 'B' },
+      },
+    };
+    const before = [
+      { role: 'user', content: 'q1' },
+      { role: 'assistant', isArena: true, arenaData: { voted: true, winner: 'a', a: {}, b: {} } },
+      { role: 'user', content: 'q2' },
+    ];
+    render(<ArenaMessageBubble {...baseProps} message={message} messagesBeforeRound={before} />);
+
+    await userEvent.click(screen.getByRole('button', { name: /A лучше|A is better/i }));
+
+    expect(submitArenaVote).toHaveBeenCalledWith(expect.objectContaining({ turn_index: 1 }));
+  });
+```
+
+Match the actual accessible name of the vote button and the file's existing `submitArenaVote`
+mock — read it before writing.
+
+- [ ] **Step 2: Run it and watch it fail**
+
+```bash
+npm test -- src/components/ArenaMessageBubble.test.jsx
+```
+
+Expected: FAIL — the first case sends `turn_index: 0`, not `2`.
+
+- [ ] **Step 3: Prefer the stored index**
+
+In `src/components/ChatArea.jsx`, in `handleVote`, replace the index computation:
+
+```js
+        // A comparison restored from the server carries the index it was stored under.
+        // Recomputing over a restored message array is wrong: rounds that were never stored
+        // leave gaps, so the recomputed number can name a different comparison — and the
+        // backend would then set the winner on that one rather than refuse.
+        const turnIndex = arenaData.turnIndex ?? arenaTurnIndex(messagesBeforeRound || []);
+```
+
+`??` and not `||`: index 0 is a real index.
+
+- [ ] **Step 4: Run and check**
+
+```bash
+npm test
+npm run lint
+```
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src/components/ChatArea.jsx src/components/ArenaMessageBubble.test.jsx
+git commit -m "fix(arena): a restored comparison votes on its stored index"
+```
+
+---
+
 ## Task 5: Fetch conversations from the server
 
 **Files:**

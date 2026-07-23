@@ -320,13 +320,26 @@ function App() {
   // returned by fetchConversations, since it didn't exist yet) still renders
   // and updates correctly: it simply lives in serverChats from the moment it's
   // created.
+  //
+  // Gated on auth.ready first, same as visibleChats below — the two MUST agree.
+  // While a returning signed-in user's token is still being verified,
+  // isAuthenticated reads false (nothing is proven yet) even though the
+  // eventual identity will be signed-in, but visibleChats already renders
+  // EMPTY_CHATS rather than guessing. Before this fix, setActiveChats
+  // disagreed: it routed on isAuthenticated alone, so pressing "New Chat" in
+  // that window created a chat in `chats` and persisted it to localStorage as
+  // a guest chat (see the saveChats effect below) — then made it vanish the
+  // instant auth resolved and rendering flipped to serverChats. Inert until
+  // ready is simplest and matches what's actually on screen during that
+  // window: nothing.
   const setActiveChats = useCallback((updater) => {
+    if (!auth.ready) return;
     if (auth.isAuthenticated) {
       setServerChats(updater);
     } else {
       setChats(updater);
     }
-  }, [auth.isAuthenticated]);
+  }, [auth.ready, auth.isAuthenticated]);
 
   // What is actually shown in the sidebar and as the active chat. Gated on
   // auth.ready (not just isAuthenticated): a returning signed-in user's token

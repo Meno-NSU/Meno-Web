@@ -1521,6 +1521,7 @@ function App() {
         onOpenAuth={() => setIsAuthModalOpen(true)}
         onLogout={handleLogout}
         onOpenSettings={handleOpenSettings}
+        isAuthenticated={auth.isAuthenticated}
       />
 
       <main className="main-content">

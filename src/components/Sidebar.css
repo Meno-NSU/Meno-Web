@@ -243,6 +243,13 @@
     text-align: center;
 }
 
+.sidebar-guest-notice {
+    padding: 0.5rem;
+    font-size: 0.875rem;
+    color: var(--text-tertiary);
+    text-align: center;
+}
+
 /* Backdrop: hidden by default; visible only when sidebar is open at mobile widths. */
 .sidebar-backdrop {
     display: none;

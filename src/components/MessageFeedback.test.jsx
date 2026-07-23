@@ -111,3 +111,44 @@ describe('MessageFeedback', () => {
         expect(send.disabled).toBe(true);
     });
 });
+
+describe('MessageFeedback ownership refusal (404)', () => {
+    // The backend answers 404 (rather than a generic failure) when the caller does not
+    // own the conversation — the realistic trigger is a chat started as a guest and rated
+    // after signing in. buildError (src/services/api.js) attaches the HTTP status as
+    // `httpStatus` on the thrown Error, which is what this mock reproduces.
+    it('explains a 404 instead of showing a generic failure', async () => {
+        submitFeedback.mockRejectedValueOnce(Object.assign(new Error('Not found'), { httpStatus: 404 }));
+        const setChats = makeSetChats(chatsWith(baseMessage));
+        render(<MessageFeedback message={baseMessage} chatId="chat-1" setChats={setChats} />);
+
+        fireEvent.click(screen.getByTitle(/good|хороший/i));
+
+        expect(await screen.findByText(/принадлежит другому профилю/i)).toBeTruthy();
+        // The refused rating was never applied — no optimistic patch happened.
+        expect(setChats.lastResult).toBeUndefined();
+    });
+
+    it('leaves a non-404 failure exactly as before (no ownership message)', async () => {
+        submitFeedback.mockRejectedValueOnce(Object.assign(new Error('Boom'), { httpStatus: 500 }));
+        const setChats = makeSetChats(chatsWith(baseMessage));
+        const { container } = render(<MessageFeedback message={baseMessage} chatId="chat-1" setChats={setChats} />);
+
+        fireEvent.click(screen.getByTitle(/good|хороший/i));
+
+        await waitFor(() => expect(submitFeedback).toHaveBeenCalled());
+        expect(container.querySelector('.feedback-error')).toBeNull();
+    });
+
+    it('clears the ownership notice on a fresh attempt', async () => {
+        submitFeedback.mockRejectedValueOnce(Object.assign(new Error('Not found'), { httpStatus: 404 }));
+        const setChats = makeSetChats(chatsWith(baseMessage));
+        render(<MessageFeedback message={baseMessage} chatId="chat-1" setChats={setChats} />);
+
+        fireEvent.click(screen.getByTitle(/good|хороший/i));
+        expect(await screen.findByText(/принадлежит другому профилю/i)).toBeTruthy();
+
+        fireEvent.click(screen.getByTitle(/bad|плохой/i));
+        await waitFor(() => expect(screen.queryByText(/принадлежит другому профилю/i)).toBeNull());
+    });
+});

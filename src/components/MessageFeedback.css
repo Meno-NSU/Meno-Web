@@ -58,6 +58,16 @@
     cursor: default;
 }
 
+/* Explains a rating the backend refused (404 — conversation owned by another
+   profile). Always drops to its own line below the thumbs, regardless of
+   how much room the row has left. */
+.feedback-error {
+    flex-basis: 100%;
+    font-size: 0.8rem;
+    color: var(--danger);
+    line-height: 1.4;
+}
+
 .feedback-comment-row {
     display: flex;
     align-items: center;

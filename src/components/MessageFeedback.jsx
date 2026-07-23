@@ -13,6 +13,10 @@ export default function MessageFeedback({ message, chatId, setChats }) {
     const [pending, setPending] = useState(false);
     const [commentDraft, setCommentDraft] = useState(message.feedback?.comment || '');
     const [justSent, setJustSent] = useState(false);
+    // Only the 404 (conversation owned by another profile — see api.js buildError,
+    // which is where the thrown Error gets its httpStatus) gets an explanation here.
+    // Any other failure keeps its pre-existing behavior: logged, silent to the user.
+    const [errorNotice, setErrorNotice] = useState(null);
 
     const feedback = message.feedback || null;
 
@@ -33,6 +37,7 @@ export default function MessageFeedback({ message, chatId, setChats }) {
     const handleThumb = async (value) => {
         if (pending) return;
         setPending(true);
+        setErrorNotice(null);
         try {
             if (feedback?.value === value) {
                 await clearFeedback({ completionId: message.completionId, sessionId: chatId });
@@ -45,6 +50,9 @@ export default function MessageFeedback({ message, chatId, setChats }) {
             }
         } catch (e) {
             console.warn('Feedback not recorded:', e);
+            if (e?.httpStatus === 404) {
+                setErrorNotice(t('feedbackNotYours'));
+            }
         } finally {
             setPending(false);
         }
@@ -54,6 +62,7 @@ export default function MessageFeedback({ message, chatId, setChats }) {
         const comment = commentDraft.trim();
         if (pending || !feedback || !comment || comment === (feedback.comment || '')) return;
         setPending(true);
+        setErrorNotice(null);
         try {
             await submitFeedback({
                 completionId: message.completionId,
@@ -66,6 +75,9 @@ export default function MessageFeedback({ message, chatId, setChats }) {
             setTimeout(() => setJustSent(false), 2000);
         } catch (e) {
             console.warn('Feedback comment not recorded:', e);
+            if (e?.httpStatus === 404) {
+                setErrorNotice(t('feedbackNotYours'));
+            }
         } finally {
             setPending(false);
         }
@@ -97,6 +109,10 @@ export default function MessageFeedback({ message, chatId, setChats }) {
                     <ThumbsDown size={14} />
                 </button>
             </div>
+
+            {errorNotice && (
+                <div className="feedback-error" role="alert">{errorNotice}</div>
+            )}
 
             {feedback && (
                 <div className="feedback-comment-row">

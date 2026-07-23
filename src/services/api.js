@@ -258,6 +258,24 @@ export async function clearChatHistory(chatId) {
     return res.json();
 }
 
+export async function fetchConversations() {
+    // The caller's conversations, newest first. Identity comes from the auth header, so a guest
+    // and a signed-in user see different lists from the same call.
+    const res = await fetchWithLogging(`${API_BASE_URL}/v1/conversations`);
+    if (!res || !res.ok) return [];
+    const data = await res.json();
+    return data?.conversations || [];
+}
+
+export async function fetchConversation(conversationId) {
+    // Full renderable state for one conversation: turns, per-answer feedback, survey answer.
+    // Returns null when it is gone or belongs to somebody else — the backend answers 404 for
+    // both, deliberately, so the caller cannot tell them apart.
+    const res = await fetchWithLogging(`${API_BASE_URL}/v1/conversations/${encodeURIComponent(conversationId)}`);
+    if (!res || !res.ok) return null;
+    return res.json();
+}
+
 // --- Auth (S3) ---
 
 export async function register({ email, password, nickname }) {

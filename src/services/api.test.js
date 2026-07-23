@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
-import { ensureGuestSession, fetchModels, getGuestToken, recordArenaTurn, sendChatMessage, setAuthToken, setGuestToken } from './api.js';
+import { ensureGuestSession, fetchConversation, fetchConversations, fetchModels, getGuestToken, recordArenaTurn, sendChatMessage, setAuthToken, setGuestToken } from './api.js';
 
 beforeEach(() => {
     localStorage.clear();
@@ -129,5 +129,41 @@ describe('recordArenaTurn', () => {
         expect(body.sides[0].sources).toEqual([{ title: 'Doc A', link: 'https://x/a' }]);
         expect(body.sides[1].model).toBe('llama');
         expect(body.sides[1].content).toBe('B');
+    });
+});
+
+describe('conversation history', () => {
+    it('lists the caller\'s conversations', async () => {
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            json: async () => ({ conversations: [{ id: 'c1', updated_at: 'z', preview: 'Вопрос?' }] }),
+        });
+        vi.stubGlobal('fetch', fetchMock);
+
+        const list = await fetchConversations();
+
+        expect(fetchMock.mock.calls[0][0]).toContain('/v1/conversations');
+        expect(list).toEqual([{ id: 'c1', updated_at: 'z', preview: 'Вопрос?' }]);
+    });
+
+    it('returns an empty list rather than throwing when there is no history', async () => {
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) }));
+        expect(await fetchConversations()).toEqual([]);
+    });
+
+    it('fetches one conversation', async () => {
+        const body = { id: 'c1', survey: null, turns: [{ kind: 'user', content: 'q', created_at: 'x' }] };
+        const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => body });
+        vi.stubGlobal('fetch', fetchMock);
+
+        const got = await fetchConversation('c1');
+
+        expect(fetchMock.mock.calls[0][0]).toContain('/v1/conversations/c1');
+        expect(got).toEqual(body);
+    });
+
+    it('returns null for a conversation that is gone or not ours', async () => {
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+        expect(await fetchConversation('nope')).toBeNull();
     });
 });

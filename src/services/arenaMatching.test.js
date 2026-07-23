@@ -209,6 +209,24 @@ describe('runArenaSideWithSubstitution', () => {
         });
         expect(result.model.id).toBe('b');
     });
+
+    // Regression guard for a silent failure mode: if this one-line pass-through
+    // ever regresses, nothing here or in App.jsx currently fails — the backend
+    // just quietly resumes persisting each arena side as its own conversation
+    // turn, reintroducing the duplicated-question/racing-rows history bug.
+    it('forwards the arena flag to sendChat', async () => {
+        const pool = [{ id: 'a' }];
+        const exclude = new Set();
+        const sendChat = vi.fn().mockImplementation(async ({ onEvent }) => {
+            onEvent({ type: 'content', textChunk: 'hi' });
+            return { content: 'hi' };
+        });
+        await runArenaSideWithSubstitution({
+            pool, exclude, kbId: 'kb', messages: [], sessionId: 's', sendChat, onEvent: () => {},
+            arena: true,
+        });
+        expect(sendChat).toHaveBeenCalledWith(expect.objectContaining({ arena: true }));
+    });
 });
 
 describe('pickRandomFromPool — weighted', () => {

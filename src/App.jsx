@@ -900,6 +900,18 @@ function App() {
           } catch (error) {
             console.error('Failed to record the arena turn:', error);
           }
+        } else {
+          // One or both sides never produced a votable answer (blank response, or a
+          // non-exhaustion error) — bothSidesReady in ArenaMessageBubble is false too,
+          // so this round can never be voted on and skipping the POST loses nothing
+          // vote-wise. But log it: without this, "never posted" and "posted then lost"
+          // look identical from the outside, and a comparison missing from restored
+          // history would otherwise be silent all the way through.
+          console.warn('Arena turn not recorded: at least one side produced no result.', {
+            sessionId: requestConfig.sessionId,
+            hasA: !!sideResults.a,
+            hasB: !!sideResults.b,
+          });
         }
       } else {
         const assistantMessage = {

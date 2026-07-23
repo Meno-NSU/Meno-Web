@@ -110,7 +110,7 @@ describe('recordArenaTurn', () => {
             question: 'Вопрос?',
             turnIndex: 0,
             sides: [
-                { key: 'a', model: 'qwen', knowledgeBaseId: 'kb1', content: 'A', sources: [] },
+                { key: 'a', model: 'qwen', knowledgeBaseId: 'kb1', content: 'A', sources: [{ title: 'Doc A', link: 'https://x/a' }] },
                 { key: 'b', model: 'llama', knowledgeBaseId: 'kb1', content: 'B', sources: [] },
             ],
         });
@@ -122,5 +122,12 @@ describe('recordArenaTurn', () => {
         expect(body.turn_index).toBe(0);
         expect(body.sides.map((s) => s.key)).toEqual(['a', 'b']);
         expect(body.sides[0].knowledge_base_id).toBe('kb1');
+        // The two fields that actually carry the comparison, plus the sources shown
+        // for the winning side — all three must reach the wire, not just the ids.
+        expect(body.sides[0].model).toBe('qwen');
+        expect(body.sides[0].content).toBe('A');
+        expect(body.sides[0].sources).toEqual([{ title: 'Doc A', link: 'https://x/a' }]);
+        expect(body.sides[1].model).toBe('llama');
+        expect(body.sides[1].content).toBe('B');
     });
 });

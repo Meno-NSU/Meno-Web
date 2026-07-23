@@ -258,20 +258,24 @@ export async function clearChatHistory(chatId) {
     return res.json();
 }
 
-// fetchWithLogging returns the Response even when it is not ok, but re-throws on a network
-// failure (backend unreachable, CORS, etc.) — caught below so a network blip reads as "no
-// history" instead of an unhandled rejection reaching Task 6's React load effects.
+// A signed-in user's conversation list — the only source of chats for that identity (see the
+// sign-in effect in App.jsx). Must distinguish "could not load" from "genuinely no
+// conversations": returns null on any failure (a non-ok response, or the fetch itself
+// throwing — backend unreachable, CORS, etc.) and only [] for a successful response that
+// lists none. The caller holds that distinction as a failure flag so the UI can say "could not
+// load" instead of silently claiming an empty history — collapsing the two back into [] here
+// would make that impossible.
 export async function fetchConversations() {
     // The caller's conversations, newest first. Identity comes from the auth header, so a guest
     // and a signed-in user see different lists from the same call.
     try {
         const res = await fetchWithLogging(`${API_BASE_URL}/v1/conversations`);
-        if (!res.ok) return [];
+        if (!res.ok) return null;
         const data = await res.json();
         return data?.conversations || [];
     } catch (error) {
         apiLogger.error('Error fetching conversations in API client:', error);
-        return [];
+        return null;
     }
 }
 
@@ -279,7 +283,8 @@ export async function fetchConversation(conversationId) {
     // Full renderable state for one conversation: turns, per-answer feedback, survey answer.
     // Returns null when it is gone or belongs to somebody else — the backend answers 404 for
     // both, deliberately, so the caller cannot tell them apart. A network failure reads the
-    // same as "gone" here too — see fetchConversations above for why.
+    // same as "gone" here too: unlike fetchConversations' list, a single already-known
+    // conversation has no separate "temporarily unreachable" UI state worth holding open for.
     try {
         const res = await fetchWithLogging(`${API_BASE_URL}/v1/conversations/${encodeURIComponent(conversationId)}`);
         if (!res.ok) return null;

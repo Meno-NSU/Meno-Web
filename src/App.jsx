@@ -278,6 +278,33 @@ function applyLastMessageNotice(chats, chatId, notice, opts = {}) {
   });
 }
 
+// Attaches a notice to a chat's last message for something that failed ABOUT the chat after
+// it already finished normally (currently: the end-of-session survey refused by ownership) —
+// as distinct from applyLastMessageNotice above, which is for the message's OWN generation
+// having just been interrupted or errored. Deliberately does not reuse that helper: it would
+// also set `interrupted: true`, which flips ReasoningBlock's status to "stopped" on an answer
+// that in fact completed normally (see deriveReasoningStatus — `interrupted` wins over a
+// present `summary`), and `retry: { userText }`, which would surface a Retry button
+// (MessageBubble renders it whenever `isLast && message.retry`) offering to redo a generation
+// that isn't what failed — retrying cannot change an ownership refusal, so none is offered
+// here, matching feedbackNotYours in MessageFeedback.jsx, which shows the same kind of notice
+// with no retry either. Silently no-ops for an arena message or a non-assistant last message,
+// same as applyLastMessageNotice's own guards — there is no established per-side slot for a
+// notice on an arena bubble that already has content on both sides. Also no-ops when the last
+// message already carries a notice: `hadAnswer` (the survey trigger's gate) is satisfied by
+// ANY answered message in the chat, not necessarily the last one, so the last message can
+// already be sitting there interrupted/errored with its own notice and retry — e.g. the user
+// left without pressing "Retry". Overwriting that would leave a stale retry button under a
+// notice that no longer explains it; the earlier, still-unresolved failure keeps priority.
+function applyChatNotice(chats, chatId, notice) {
+  return updateLastMessageInChat(chats, chatId, (message) => {
+    if (!message || message.isArena || message.role !== 'assistant' || message.notice) {
+      return message;
+    }
+    return { ...message, notice };
+  });
+}
+
 function App() {
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'light');
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
@@ -296,6 +323,14 @@ function App() {
   // sidebar list or the active chat is read (see `visibleChats`).
   const [chats, setChats] = useState(() => loadChats());
   const [serverChats, setServerChats] = useState([]);
+  // Set when fetchConversations returns null (network error or non-ok response — see
+  // services/api.js) instead of a list, so the sidebar can say "could not load" rather than
+  // claiming an honestly-empty history. Declared and reset alongside serverChats (not derived
+  // from it) because [] is what a genuinely empty history ALSO looks like — the two are told
+  // apart only by which branch the fetch effect below took, not by anything in serverChats
+  // itself. Reset to false on both a fresh sign-in attempt and on sign-out, so neither a retry
+  // that succeeds nor a return to guest state can leave a stale "failed" notice on screen.
+  const [historyLoadFailed, setHistoryLoadFailed] = useState(false);
   const [activeChatId, setActiveChatId] = useState(null);
   const [generatingChats, setGeneratingChats] = useState(new Set());
 
@@ -490,11 +525,23 @@ function App() {
     let cancelled = false;
     if (!auth.isAuthenticated) {
       setServerChats([]);
+      setHistoryLoadFailed(false);
       return () => { cancelled = true; };
     }
     (async () => {
       const summaries = await fetchConversations();
       if (cancelled) return;
+      // null means the load failed (network error or non-ok response) — hold that as a flag
+      // instead of rendering an empty list, which would lie about the account having no
+      // history. Leave serverChats as-is rather than clobbering it: this effect only runs on
+      // the false->true auth transition, so there is nothing already loaded to protect today,
+      // but silently discarding a previously-loaded list on some future failed refresh would
+      // be its own false claim.
+      if (summaries === null) {
+        setHistoryLoadFailed(true);
+        return;
+      }
+      setHistoryLoadFailed(false);
       setServerChats(summaries.map((s) => chatFromSummary(s, {
         defaultModelId: resolveValidId(models, localStorage.getItem(LAST_USED_MODEL_KEY), models[0]?.id || ''),
         defaultKnowledgeBaseId: resolveValidId(kbs, localStorage.getItem(LAST_USED_KB_KEY), kbs[0]?.id || ''),
@@ -719,7 +766,14 @@ function App() {
 
   // Both outcomes mark the chat surveyed locally first (never nag twice, even
   // if the POST fails) and report best-effort: answers as themselves, every
-  // dismissal path as the explicit 'skipped'.
+  // dismissal path as the explicit 'skipped'. A 404 means the caller no longer owns this
+  // conversation (the realistic case: started as a guest, answered after signing in) — the
+  // same cause the rating control already explains (feedbackNotYours in MessageFeedback.jsx),
+  // so it gets the matching notice on the chat instead of vanishing into just a console.warn.
+  // Any other failure keeps the pre-existing behavior: logged, silent to the user — there is
+  // no known cause worth explaining, and "surveyed" already protects against a retry loop.
+  // Notice targets `sessionId`, not whatever chat is active by the time this promise settles:
+  // the modal closed immediately (above), so the user has very likely already moved on.
   const handleSurveyDone = (answer) => {
     const sessionId = surveySessionId;
     setSurveySessionId(null);
@@ -729,6 +783,9 @@ function App() {
     )));
     submitSurvey({ sessionId, answer }).catch((error) => {
       console.warn('Survey answer not recorded', error);
+      if (error?.httpStatus === 404) {
+        setActiveChats((prev) => applyChatNotice(prev, sessionId, { kind: 'error', key: 'surveyNotYours' }));
+      }
     });
   };
 
@@ -1522,6 +1579,7 @@ function App() {
         onLogout={handleLogout}
         onOpenSettings={handleOpenSettings}
         isAuthenticated={auth.isAuthenticated}
+        historyLoadFailed={historyLoadFailed}
       />
 
       <main className="main-content">

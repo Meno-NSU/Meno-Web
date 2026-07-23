@@ -25,6 +25,11 @@ export default function Sidebar({
     user, onOpenAuth, onLogout,
     onOpenSettings,
     isAuthenticated,
+    // Set by App.jsx when the signed-in user's conversation list failed to load (network
+    // error or non-ok response — see fetchConversations in services/api.js, which returns
+    // null rather than [] for that case precisely so this can be told apart from a genuinely
+    // empty history). Never true for a guest, who has no server list to fail.
+    historyLoadFailed,
 }) {
     const { t, lang, setLanguage } = useTranslation();
     if (!isOpen) {
@@ -110,7 +115,9 @@ export default function Sidebar({
                             ))}
                         </ul>
                     ) : (
-                        <div className="no-chats-msg">{t("noRecentChats")}</div>
+                        <div className="no-chats-msg">
+                            {historyLoadFailed ? t("historyLoadFailed") : t("noRecentChats")}
+                        </div>
                     )}
                     {!isAuthenticated && (
                         <div className="sidebar-guest-notice">{t("guestChatsLocalOnly")}</div>

@@ -44,6 +44,13 @@ vi.mock('./services/api.js', () => ({
   updateNickname: vi.fn(),
 }));
 
+// Real shouldShowSurvey draws from Math.random() (SURVEY_PROBABILITY = 0.1) — mocked so the
+// end-of-session survey modal's appearance is deterministic wherever a test cares about it,
+// and so no other test can flake the ~10% of the time a chat it leaves happens to qualify.
+vi.mock('./services/surveyGate.js', () => ({
+  shouldShowSurvey: vi.fn(),
+}));
+
 import {
   fetchModels,
   refreshModels,
@@ -56,7 +63,9 @@ import {
   getAuthToken,
   fetchMe,
   login,
+  submitSurvey,
 } from './services/api.js';
+import { shouldShowSurvey } from './services/surveyGate.js';
 
 const MODEL = { id: 'm1', display_name: 'Model 1', provider: 'vllm' };
 const KB = { id: 'kb1', name: 'KB 1', available: true };
@@ -78,6 +87,10 @@ function resetApiMocks() {
   getAuthToken.mockReturnValue(null);
   fetchMe.mockResolvedValue(null);
   login.mockResolvedValue({});
+  submitSurvey.mockResolvedValue({});
+  // Default false: a test that doesn't care about the survey must never have it pop up and
+  // obscure its own assertions (see the comment on the vi.mock above).
+  shouldShowSurvey.mockReturnValue(false);
 }
 
 beforeEach(() => {
@@ -216,6 +229,71 @@ describe('App — opening a not-yet-loaded conversation', () => {
   });
 });
 
+describe('App — a signed-in user\'s conversation list fails to load', () => {
+  it('shows a could-not-load notice instead of claiming the history is empty, and does not crash', async () => {
+    // null (not []) is fetchConversations' failure signal — see services/api.js.
+    fetchConversations.mockResolvedValue(null);
+    login.mockResolvedValue({
+      token: 'tok-1',
+      user: { id: 'u1', email: 'demo@nsu.ru', nickname: 'Demo' },
+    });
+
+    const { container } = render(<App />);
+
+    fireEvent.click(container.querySelector('.auth-signin-btn'));
+    fireEvent.change(container.querySelector('.auth-card input[type="email"]'), {
+      target: { value: 'demo@nsu.ru' },
+    });
+    fireEvent.change(container.querySelector('.auth-card input[type="password"]'), {
+      target: { value: 'secret123' },
+    });
+    fireEvent.submit(container.querySelector('.auth-form'));
+
+    // Would throw on summaries.map(...) if the null weren't guarded against.
+    await waitFor(() => expect(screen.getByText(/Не удалось загрузить историю/i)).toBeTruthy());
+    expect(screen.queryByText('Нет недавних чатов')).toBeNull();
+  });
+
+  it('clears the failure notice once a later load succeeds (sign out, sign back in)', async () => {
+    fetchConversations.mockResolvedValueOnce(null);
+    login.mockResolvedValue({
+      token: 'tok-1',
+      user: { id: 'u1', email: 'demo@nsu.ru', nickname: 'Demo' },
+    });
+
+    const { container } = render(<App />);
+
+    fireEvent.click(container.querySelector('.auth-signin-btn'));
+    fireEvent.change(container.querySelector('.auth-card input[type="email"]'), {
+      target: { value: 'demo@nsu.ru' },
+    });
+    fireEvent.change(container.querySelector('.auth-card input[type="password"]'), {
+      target: { value: 'secret123' },
+    });
+    fireEvent.submit(container.querySelector('.auth-form'));
+    await waitFor(() => expect(screen.getByText(/Не удалось загрузить историю/i)).toBeTruthy());
+
+    // Sign out, then back in — this time the fetch succeeds. A returning user who
+    // reconnects must not still be told the earlier load failed.
+    fireEvent.click(container.querySelector('.auth-chip'));
+    fireEvent.click(container.querySelector('.auth-menu-item'));
+    fetchConversations.mockResolvedValue([
+      { id: 'srv-1', preview: 'Chat One', updated_at: '2026-07-20T00:00:00Z' },
+    ]);
+    fireEvent.click(container.querySelector('.auth-signin-btn'));
+    fireEvent.change(container.querySelector('.auth-card input[type="email"]'), {
+      target: { value: 'demo@nsu.ru' },
+    });
+    fireEvent.change(container.querySelector('.auth-card input[type="password"]'), {
+      target: { value: 'secret123' },
+    });
+    fireEvent.submit(container.querySelector('.auth-form'));
+
+    await waitFor(() => expect(screen.getByText('Chat One')).toBeTruthy());
+    expect(screen.queryByText(/Не удалось загрузить историю/i)).toBeNull();
+  });
+});
+
 describe('App — a chat action during token verification', () => {
   it('does not create a phantom local chat while a returning session is still verifying', async () => {
     // A returning signed-in user whose token verification we hold open —
@@ -257,5 +335,102 @@ describe('App — a chat action during token verification', () => {
 
     await waitFor(() => expect(screen.getByText('Server Chat')).toBeTruthy());
     expect(storedCount()).toBe(1);
+  });
+});
+
+function seedAnsweredChat() {
+  saveChats([{
+    id: 'guest-1',
+    title: 'Вопрос про НГУ',
+    messages: [
+      { role: 'user', content: 'Вопрос про НГУ' },
+      { role: 'assistant', content: 'Ответ Менона', completionId: 'c1', isStreaming: false },
+    ],
+    updatedAt: Date.now(),
+    runtimeConfig: { modelId: '', knowledgeBaseId: '', sessionId: 'guest-1' },
+  }]);
+}
+
+describe('App — survey submission refused by ownership (404)', () => {
+  it('shows the ownership refusal instead of staying silent, and still never nags twice', async () => {
+    seedAnsweredChat();
+    shouldShowSurvey.mockReturnValue(true);
+    submitSurvey.mockRejectedValue(Object.assign(new Error('Not found'), { httpStatus: 404 }));
+
+    const { container } = render(<App />);
+    await waitFor(() => expect(screen.getByText('Ответ Менона')).toBeTruthy());
+
+    // Leave the answered chat — fires the survey-on-leave effect for guest-1.
+    fireEvent.click(container.querySelector('.new-chat-btn-icon'));
+    await waitFor(() => expect(screen.getByText('Будете ли пользоваться Меноном для похожих вопросов?')).toBeTruthy());
+
+    fireEvent.click(screen.getByText('Да'));
+
+    // Never-nag-twice: the modal closes immediately, before the request resolves.
+    await waitFor(() => expect(screen.queryByText('Будете ли пользоваться Меноном для похожих вопросов?')).toBeNull());
+    await waitFor(() => expect(submitSurvey).toHaveBeenCalledTimes(1));
+
+    // Back to guest-1: the refusal is now visible on the answer, not silently discarded.
+    fireEvent.click(screen.getByText('Вопрос про НГУ'));
+    await waitFor(() => expect(screen.getByText(/принадлежит другому профилю/i)).toBeTruthy());
+
+    // Leaving guest-1 again must NOT reopen the survey — refused or not, it is surveyed.
+    fireEvent.click(container.querySelector('.new-chat-btn-icon'));
+    expect(screen.queryByText('Будете ли пользоваться Меноном для похожих вопросов?')).toBeNull();
+  });
+
+  it('does not attach a notice for a failure other than the ownership 404', async () => {
+    seedAnsweredChat();
+    shouldShowSurvey.mockReturnValue(true);
+    submitSurvey.mockRejectedValue(Object.assign(new Error('Server error'), { httpStatus: 500 }));
+
+    const { container } = render(<App />);
+    await waitFor(() => expect(screen.getByText('Ответ Менона')).toBeTruthy());
+
+    fireEvent.click(container.querySelector('.new-chat-btn-icon'));
+    await waitFor(() => expect(screen.getByText('Будете ли пользоваться Меноном для похожих вопросов?')).toBeTruthy());
+    fireEvent.click(screen.getByText('Да'));
+
+    await waitFor(() => expect(screen.queryByText('Будете ли пользоваться Меноном для похожих вопросов?')).toBeNull());
+    await waitFor(() => expect(submitSurvey).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(screen.getByText('Вопрос про НГУ'));
+    expect(screen.queryByText(/принадлежит другому профилю/i)).toBeNull();
+  });
+
+  it('does not overwrite an existing notice on the last message with the survey refusal', async () => {
+    // hadAnswer is satisfied by the FIRST answer (completionId 'c1'); the LAST message is a
+    // second turn that already failed and is sitting there with its own notice + retry —
+    // e.g. the user left without pressing "Retry". The survey notice must not clobber it.
+    saveChats([{
+      id: 'guest-1',
+      title: 'Диалог с ошибкой',
+      messages: [
+        { role: 'user', content: 'Первый вопрос' },
+        { role: 'assistant', content: 'Первый ответ', completionId: 'c1', isStreaming: false },
+        { role: 'user', content: 'Второй вопрос' },
+        {
+          role: 'assistant', content: '', isStreaming: false, interrupted: true,
+          notice: { kind: 'error', key: 'botUnavailable' }, retry: { userText: 'Второй вопрос' },
+        },
+      ],
+      updatedAt: Date.now(),
+      runtimeConfig: { modelId: '', knowledgeBaseId: '', sessionId: 'guest-1' },
+    }]);
+    shouldShowSurvey.mockReturnValue(true);
+    submitSurvey.mockRejectedValue(Object.assign(new Error('Not found'), { httpStatus: 404 }));
+
+    const { container } = render(<App />);
+    await waitFor(() => expect(screen.getByText(/сейчас не в форме/i)).toBeTruthy());
+
+    fireEvent.click(container.querySelector('.new-chat-btn-icon'));
+    await waitFor(() => expect(screen.getByText('Будете ли пользоваться Меноном для похожих вопросов?')).toBeTruthy());
+    fireEvent.click(screen.getByText('Да'));
+    await waitFor(() => expect(screen.queryByText('Будете ли пользоваться Меноном для похожих вопросов?')).toBeNull());
+    await waitFor(() => expect(submitSurvey).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(screen.getByText('Диалог с ошибкой'));
+    await waitFor(() => expect(screen.getByText(/сейчас не в форме/i)).toBeTruthy());
+    expect(screen.queryByText(/принадлежит другому профилю/i)).toBeNull();
   });
 });

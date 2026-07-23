@@ -34,3 +34,28 @@ describe('Sidebar guest notice', () => {
         expect(screen.queryByText(/только в этом браузере/i)).toBeNull();
     });
 });
+
+describe('Sidebar history load failure', () => {
+    it('shows a could-not-load message instead of the empty state when told the load failed', () => {
+        render(<Sidebar {...baseProps} isAuthenticated historyLoadFailed />);
+        expect(screen.getByText(/не удалось загрузить историю/i)).toBeTruthy();
+        expect(screen.queryByText('Нет недавних чатов')).toBeNull();
+    });
+
+    it('still shows the ordinary empty state when the load did not fail', () => {
+        render(<Sidebar {...baseProps} isAuthenticated historyLoadFailed={false} />);
+        expect(screen.getByText('Нет недавних чатов')).toBeTruthy();
+        expect(screen.queryByText(/не удалось загрузить историю/i)).toBeNull();
+    });
+
+    it('does not show the failure message once there are chats to list', () => {
+        render(<Sidebar
+            {...baseProps}
+            isAuthenticated
+            historyLoadFailed
+            chats={[{ id: 'c1', title: 'Чат 1' }]}
+        />);
+        expect(screen.getByText('Чат 1')).toBeTruthy();
+        expect(screen.queryByText(/не удалось загрузить историю/i)).toBeNull();
+    });
+});

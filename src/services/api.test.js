@@ -146,9 +146,21 @@ describe('conversation history', () => {
         expect(list).toEqual([{ id: 'c1', updated_at: 'z', preview: 'Вопрос?' }]);
     });
 
-    it('returns an empty list rather than throwing when there is no history', async () => {
+    it('returns an empty list (not null) for a successful response with no conversations', async () => {
         vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) }));
         expect(await fetchConversations()).toEqual([]);
+    });
+
+    // A genuinely empty history and a failed load must be distinguishable: [] means
+    // "nothing to show", null means "we don't know, don't claim otherwise".
+    it('returns null (not []) when the response is not ok', async () => {
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500 }));
+        expect(await fetchConversations()).toBeNull();
+    });
+
+    it('returns null (not []) when the request throws', async () => {
+        vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')));
+        expect(await fetchConversations()).toBeNull();
     });
 
     it('fetches one conversation', async () => {
@@ -167,9 +179,8 @@ describe('conversation history', () => {
         expect(await fetchConversation('nope')).toBeNull();
     });
 
-    it('shows no history rather than propagating a network failure', async () => {
+    it('fetchConversation also returns null on a network failure', async () => {
         vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')));
-        expect(await fetchConversations()).toEqual([]);
         expect(await fetchConversation('c1')).toBeNull();
     });
 });

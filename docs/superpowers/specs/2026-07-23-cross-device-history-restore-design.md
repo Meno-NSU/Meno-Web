@@ -123,6 +123,13 @@ Testing Library.
 
 ## Follow-ups
 
+- **The end-of-session survey swallows a refusal entirely.** `POST /v1/feedback/survey` is
+  subject to the same ownership 404 the rating controls now explain, but `handleSurveyDone`
+  closes the modal before the request resolves, marks the chat surveyed regardless, and only
+  `console.warn`s on failure — `SurveyModal` has no error path at all. So a refused survey is
+  indistinguishable from a successful one, with no retry and no notice. The "never nag twice"
+  behaviour is deliberate; being unable to tell the two apart is not.
+
 - **A network failure is indistinguishable from an empty history.** With the server as the only
   source of chats for a signed-in user, `fetchConversations` swallows a failed request and
   returns an empty list, so an offline user is told they have no conversations. That is the

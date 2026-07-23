@@ -12,6 +12,7 @@ import {
   fetchModels,
   refreshModels,
   sendChatMessage,
+  recordArenaTurn,
   fetchServiceStatus,
   getPrivacySettings,
   patchPrivacySettings,
@@ -27,7 +28,7 @@ import {
   runArenaSideWithSubstitution,
   ArenaPoolExhaustedError,
 } from './services/arenaMatching.js';
-import { buildArenaHistories } from './services/arenaHistory.js';
+import { buildArenaHistories, arenaTurnIndex } from './services/arenaHistory.js';
 import {
   clearChats,
   createNewChat,
@@ -775,6 +776,10 @@ function App() {
         const excludeA = new Set([pair.b.id]);
         const excludeB = new Set([pair.a.id]);
         const sideFailedExhaustion = { a: false, b: false };
+        // Populated on each side's successful, non-blank completion so the finished
+        // comparison can be posted once both sides land — React state (arenaData.a/b)
+        // isn't readable synchronously right after the setChats calls below.
+        const sideResults = { a: null, b: null };
 
         const runSide = async (sideKey) => {
           const sideExclude = sideKey === 'a' ? excludeA : excludeB;
@@ -786,7 +791,7 @@ function App() {
           // votable on a blank response — user reported exactly this.
           let receivedContent = false;
           try {
-            const { model } = await runArenaSideWithSubstitution({
+            const { model, result } = await runArenaSideWithSubstitution({
               pool, exclude: sideExclude, kbId, messages: sideMessages, sessionId: requestConfig.sessionId,
               initialCandidate: sideInitial,
               sendChat: sendChatMessage,
@@ -827,6 +832,7 @@ function App() {
             // though the other side may still be streaming. Avoids the
             // "two thinking phrases when only one is actually working"
             // confusion.
+            sideResults[sideKey] = { model: model.id, content: result?.content || '' };
             setChats((prev) => updateLastArenaMessageSide(prev, targetChatId, sideKey, (sideState) => ({
               ...sideState, model: model.id, isStreaming: false,
             })));
@@ -865,6 +871,25 @@ function App() {
         }
 
         setChats((prev) => finalizeLastArenaMessage(prev, targetChatId));
+
+        if (sideResults.a && sideResults.b) {
+          // Store the comparison itself. Best-effort: the answer is already on screen, and a
+          // failure here must never surface as a chat error. It is also a no-op server-side
+          // without the history consent.
+          try {
+            await recordArenaTurn({
+              sessionId: requestConfig.sessionId,
+              question: userMessage.content,
+              turnIndex: arenaTurnIndex(historyBefore),
+              sides: [
+                { key: 'a', model: sideResults.a.model, knowledgeBaseId: kbId, content: sideResults.a.content, sources: [] },
+                { key: 'b', model: sideResults.b.model, knowledgeBaseId: kbId, content: sideResults.b.content, sources: [] },
+              ],
+            });
+          } catch (error) {
+            console.error('Failed to record the arena turn:', error);
+          }
+        }
       } else {
         const assistantMessage = {
           role: 'assistant',

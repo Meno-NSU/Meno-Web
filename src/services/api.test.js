@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
-import { ensureGuestSession, fetchModels, getGuestToken, sendChatMessage, setAuthToken, setGuestToken } from './api.js';
+import { ensureGuestSession, fetchModels, getGuestToken, recordArenaTurn, sendChatMessage, setAuthToken, setGuestToken } from './api.js';
 
 beforeEach(() => {
     localStorage.clear();
@@ -97,5 +97,30 @@ describe('arena chat requests', () => {
 
         const body = JSON.parse(fetchMock.mock.calls[0][1].body);
         expect(body.arena).toBeUndefined();
+    });
+});
+
+describe('recordArenaTurn', () => {
+    it('posts the finished comparison with both sides', async () => {
+        const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ status: 'ok' }) });
+        vi.stubGlobal('fetch', fetchMock);
+
+        await recordArenaTurn({
+            sessionId: 'c1',
+            question: 'Вопрос?',
+            turnIndex: 0,
+            sides: [
+                { key: 'a', model: 'qwen', knowledgeBaseId: 'kb1', content: 'A', sources: [] },
+                { key: 'b', model: 'llama', knowledgeBaseId: 'kb1', content: 'B', sources: [] },
+            ],
+        });
+
+        const [url, options] = fetchMock.mock.calls[0];
+        expect(url).toContain('/v1/arena/turn');
+        const body = JSON.parse(options.body);
+        expect(body.session_id).toBe('c1');
+        expect(body.turn_index).toBe(0);
+        expect(body.sides.map((s) => s.key)).toEqual(['a', 'b']);
+        expect(body.sides[0].knowledge_base_id).toBe('kb1');
     });
 });

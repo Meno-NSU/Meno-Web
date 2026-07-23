@@ -428,6 +428,28 @@ export async function submitArenaVote(payload) {
     if (!res.ok) throw await buildError(res, `Vote POST ${res.status}`);
 }
 
+// Posted once when both arena sides have finished, not when the user votes — so an unvoted
+// comparison is stored too. The vote endpoint later sets the winner on this turn.
+export async function recordArenaTurn({ sessionId, question, turnIndex, sides }) {
+    const res = await fetchWithLogging(`${API_BASE_URL}/v1/arena/turn`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            session_id: sessionId,
+            question,
+            turn_index: turnIndex,
+            sides: sides.map((side) => ({
+                key: side.key,
+                model: side.model,
+                knowledge_base_id: side.knowledgeBaseId,
+                content: side.content,
+                sources: side.sources || [],
+            })),
+        }),
+    });
+    if (!res.ok) throw await buildError(res, `Arena turn POST ${res.status}`);
+}
+
 // --- Contributor leaderboard (S3b) — SEALED, no caller ---
 // Kept for a possible future, but nothing reaches it: the tab is gone from Leaderboard.jsx
 // and the backend does not mount /v1/leaderboard. Showing nicknames and per-user activity

@@ -216,6 +216,71 @@ describe('App — opening a not-yet-loaded conversation', () => {
   });
 });
 
+describe('App — a signed-in user\'s conversation list fails to load', () => {
+  it('shows a could-not-load notice instead of claiming the history is empty, and does not crash', async () => {
+    // null (not []) is fetchConversations' failure signal — see services/api.js.
+    fetchConversations.mockResolvedValue(null);
+    login.mockResolvedValue({
+      token: 'tok-1',
+      user: { id: 'u1', email: 'demo@nsu.ru', nickname: 'Demo' },
+    });
+
+    const { container } = render(<App />);
+
+    fireEvent.click(container.querySelector('.auth-signin-btn'));
+    fireEvent.change(container.querySelector('.auth-card input[type="email"]'), {
+      target: { value: 'demo@nsu.ru' },
+    });
+    fireEvent.change(container.querySelector('.auth-card input[type="password"]'), {
+      target: { value: 'secret123' },
+    });
+    fireEvent.submit(container.querySelector('.auth-form'));
+
+    // Would throw on summaries.map(...) if the null weren't guarded against.
+    await waitFor(() => expect(screen.getByText(/Не удалось загрузить историю/i)).toBeTruthy());
+    expect(screen.queryByText('Нет недавних чатов')).toBeNull();
+  });
+
+  it('clears the failure notice once a later load succeeds (sign out, sign back in)', async () => {
+    fetchConversations.mockResolvedValueOnce(null);
+    login.mockResolvedValue({
+      token: 'tok-1',
+      user: { id: 'u1', email: 'demo@nsu.ru', nickname: 'Demo' },
+    });
+
+    const { container } = render(<App />);
+
+    fireEvent.click(container.querySelector('.auth-signin-btn'));
+    fireEvent.change(container.querySelector('.auth-card input[type="email"]'), {
+      target: { value: 'demo@nsu.ru' },
+    });
+    fireEvent.change(container.querySelector('.auth-card input[type="password"]'), {
+      target: { value: 'secret123' },
+    });
+    fireEvent.submit(container.querySelector('.auth-form'));
+    await waitFor(() => expect(screen.getByText(/Не удалось загрузить историю/i)).toBeTruthy());
+
+    // Sign out, then back in — this time the fetch succeeds. A returning user who
+    // reconnects must not still be told the earlier load failed.
+    fireEvent.click(container.querySelector('.auth-chip'));
+    fireEvent.click(container.querySelector('.auth-menu-item'));
+    fetchConversations.mockResolvedValue([
+      { id: 'srv-1', preview: 'Chat One', updated_at: '2026-07-20T00:00:00Z' },
+    ]);
+    fireEvent.click(container.querySelector('.auth-signin-btn'));
+    fireEvent.change(container.querySelector('.auth-card input[type="email"]'), {
+      target: { value: 'demo@nsu.ru' },
+    });
+    fireEvent.change(container.querySelector('.auth-card input[type="password"]'), {
+      target: { value: 'secret123' },
+    });
+    fireEvent.submit(container.querySelector('.auth-form'));
+
+    await waitFor(() => expect(screen.getByText('Chat One')).toBeTruthy());
+    expect(screen.queryByText(/Не удалось загрузить историю/i)).toBeNull();
+  });
+});
+
 describe('App — a chat action during token verification', () => {
   it('does not create a phantom local chat while a returning session is still verifying', async () => {
     // A returning signed-in user whose token verification we hold open —

@@ -296,6 +296,14 @@ function App() {
   // sidebar list or the active chat is read (see `visibleChats`).
   const [chats, setChats] = useState(() => loadChats());
   const [serverChats, setServerChats] = useState([]);
+  // Set when fetchConversations returns null (network error or non-ok response — see
+  // services/api.js) instead of a list, so the sidebar can say "could not load" rather than
+  // claiming an honestly-empty history. Declared and reset alongside serverChats (not derived
+  // from it) because [] is what a genuinely empty history ALSO looks like — the two are told
+  // apart only by which branch the fetch effect below took, not by anything in serverChats
+  // itself. Reset to false on both a fresh sign-in attempt and on sign-out, so neither a retry
+  // that succeeds nor a return to guest state can leave a stale "failed" notice on screen.
+  const [historyLoadFailed, setHistoryLoadFailed] = useState(false);
   const [activeChatId, setActiveChatId] = useState(null);
   const [generatingChats, setGeneratingChats] = useState(new Set());
 
@@ -490,11 +498,23 @@ function App() {
     let cancelled = false;
     if (!auth.isAuthenticated) {
       setServerChats([]);
+      setHistoryLoadFailed(false);
       return () => { cancelled = true; };
     }
     (async () => {
       const summaries = await fetchConversations();
       if (cancelled) return;
+      // null means the load failed (network error or non-ok response) — hold that as a flag
+      // instead of rendering an empty list, which would lie about the account having no
+      // history. Leave serverChats as-is rather than clobbering it: this effect only runs on
+      // the false->true auth transition, so there is nothing already loaded to protect today,
+      // but silently discarding a previously-loaded list on some future failed refresh would
+      // be its own false claim.
+      if (summaries === null) {
+        setHistoryLoadFailed(true);
+        return;
+      }
+      setHistoryLoadFailed(false);
       setServerChats(summaries.map((s) => chatFromSummary(s, {
         defaultModelId: resolveValidId(models, localStorage.getItem(LAST_USED_MODEL_KEY), models[0]?.id || ''),
         defaultKnowledgeBaseId: resolveValidId(kbs, localStorage.getItem(LAST_USED_KB_KEY), kbs[0]?.id || ''),
@@ -1522,6 +1542,7 @@ function App() {
         onLogout={handleLogout}
         onOpenSettings={handleOpenSettings}
         isAuthenticated={auth.isAuthenticated}
+        historyLoadFailed={historyLoadFailed}
       />
 
       <main className="main-content">

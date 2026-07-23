@@ -4,6 +4,15 @@ import { useTranslation } from '../i18n.js';
 import { fetchContributorLeaderboard } from '../services/api.js';
 import './Leaderboard.css';
 
+// The contributor board is SEALED: `ContributorsTable` and `fetchContributorLeaderboard`
+// are kept for a possible future, but there is no way in — no tab, no fetch, and the
+// backend does not mount /v1/leaderboard either. It published nicknames and per-user
+// activity to every visitor, which is распространение of personal data: art. 10.1 152-ФЗ
+// requires its own separate consent, and the published Consent states that distribution
+// is not part of it. Reviving it needs that consent plus matching Policy/Consent wording
+// (see the legal package: G-9 / ИБ-22a) — flipping this flag alone is not enough.
+const CONTRIBUTOR_BOARD_ENABLED = false;
+
 function ArenaTable({ data }) {
     const { t } = useTranslation();
     return (
@@ -79,7 +88,7 @@ function ContributorsTable({ data }) {
 
 export default function Leaderboard({ onClose }) {
     const { t } = useTranslation();
-    const [tab, setTab] = useState('models');
+    const [tab, setTab] = useState('models');  // 'contributors' is unreachable while sealed
     const [arenaData, setArenaData] = useState(null);        // null = not loaded yet
     const [contribData, setContribData] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -101,7 +110,7 @@ export default function Leaderboard({ onClose }) {
                 } finally {
                     if (!cancelled) setLoading(false);
                 }
-            } else if (tab === 'contributors' && contribData === null) {
+            } else if (CONTRIBUTOR_BOARD_ENABLED && tab === 'contributors' && contribData === null) {
                 setLoading(true);
                 try {
                     const data = await fetchContributorLeaderboard();
@@ -120,7 +129,7 @@ export default function Leaderboard({ onClose }) {
         return () => { cancelled = true; };
     }, [tab, arenaData, contribData]);
 
-    const isContrib = tab === 'contributors';
+    const isContrib = CONTRIBUTOR_BOARD_ENABLED && tab === 'contributors';
 
     return (
         <div className="leaderboard-container">
@@ -140,6 +149,7 @@ export default function Leaderboard({ onClose }) {
                 <p>{isContrib ? t('contribLeaderboardDesc') : t('arenaLeaderboardDesc')}</p>
             </div>
 
+            {CONTRIBUTOR_BOARD_ENABLED && (
             <div className="leaderboard-tabs" role="tablist">
                 <button
                     role="tab"
@@ -160,6 +170,7 @@ export default function Leaderboard({ onClose }) {
                     {t('leaderboardTabContributors')}
                 </button>
             </div>
+            )}
 
             {loading ? (
                 <div className="leaderboard-loading">{t('arenaLoading')}</div>

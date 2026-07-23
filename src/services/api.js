@@ -358,6 +358,15 @@ export async function deleteMyData() {
     return res.json();
 }
 
+// Erase the server-side history but KEEP the account — deliberately separate from
+// deleteMyData, which also drops the account / guest identity. The identity survives,
+// so the caller stays signed in and only its chat list resets.
+export async function deleteServerHistory() {
+    const res = await fetchWithLogging(`${API_BASE_URL}/v1/conversations`, { method: 'DELETE' });
+    if (!res.ok) throw await buildError(res, 'Failed to delete server history');
+    return res.json();
+}
+
 // A single published legal document (with markdown `content`). `kind` is the
 // backend key: personal_data_consent | privacy_policy | terms_of_use.
 export async function getLegalDocument(kind) {
@@ -419,7 +428,11 @@ export async function submitArenaVote(payload) {
     if (!res.ok) throw await buildError(res, `Vote POST ${res.status}`);
 }
 
-// --- Contributor leaderboard (S3b) ---
+// --- Contributor leaderboard (S3b) — SEALED, no caller ---
+// Kept for a possible future, but nothing reaches it: the tab is gone from Leaderboard.jsx
+// and the backend does not mount /v1/leaderboard. Showing nicknames and per-user activity
+// to every visitor is распространение, which needs its own art. 10.1 152-ФЗ consent — the
+// published Consent says outright that distribution is not included.
 
 export async function fetchContributorLeaderboard() {
     const res = await fetchWithLogging(`${API_BASE_URL}/v1/leaderboard`);

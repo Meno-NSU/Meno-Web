@@ -143,6 +143,14 @@
     line-height: 1.4;
 }
 
+.settings-storage-note {
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+    line-height: 1.45;
+    margin: 0.75rem 0 0;
+    padding: 0 0.25rem;
+}
+
 .settings-improvement-toggle {
     flex: none;
     width: 18px;
@@ -154,6 +162,9 @@
 .settings-clear,
 .settings-clear-confirm,
 .settings-clear-cancel,
+.settings-history,
+.settings-history-confirm,
+.settings-history-cancel,
 .settings-delete,
 .settings-delete-confirm,
 .settings-delete-cancel {
@@ -167,7 +178,8 @@
     transition: all 0.15s ease;
 }
 
-.settings-clear:hover {
+.settings-clear:hover,
+.settings-history:hover {
     border-color: var(--danger);
     color: var(--danger);
 }
@@ -179,6 +191,7 @@
 }
 
 .settings-clear-confirm,
+.settings-history-confirm,
 .settings-delete-confirm {
     background: var(--danger);
     border-color: var(--danger);

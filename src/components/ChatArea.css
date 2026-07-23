@@ -219,6 +219,22 @@
     color: var(--text-primary);
 }
 
+/* A restored chat whose content hasn't been fetched yet (see App.jsx's
+   activeChatStillLoading). Center the icon against the text instead of the
+   baseline alignment the welcome hero uses for its logo + heading pair. */
+.conversation-loading-hero {
+    align-items: center;
+}
+
+.conversation-loading-icon {
+    color: var(--text-tertiary);
+    flex-shrink: 0;
+}
+
+.conversation-loading-icon.spinning {
+    animation: agentSpin 1s linear infinite;
+}
+
 /* Base message wrapper */
 .message-wrapper {
     width: 100%;

@@ -1550,6 +1550,7 @@ function App() {
                 chatId={activeChatId}
                 setChats={setActiveChats}
                 voteIsPending={voteIsPending}
+                isLoadingConversation={activeChatStillLoading}
               />
             );
           })()

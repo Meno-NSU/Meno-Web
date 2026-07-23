@@ -71,6 +71,7 @@ export async function runArenaSideWithSubstitution({
     pool, exclude, kbId, messages, sessionId, sendChat, onEvent,
     initialCandidate = null,
     onSubstitution = null,
+    arena = false,
 }) {
     // 5 attempts (was 3) so we don't bail out of the round just because two
     // OR models happened to be rate-limited / silent / down at the same time.
@@ -94,6 +95,7 @@ export async function runArenaSideWithSubstitution({
         try {
             const result = await sendChat({
                 modelId: candidate.id, knowledgeBaseId: kbId, messages, sessionId, stream: true,
+                arena,
                 onEvent: (event) => {
                     if (event.type === 'content') firstTokenReceived = true;
                     onEvent(event);

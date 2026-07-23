@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Copy, Check, ChevronDown, Brain, ExternalLink, Trophy, ArrowCircleLeft, ArrowCircleRight, Handshake, ThumbsDown, Stop, AlertCircle } from './icons.jsx';
+import { Copy, Check, ChevronDown, Brain, ExternalLink, Trophy, ArrowCircleLeft, ArrowCircleRight, Handshake, ThumbsDown, Stop, AlertCircle, Loader } from './icons.jsx';
 import { useTranslation } from '../i18n.js';
 import ChatInput from './ChatInput.jsx';
 import MessageFeedback from './MessageFeedback.jsx';
@@ -97,9 +97,15 @@ function ThinkBlock({ content, thinkTime, streaming }) {
 }
 
 // ── Main ChatArea ────────────────────────────────────────────────────────────
-export default function ChatArea({ messages, isGenerating, onSendMessage, onRetry, onStop, kbs, selectedKb, onKbChange, modelsAvailable, chatId, setChats, voteIsPending }) {
+export default function ChatArea({ messages: rawMessages, isGenerating, onSendMessage, onRetry, onStop, kbs, selectedKb, onKbChange, modelsAvailable, chatId, setChats, voteIsPending, isLoadingConversation }) {
     const { t } = useTranslation();
     const messagesEndRef = useRef(null);
+
+    // A chat restored from a server conversation summary (see chatFromSummary /
+    // App.jsx) carries `messages: null` until its content is fetched. Treat that
+    // the same as "no messages yet" instead of crashing — the empty-chat view is
+    // exactly right for it, and the real content replaces it once the fetch lands.
+    const messages = rawMessages || [];
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -174,10 +180,25 @@ export default function ChatArea({ messages, isGenerating, onSendMessage, onRetr
             )}
 
             {isEmpty && (
-                <div className="empty-chat-hero">
-                    <img className="empty-chat-mark" src="/menon-icon.svg" alt="Менон" width={39} height={39} />
-                    <h2>{t("emptyTitle")}</h2>
-                </div>
+                // A server chat summary not yet opened carries `messages: null` (see
+                // chatFromSummary / App.jsx's activeChatStillLoading) until its content
+                // is fetched. Rendering it as the ordinary welcome screen — with a live
+                // input — let a user type into it before the fetch resolved: the
+                // optimistic append landed first and, since the load effect is guarded
+                // on `messages === null`, the fetch then never re-fired and the restored
+                // history was lost for that session. This state must look and behave
+                // differently from a genuinely empty, brand-new chat.
+                isLoadingConversation ? (
+                    <div className="empty-chat-hero conversation-loading-hero">
+                        <Loader size={28} className="conversation-loading-icon spinning" />
+                        <h2>{t('restoringConversation')}</h2>
+                    </div>
+                ) : (
+                    <div className="empty-chat-hero">
+                        <img className="empty-chat-mark" src="/menon-icon.svg" alt="Менон" width={39} height={39} />
+                        <h2>{t("emptyTitle")}</h2>
+                    </div>
+                )
             )}
 
             <div className={`chat-input-wrapper ${isEmpty ? 'centered' : ''}`}>
@@ -185,12 +206,13 @@ export default function ChatArea({ messages, isGenerating, onSendMessage, onRetr
                     onSend={onSendMessage}
                     onStop={onStop}
                     generating={isGenerating}
-                    disabled={isGenerating || voteIsPending}
+                    disabled={isGenerating || voteIsPending || isLoadingConversation}
                     modelsAvailable={modelsAvailable}
                     kbs={kbs}
                     selectedKb={selectedKb}
                     onKbChange={onKbChange}
                     voteIsPending={voteIsPending}
+                    isLoadingConversation={isLoadingConversation}
                 />
             </div>
         </div>
@@ -442,7 +464,11 @@ export function ArenaMessageBubble({ message, chatId, setChats, isGenerating, qu
         // POST fails. We finalise `voted: true` only after a successful POST.
         updateBubble({ namesRevealed: true, winner });
 
-        const turnIndex = arenaTurnIndex(messagesBeforeRound || []);
+        // A comparison restored from the server carries the index it was stored under.
+        // Recomputing over a restored message array is wrong: rounds that were never stored
+        // leave gaps, so the recomputed number can name a different comparison — and the
+        // backend would then set the winner on that one rather than refuse.
+        const turnIndex = arenaData.turnIndex ?? arenaTurnIndex(messagesBeforeRound || []);
         const { historyA, historyB } = buildArenaHistories(messagesBeforeRound || []);
         const historyLenA = historyA.length;
         const historyLenB = historyB.length;

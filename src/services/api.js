@@ -258,6 +258,38 @@ export async function clearChatHistory(chatId) {
     return res.json();
 }
 
+// fetchWithLogging returns the Response even when it is not ok, but re-throws on a network
+// failure (backend unreachable, CORS, etc.) — caught below so a network blip reads as "no
+// history" instead of an unhandled rejection reaching Task 6's React load effects.
+export async function fetchConversations() {
+    // The caller's conversations, newest first. Identity comes from the auth header, so a guest
+    // and a signed-in user see different lists from the same call.
+    try {
+        const res = await fetchWithLogging(`${API_BASE_URL}/v1/conversations`);
+        if (!res.ok) return [];
+        const data = await res.json();
+        return data?.conversations || [];
+    } catch (error) {
+        apiLogger.error('Error fetching conversations in API client:', error);
+        return [];
+    }
+}
+
+export async function fetchConversation(conversationId) {
+    // Full renderable state for one conversation: turns, per-answer feedback, survey answer.
+    // Returns null when it is gone or belongs to somebody else — the backend answers 404 for
+    // both, deliberately, so the caller cannot tell them apart. A network failure reads the
+    // same as "gone" here too — see fetchConversations above for why.
+    try {
+        const res = await fetchWithLogging(`${API_BASE_URL}/v1/conversations/${encodeURIComponent(conversationId)}`);
+        if (!res.ok) return null;
+        return await res.json();
+    } catch (error) {
+        apiLogger.error('Error fetching conversation in API client:', error);
+        return null;
+    }
+}
+
 // --- Auth (S3) ---
 
 export async function register({ email, password, nickname }) {
@@ -428,6 +460,38 @@ export async function submitArenaVote(payload) {
     if (!res.ok) throw await buildError(res, `Vote POST ${res.status}`);
 }
 
+// This is a small metadata write (the answers are already fully generated and on
+// screen) — not a generation, so it gets nowhere near CHAT_FIRST_TOKEN_TIMEOUT_MS's
+// 120s. But it isn't unbounded either: the caller awaits it before isGenerating
+// clears, and the arena flow never registers an entry in abortControllersRef, so
+// a hang here would leave the user staring at a Stop button that does nothing.
+// 10s is generous for a single-row DB write even under load, while still bounding
+// the wait to something far shorter than a generation timeout.
+const RECORD_ARENA_TURN_TIMEOUT_MS = 10_000;
+
+// Posted once when both arena sides have finished, not when the user votes — so an unvoted
+// comparison is stored too. The vote endpoint later sets the winner on this turn.
+export async function recordArenaTurn({ sessionId, question, turnIndex, sides }) {
+    const res = await fetchWithLogging(`${API_BASE_URL}/v1/arena/turn`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            session_id: sessionId,
+            question,
+            turn_index: turnIndex,
+            sides: sides.map((side) => ({
+                key: side.key,
+                model: side.model,
+                knowledge_base_id: side.knowledgeBaseId,
+                content: side.content,
+                sources: side.sources || [],
+            })),
+        }),
+        signal: AbortSignal.timeout(RECORD_ARENA_TURN_TIMEOUT_MS),
+    });
+    if (!res.ok) throw await buildError(res, `Arena turn POST ${res.status}`);
+}
+
 // --- Contributor leaderboard (S3b) — SEALED, no caller ---
 // Kept for a possible future, but nothing reaches it: the tab is gone from Leaderboard.jsx
 // and the backend does not mount /v1/leaderboard. Showing nicknames and per-user activity
@@ -478,6 +542,7 @@ export async function sendChatMessage({
     knowledgeBaseId,
     sessionId,
     stream = false,
+    arena = false,
     onEvent = null,
     signal = null,
 }) {
@@ -495,6 +560,11 @@ export async function sendChatMessage({
             stream,
             user: sessionId,
             knowledge_base_id: knowledgeBaseId,
+            // Both arena sides share one session_id. Without this the backend persists each
+            // side separately, writing the question twice and two assistant rows in a racing
+            // order — history that breaks the strict user/assistant alternation it requires.
+            // The finished comparison is posted once to /v1/arena/turn instead.
+            ...(arena ? { arena: true } : {}),
         };
 
         // Wrap the fetch in a timeout that aborts if the FIRST content

@@ -3,7 +3,7 @@ import { SendHorizontal, Stop, Database } from './icons.jsx';
 import { useTranslation } from '../i18n.js';
 import './ChatInput.css';
 
-export default function ChatInput({ onSend, onStop, generating = false, disabled, modelsAvailable = true, kbs = [], selectedKb = '', onKbChange, voteIsPending = false }) {
+export default function ChatInput({ onSend, onStop, generating = false, disabled, modelsAvailable = true, kbs = [], selectedKb = '', onKbChange, voteIsPending = false, isLoadingConversation = false }) {
     const { t } = useTranslation();
     const [input, setInput] = useState('');
     const textareaRef = useRef(null);
@@ -58,6 +58,7 @@ export default function ChatInput({ onSend, onStop, generating = false, disabled
                     onKeyDown={handleKeyDown}
                     placeholder={
                         isSendBlocked ? t('noModelsSendBlocked')
+                        : isLoadingConversation ? t('restoringConversation')
                         : voteIsPending ? t('arenaVotePromptPending')
                         : t('placeholder')
                     }

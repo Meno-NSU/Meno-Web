@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
-import { ensureGuestSession, fetchModels, getGuestToken, setAuthToken, setGuestToken } from './api.js';
+import { ensureGuestSession, fetchConversation, fetchConversations, fetchModels, getGuestToken, recordArenaTurn, sendChatMessage, setAuthToken, setGuestToken } from './api.js';
 
 beforeEach(() => {
     localStorage.clear();
@@ -69,5 +69,107 @@ describe('request auth headers', () => {
         await fetchModels();
         const opts = fetchMock.mock.calls[0][1] || {};
         expect(opts.headers?.Authorization).toBeUndefined();
+    });
+});
+
+describe('arena chat requests', () => {
+    it('marks the request so the backend does not persist each side separately', async () => {
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            json: async () => ({ id: 'c1', choices: [{ message: { content: 'a' } }], sources: [] }),
+        });
+        vi.stubGlobal('fetch', fetchMock);
+
+        await sendChatMessage({ messages: [], modelId: 'm', knowledgeBaseId: 'kb', sessionId: 's', arena: true });
+
+        const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+        expect(body.arena).toBe(true);
+    });
+
+    it('omits the flag for an ordinary chat request', async () => {
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            json: async () => ({ id: 'c1', choices: [{ message: { content: 'a' } }], sources: [] }),
+        });
+        vi.stubGlobal('fetch', fetchMock);
+
+        await sendChatMessage({ messages: [], modelId: 'm', knowledgeBaseId: 'kb', sessionId: 's' });
+
+        const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+        expect(body.arena).toBeUndefined();
+    });
+});
+
+describe('recordArenaTurn', () => {
+    it('posts the finished comparison with both sides', async () => {
+        const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ status: 'ok' }) });
+        vi.stubGlobal('fetch', fetchMock);
+
+        await recordArenaTurn({
+            sessionId: 'c1',
+            question: 'Вопрос?',
+            turnIndex: 0,
+            sides: [
+                { key: 'a', model: 'qwen', knowledgeBaseId: 'kb1', content: 'A', sources: [{ title: 'Doc A', link: 'https://x/a' }] },
+                { key: 'b', model: 'llama', knowledgeBaseId: 'kb1', content: 'B', sources: [] },
+            ],
+        });
+
+        const [url, options] = fetchMock.mock.calls[0];
+        expect(url).toContain('/v1/arena/turn');
+        const body = JSON.parse(options.body);
+        expect(body.session_id).toBe('c1');
+        expect(body.turn_index).toBe(0);
+        expect(body.sides.map((s) => s.key)).toEqual(['a', 'b']);
+        expect(body.sides[0].knowledge_base_id).toBe('kb1');
+        // The two fields that actually carry the comparison, plus the sources shown
+        // for the winning side — all three must reach the wire, not just the ids.
+        expect(body.sides[0].model).toBe('qwen');
+        expect(body.sides[0].content).toBe('A');
+        expect(body.sides[0].sources).toEqual([{ title: 'Doc A', link: 'https://x/a' }]);
+        expect(body.sides[1].model).toBe('llama');
+        expect(body.sides[1].content).toBe('B');
+    });
+});
+
+describe('conversation history', () => {
+    it('lists the caller\'s conversations', async () => {
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            json: async () => ({ conversations: [{ id: 'c1', updated_at: 'z', preview: 'Вопрос?' }] }),
+        });
+        vi.stubGlobal('fetch', fetchMock);
+
+        const list = await fetchConversations();
+
+        expect(fetchMock.mock.calls[0][0]).toContain('/v1/conversations');
+        expect(list).toEqual([{ id: 'c1', updated_at: 'z', preview: 'Вопрос?' }]);
+    });
+
+    it('returns an empty list rather than throwing when there is no history', async () => {
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) }));
+        expect(await fetchConversations()).toEqual([]);
+    });
+
+    it('fetches one conversation', async () => {
+        const body = { id: 'c1', survey: null, turns: [{ kind: 'user', content: 'q', created_at: 'x' }] };
+        const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => body });
+        vi.stubGlobal('fetch', fetchMock);
+
+        const got = await fetchConversation('c1');
+
+        expect(fetchMock.mock.calls[0][0]).toContain('/v1/conversations/c1');
+        expect(got).toEqual(body);
+    });
+
+    it('returns null for a conversation that is gone or not ours', async () => {
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+        expect(await fetchConversation('nope')).toBeNull();
+    });
+
+    it('shows no history rather than propagating a network failure', async () => {
+        vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')));
+        expect(await fetchConversations()).toEqual([]);
+        expect(await fetchConversation('c1')).toBeNull();
     });
 });

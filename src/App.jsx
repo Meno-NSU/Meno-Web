@@ -8,10 +8,13 @@ import AuthModal from './components/AuthModal.jsx';
 import {
   clearChatHistory,
   ensureGuestSession,
+  fetchConversation,
+  fetchConversations,
   fetchKnowledgeBases,
   fetchModels,
   refreshModels,
   sendChatMessage,
+  recordArenaTurn,
   fetchServiceStatus,
   getPrivacySettings,
   patchPrivacySettings,
@@ -27,8 +30,11 @@ import {
   runArenaSideWithSubstitution,
   ArenaPoolExhaustedError,
 } from './services/arenaMatching.js';
-import { buildArenaHistories } from './services/arenaHistory.js';
+import { buildArenaHistories, nextArenaTurnIndex } from './services/arenaHistory.js';
+import { messagesFromTurns } from './services/conversationRestore.js';
 import {
+  chatFromSummary,
+  chatsForIdentity,
   clearChats,
   createNewChat,
   generateTitle,
@@ -59,6 +65,10 @@ const EMPTY_CHAT = {
     sessionId: '',
   },
 };
+// Stable reference for the "auth not resolved yet" state of visibleChats — a
+// fresh [] literal there would change identity on every render and re-fire
+// every effect that depends on it for as long as auth.ready stays false.
+const EMPTY_CHATS = [];
 
 function resolveValidId(items, candidateId, fallbackId = '') {
   const normalized = typeof candidateId === 'string' ? candidateId.trim() : '';
@@ -71,15 +81,39 @@ function resolveValidId(items, candidateId, fallbackId = '') {
   return fallbackId;
 }
 
+// A local chat's updatedAt is a Date.now() number; a server-derived one (see
+// chatFromSummary) is the backend's ISO timestamp string. `a - b` on two ISO
+// strings is NaN, which Array#sort's stable ordering just passes through
+// unchanged — harmless on its own (the backend already returns newest-first),
+// but the two shapes never appear in the same list until a message is sent to
+// an older server chat and its updatedAt flips to a live Date.now(). At that
+// point a plain numeric subtraction can no longer tell it apart from its
+// still-string-dated neighbours, and it stops bubbling to the top. Normalising
+// both shapes to a real number keeps the comparison meaningful either way.
+function toTimestamp(value) {
+  if (typeof value === 'number') return value;
+  const parsed = Date.parse(value);
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
 function getLatestChatId(chats) {
   if (!Array.isArray(chats) || chats.length === 0) {
     return null;
   }
-  return [...chats].sort((a, b) => b.updatedAt - a.updatedAt)[0].id;
+  return [...chats].sort((a, b) => toTimestamp(b.updatedAt) - toTimestamp(a.updatedAt))[0].id;
 }
 
 function updateChatById(chats, chatId, updater) {
-  return chats.map((chat) => (chat.id === chatId ? updater(chat) : chat));
+  // Returning the exact same array reference when nothing matched (rather than a
+  // new-but-identical one from .map) lets React's setState bail-out skip a
+  // re-render entirely, and stops an unrelated chat mutation from being mistaken,
+  // by reference, for a real change to chats/serverChats it never touched — see
+  // the conversation-load effect below, which used to depend on that reference.
+  const index = chats.findIndex((chat) => chat.id === chatId);
+  if (index === -1) return chats;
+  const next = chats.slice();
+  next[index] = updater(chats[index]);
+  return next;
 }
 
 function replaceLastMessage(messages, updater) {
@@ -191,6 +225,22 @@ function finalizeLastArenaMessage(chats, chatId) {
   });
 }
 
+// Records, locally, the turn_index a just-recorded round was ACTUALLY posted
+// under. Without this, a later vote on this same round (ChatArea.handleVote)
+// would have no stored arenaData.turnIndex to prefer and would fall back to
+// recomputing one via nextArenaTurnIndex/arenaTurnIndex over the same
+// historyBefore the recorder used — landing on the SAME index the recorder
+// just avoided reusing, in a conversation with an earlier gap. Stamping it
+// here is what keeps the recorder and the voter in agreement for this round.
+function stampLastArenaTurnIndex(chats, chatId, turnIndex) {
+  return updateLastMessageInChat(chats, chatId, (message) => {
+    if (!message?.isArena) {
+      return message;
+    }
+    return { ...message, arenaData: { ...message.arenaData, turnIndex } };
+  });
+}
+
 function applyLastMessageNotice(chats, chatId, notice, opts = {}) {
   return updateLastMessageInChat(chats, chatId, (message) => {
     if (!message) {
@@ -239,8 +289,13 @@ function App() {
   const [models, setModels] = useState([]);
   const [kbs, setKbs] = useState([]);
 
-  // Chat state
+  // Chat state. `chats` is the guest/local list (localStorage-backed).
+  // `serverChats` is a signed-in user's list, fetched from the account —
+  // never persisted locally (see the saveChats effect below). Which one is
+  // actually rendered is decided once, by chatsForIdentity, wherever the
+  // sidebar list or the active chat is read (see `visibleChats`).
   const [chats, setChats] = useState(() => loadChats());
+  const [serverChats, setServerChats] = useState([]);
   const [activeChatId, setActiveChatId] = useState(null);
   const [generatingChats, setGeneratingChats] = useState(new Set());
 
@@ -256,6 +311,46 @@ function App() {
   // Auth (S3): optional sign-in — anonymous users keep full chat access.
   const auth = useAuth();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+
+  // Single write path for "the chat currently in use": while signed in it targets
+  // serverChats (the only list rendered for that identity), otherwise the local,
+  // localStorage-backed `chats`. Every handler below that mutates a chat's
+  // content — sending a message, voting, feedback, runtime-config, delete —
+  // goes through this, so a chat created mid-session while signed in (never
+  // returned by fetchConversations, since it didn't exist yet) still renders
+  // and updates correctly: it simply lives in serverChats from the moment it's
+  // created.
+  //
+  // Gated on auth.ready first, same as visibleChats below — the two MUST agree.
+  // While a returning signed-in user's token is still being verified,
+  // isAuthenticated reads false (nothing is proven yet) even though the
+  // eventual identity will be signed-in, but visibleChats already renders
+  // EMPTY_CHATS rather than guessing. Before this fix, setActiveChats
+  // disagreed: it routed on isAuthenticated alone, so pressing "New Chat" in
+  // that window created a chat in `chats` and persisted it to localStorage as
+  // a guest chat (see the saveChats effect below) — then made it vanish the
+  // instant auth resolved and rendering flipped to serverChats. Inert until
+  // ready is simplest and matches what's actually on screen during that
+  // window: nothing.
+  const setActiveChats = useCallback((updater) => {
+    if (!auth.ready) return;
+    if (auth.isAuthenticated) {
+      setServerChats(updater);
+    } else {
+      setChats(updater);
+    }
+  }, [auth.ready, auth.isAuthenticated]);
+
+  // What is actually shown in the sidebar and as the active chat. Gated on
+  // auth.ready (not just isAuthenticated): a returning signed-in user's token
+  // is verified asynchronously, and isAuthenticated is false until that
+  // resolves. Without this gate, a browser with a stored token would render
+  // its LOCAL chats for that brief window — exactly the shared-computer leak
+  // this whole design exists to prevent. A guest with no stored token has
+  // auth.ready true from the first render, so this costs guests nothing.
+  const visibleChats = auth.ready
+    ? chatsForIdentity({ isAuthenticated: auth.isAuthenticated, localChats: chats, serverChats })
+    : EMPTY_CHATS;
 
   // End-of-session survey (S2): chat id awaiting the one-question survey.
   const [surveySessionId, setSurveySessionId] = useState(null);
@@ -378,26 +473,99 @@ function App() {
   }, []);
 
   useEffect(() => {
+    // Persist the LOCAL (guest) list only. A signed-in user's chats live entirely
+    // in serverChats; writing them here would leak an account's history into this
+    // browser's localStorage — precisely the shared-computer risk this design
+    // exists to prevent. Nothing needs to happen on the sign-in transition itself:
+    // `chats` doesn't change while signed in (every mutation routes to serverChats
+    // instead), so there is simply nothing new to persist during that window.
+    if (auth.isAuthenticated) return;
     saveChats(chats);
-  }, [chats]);
+  }, [chats, auth.isAuthenticated]);
+
+  // Fetch a signed-in user's conversation list whenever the identity becomes
+  // signed-in; drop it on sign-out (a guest never sees another account's list,
+  // even for the instant before the next effect run would have cleared it).
+  useEffect(() => {
+    let cancelled = false;
+    if (!auth.isAuthenticated) {
+      setServerChats([]);
+      return () => { cancelled = true; };
+    }
+    (async () => {
+      const summaries = await fetchConversations();
+      if (cancelled) return;
+      setServerChats(summaries.map((s) => chatFromSummary(s, {
+        defaultModelId: resolveValidId(models, localStorage.getItem(LAST_USED_MODEL_KEY), models[0]?.id || ''),
+        defaultKnowledgeBaseId: resolveValidId(kbs, localStorage.getItem(LAST_USED_KB_KEY), kbs[0]?.id || ''),
+      })));
+    })();
+    return () => { cancelled = true; };
+    // Deliberately NOT depending on models/kbs (refreshed every 30s): a
+    // dependency on either would re-fetch the whole conversation list on every
+    // poll tick, discarding any conversation content already loaded by the
+    // effect below (its `messages !== null` guard would then find every
+    // fetched chat "unloaded" again).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auth.isAuthenticated]);
+
+  // Whether the active chat is a server chat still waiting on its content fetch.
+  // Deliberately a primitive, not the serverChats array itself: updateChatById /
+  // updateLastMessageInChat return a NEW array reference on every streamed token
+  // for whichever chat is generating, even a completely unrelated one, and the
+  // load effect below used to depend on that array directly — restarting this
+  // fetch on every one of those unrelated changes (measured at one GET per
+  // streamed token). A boolean only changes when THIS chat's loaded state
+  // actually does.
+  const activeServerChat = auth.isAuthenticated
+    ? serverChats.find((c) => c.id === activeChatId)
+    : undefined;
+  const activeChatStillLoading = !!activeServerChat && activeServerChat.messages === null;
+
+  // Per-chat guard against firing this fetch twice for the same id while one is
+  // already outstanding (e.g. React's dev-mode double-invoke of effects) — belt
+  // and suspenders alongside the dependency fix above.
+  const conversationFetchesInFlightRef = useRef(new Set());
+
+  // Load one conversation's content the first time it's opened.
+  useEffect(() => {
+    if (!auth.isAuthenticated || !activeChatId || !activeChatStillLoading) return;
+    if (conversationFetchesInFlightRef.current.has(activeChatId)) return;
+    conversationFetchesInFlightRef.current.add(activeChatId);
+    const chatIdBeingFetched = activeChatId;
+    let cancelled = false;
+    (async () => {
+      try {
+        const conversation = await fetchConversation(chatIdBeingFetched);
+        if (cancelled) return;
+        // 404 (or a network failure — fetchConversation reads the same either
+        // way) means gone or not ours; show it empty rather than spinning forever.
+        const messages = conversation ? messagesFromTurns(conversation.turns) : [];
+        setServerChats((prev) => prev.map((c) => (c.id === chatIdBeingFetched ? { ...c, messages } : c)));
+      } finally {
+        conversationFetchesInFlightRef.current.delete(chatIdBeingFetched);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [auth.isAuthenticated, activeChatId, activeChatStillLoading]);
 
   useEffect(() => {
-    if (chats.length === 0) {
+    if (visibleChats.length === 0) {
       setActiveChatId(null);
       return;
     }
 
-    if (!activeChatId || !chats.some((chat) => chat.id === activeChatId)) {
-      setActiveChatId(getLatestChatId(chats));
+    if (!activeChatId || !visibleChats.some((chat) => chat.id === activeChatId)) {
+      setActiveChatId(getLatestChatId(visibleChats));
     }
-  }, [chats, activeChatId]);
+  }, [visibleChats, activeChatId]);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('theme', theme);
   }, [theme]);
 
-  const activeChat = chats.find((chat) => chat.id === activeChatId) || EMPTY_CHAT;
+  const activeChat = visibleChats.find((chat) => chat.id === activeChatId) || EMPTY_CHAT;
   const selectedModel = activeChat.runtimeConfig?.modelId || '';
   const selectedKb = activeChat.runtimeConfig?.knowledgeBaseId || '';
 
@@ -487,7 +655,7 @@ function App() {
       return;
     }
 
-    setChats((prev) => updateChatById(prev, activeChatId, (chat) => ({
+    setActiveChats((prev) => updateChatById(prev, activeChatId, (chat) => ({
       ...chat,
       runtimeConfig: {
         ...chat.runtimeConfig,
@@ -531,7 +699,7 @@ function App() {
     const prevId = prevActiveChatRef.current;
     prevActiveChatRef.current = activeChatId;
     if (!prevId || prevId === activeChatId) return;
-    const prevChat = chats.find((chat) => chat.id === prevId);
+    const prevChat = visibleChats.find((chat) => chat.id === prevId);
     if (!prevChat || prevChat.surveyed) return;
     if (generatingChats.has(prevId)) return;
     const hadAnswer = (prevChat.messages || []).some(
@@ -543,11 +711,11 @@ function App() {
     // SURVEY_PROBABILITY chance of opening the modal. See services/surveyGate.js.
     // The prevActiveChatRef guard above makes the setChats re-render a no-op
     // (prevId === activeChatId on the re-run), so this cannot loop.
-    setChats((prev) => prev.map((chat) => (
+    setActiveChats((prev) => prev.map((chat) => (
       chat.id === prevId ? { ...chat, surveyed: true } : chat
     )));
     if (shouldShowSurvey()) setSurveySessionId(prevId);
-  }, [activeChatId, chats, generatingChats]);
+  }, [activeChatId, visibleChats, generatingChats, setActiveChats]);
 
   // Both outcomes mark the chat surveyed locally first (never nag twice, even
   // if the POST fails) and report best-effort: answers as themselves, every
@@ -556,7 +724,7 @@ function App() {
     const sessionId = surveySessionId;
     setSurveySessionId(null);
     if (!sessionId) return;
-    setChats((prev) => prev.map((chat) => (
+    setActiveChats((prev) => prev.map((chat) => (
       chat.id === sessionId ? { ...chat, surveyed: true } : chat
     )));
     submitSurvey({ sessionId, answer }).catch((error) => {
@@ -595,8 +763,10 @@ function App() {
     // of stacking another empty placeholder. Without this, switching to an
     // existing-with-messages chat and pressing "new chat" was creating a
     // fresh empty every time (the old guard only checked the *current*
-    // chat).
-    const existingEmpty = chats.find((c) => !c.messages || c.messages.length === 0);
+    // chat). A server chat summary not yet opened carries `messages: null`
+    // (see chatFromSummary) — Array.isArray excludes it from this check, so
+    // an unopened conversation is never mistaken for an empty one.
+    const existingEmpty = visibleChats.find((c) => Array.isArray(c.messages) && c.messages.length === 0);
     if (existingEmpty) {
       setActiveChatId(existingEmpty.id);
       return;
@@ -615,25 +785,34 @@ function App() {
       ),
     });
 
-    setChats((prev) => [nextChat, ...prev]);
+    // While signed in this lands in serverChats (see setActiveChats): a chat
+    // created mid-session, never returned by fetchConversations, still needs
+    // to be part of the list that's actually rendered.
+    setActiveChats((prev) => [nextChat, ...prev]);
     setActiveChatId(nextChat.id);
   };
 
-  // Logout wipes account-specific local state so the next person on this browser
-  // cannot see the previous session's history (privacy: shared-device leak).
+  // Logout signs out but must NOT touch local (guest) history: that history was
+  // only ever hidden while signed in (chatsForIdentity), never destroyed, and
+  // the whole point is that it comes back now. serverChats itself clears
+  // reactively (the auth.isAuthenticated-driven effect above resets it to []
+  // on sign-out) — nothing to do for it here. A guest who never had a local
+  // chat (e.g. registered and signed in immediately) still deserves a fresh
+  // one to land on.
   const handleLogout = () => {
     auth.logout();
-    clearChats();
-    const fresh = createNewChat({
-      modelId: resolveValidId(models, localStorage.getItem(LAST_USED_MODEL_KEY), models[0]?.id || ''),
-      knowledgeBaseId: resolveValidId(kbs, localStorage.getItem(LAST_USED_KB_KEY), kbs[0]?.id || ''),
-    });
-    setChats([fresh]);
-    setActiveChatId(fresh.id);
+    if (chats.length === 0) {
+      const fresh = createNewChat({
+        modelId: resolveValidId(models, localStorage.getItem(LAST_USED_MODEL_KEY), models[0]?.id || ''),
+        knowledgeBaseId: resolveValidId(kbs, localStorage.getItem(LAST_USED_KB_KEY), kbs[0]?.id || ''),
+      });
+      setChats([fresh]);
+      setActiveChatId(fresh.id);
+    }
   };
 
   const handleDeleteChat = (id) => {
-    setChats((prev) => prev.filter((chat) => chat.id !== id));
+    setActiveChats((prev) => prev.filter((chat) => chat.id !== id));
     if (activeChatId === id) {
       setActiveChatId(null);
     }
@@ -651,7 +830,7 @@ function App() {
       return;
     }
 
-    const targetChat = chats.find((chat) => chat.id === targetChatId);
+    const targetChat = visibleChats.find((chat) => chat.id === targetChatId);
     if (!targetChat) {
       return;
     }
@@ -680,10 +859,16 @@ function App() {
     // not `content`, so nothing stale leaks, and keeping the assistant slot
     // preserves the strict user/assistant alternation the backend requires —
     // stripping them would create consecutive user turns and 500 there.
-    const messageHistory = isRetry ? dropTrailingNotice(targetChat.messages) : [...targetChat.messages, userMessage];
+    // targetChat.messages can be null here: a server chat summary whose content
+    // hasn't finished loading yet (see chatFromSummary). Treated as empty rather
+    // than crashing on the spread below; see setActiveChats for why this can't
+    // race the background fetch and lose the fetched history underneath it.
+    const existingMessages = targetChat.messages || [];
+    const messageHistory = isRetry ? dropTrailingNotice(existingMessages) : [...existingMessages, userMessage];
 
-    setChats((prev) => updateChatById(prev, targetChatId, (chat) => {
-      const nextMessages = isRetry ? dropTrailingNotice(chat.messages) : [...chat.messages, userMessage];
+    setActiveChats((prev) => updateChatById(prev, targetChatId, (chat) => {
+      const chatMessages = chat.messages || [];
+      const nextMessages = isRetry ? dropTrailingNotice(chatMessages) : [...chatMessages, userMessage];
       return {
         ...chat,
         messages: nextMessages,
@@ -706,7 +891,7 @@ function App() {
       if (isArenaMode) {
         const pool = buildArenaPool(models);
         if (pool.length < 2) {
-          setChats((prev) => updateChatById(prev, targetChatId, (chat) => ({
+          setActiveChats((prev) => updateChatById(prev, targetChatId, (chat) => ({
             ...chat,
             messages: [
               ...chat.messages,
@@ -747,7 +932,7 @@ function App() {
             voted: false, winner: null,
           },
         };
-        setChats((prev) => updateChatById(prev, targetChatId, (chat) => ({
+        setActiveChats((prev) => updateChatById(prev, targetChatId, (chat) => ({
           ...chat, messages: [...chat.messages, arenaMessage],
         })));
 
@@ -758,7 +943,7 @@ function App() {
         // pickArenaPair internally weighs vLLM models higher than OpenRouter.
         const pair = pickArenaPair(pool);
         if (!pair) {
-          setChats((prev) => updateChatById(prev, targetChatId, (chat) => ({
+          setActiveChats((prev) => updateChatById(prev, targetChatId, (chat) => ({
             ...chat,
             messages: [
               ...chat.messages.slice(0, -1),
@@ -775,6 +960,10 @@ function App() {
         const excludeA = new Set([pair.b.id]);
         const excludeB = new Set([pair.a.id]);
         const sideFailedExhaustion = { a: false, b: false };
+        // Populated on each side's successful, non-blank completion so the finished
+        // comparison can be posted once both sides land — React state (arenaData.a/b)
+        // isn't readable synchronously right after the setChats calls below.
+        const sideResults = { a: null, b: null };
 
         const runSide = async (sideKey) => {
           const sideExclude = sideKey === 'a' ? excludeA : excludeB;
@@ -785,26 +974,38 @@ function App() {
           // tokens lands in the success branch and the bubble becomes
           // votable on a blank response — user reported exactly this.
           let receivedContent = false;
+          // Sources shown for this side's answer, captured off the stream so
+          // recordArenaTurn can send what the bubble actually displays instead
+          // of an empty list. Reset on substitution (below) so a burned
+          // attempt's sources never end up attached to the replacement
+          // model's answer.
+          let sideSources = [];
           try {
-            const { model } = await runArenaSideWithSubstitution({
+            const { model, result } = await runArenaSideWithSubstitution({
               pool, exclude: sideExclude, kbId, messages: sideMessages, sessionId: requestConfig.sessionId,
               initialCandidate: sideInitial,
               sendChat: sendChatMessage,
+              arena: true,
               // Notify the user the moment we burn a model and pick another:
               // briefly write a hint into this side's content so they know
               // why this column is still spinning. The hint is overwritten
               // by the next model's content as soon as it starts streaming.
               onSubstitution: () => {
-                setChats((prev) => updateLastArenaMessageSide(prev, targetChatId, sideKey, (sideState) => ({
+                sideSources = [];
+                setActiveChats((prev) => updateLastArenaMessageSide(prev, targetChatId, sideKey, (sideState) => ({
                   ...sideState, content: `⏳ ${i18nLookup('arenaModelSwitched')}`,
                 })));
               },
               onEvent: (event) => {
+                if (event.type === 'sources') {
+                  sideSources = event.sources || [];
+                  return;
+                }
                 if (event.type !== 'content') return;
                 if (event.fullContent && event.fullContent.length > 0) {
                   receivedContent = true;
                 }
-                setChats((prev) => updateLastArenaMessageSide(prev, targetChatId, sideKey, (sideState) => (
+                setActiveChats((prev) => updateLastArenaMessageSide(prev, targetChatId, sideKey, (sideState) => (
                   applyArenaSideContent(sideState, event.fullContent)
                 )));
               },
@@ -814,7 +1015,7 @@ function App() {
               // false in ArenaMessageBubble and the user can't vote on a
               // missing answer. Stop the spinner regardless — this side IS
               // done, just unsuccessfully.
-              setChats((prev) => updateLastArenaMessageSide(prev, targetChatId, sideKey, (sideState) => ({
+              setActiveChats((prev) => updateLastArenaMessageSide(prev, targetChatId, sideKey, (sideState) => ({
                 ...sideState,
                 model: null,
                 isStreaming: false,
@@ -826,7 +1027,8 @@ function App() {
             // though the other side may still be streaming. Avoids the
             // "two thinking phrases when only one is actually working"
             // confusion.
-            setChats((prev) => updateLastArenaMessageSide(prev, targetChatId, sideKey, (sideState) => ({
+            sideResults[sideKey] = { model: model.id, content: result?.content || '', sources: sideSources };
+            setActiveChats((prev) => updateLastArenaMessageSide(prev, targetChatId, sideKey, (sideState) => ({
               ...sideState, model: model.id, isStreaming: false,
             })));
           } catch (error) {
@@ -835,7 +1037,7 @@ function App() {
             const notice = isExhausted
               ? { kind: 'error', key: 'arenaModelSearchFailed' }
               : buildErrorNotice(error);
-            setChats((prev) => updateLastArenaMessageSide(prev, targetChatId, sideKey, (sideState) => ({
+            setActiveChats((prev) => updateLastArenaMessageSide(prev, targetChatId, sideKey, (sideState) => ({
               ...sideState, isStreaming: false, ...(sideState.content ? {} : { notice }),
             })));
             refreshModelsAndApplyState();
@@ -848,7 +1050,7 @@ function App() {
           // Strip the unvotable arena bubble and leave a non-arena notice so
           // input unlocks and the chat history walker doesn't see a pending
           // arena round forever.
-          setChats((prev) => updateChatById(prev, targetChatId, (chat) => ({
+          setActiveChats((prev) => updateChatById(prev, targetChatId, (chat) => ({
             ...chat,
             messages: [
               ...chat.messages.slice(0, -1),
@@ -863,7 +1065,47 @@ function App() {
           return;
         }
 
-        setChats((prev) => finalizeLastArenaMessage(prev, targetChatId));
+        setActiveChats((prev) => finalizeLastArenaMessage(prev, targetChatId));
+
+        if (sideResults.a && sideResults.b) {
+          // Store the comparison itself. Best-effort: the answer is already on screen, and a
+          // failure here must never surface as a chat error. It is also a no-op server-side
+          // without the history consent.
+          //
+          // Computed once, from the restored+live history actually in front of us right now
+          // (not a plain count — see nextArenaTurnIndex for why a restored conversation with
+          // an earlier unposted round needs this instead of arenaTurnIndex).
+          const turnIndexForThisRound = nextArenaTurnIndex(historyBefore);
+          try {
+            await recordArenaTurn({
+              sessionId: requestConfig.sessionId,
+              question: userMessage.content,
+              turnIndex: turnIndexForThisRound,
+              sides: [
+                { key: 'a', model: sideResults.a.model, knowledgeBaseId: kbId, content: sideResults.a.content, sources: sideResults.a.sources },
+                { key: 'b', model: sideResults.b.model, knowledgeBaseId: kbId, content: sideResults.b.content, sources: sideResults.b.sources },
+              ],
+            });
+            // Stamp the index this round actually landed on so a later vote
+            // (ChatArea.handleVote) uses it directly instead of recomputing —
+            // see stampLastArenaTurnIndex.
+            setActiveChats((prev) => stampLastArenaTurnIndex(prev, targetChatId, turnIndexForThisRound));
+          } catch (error) {
+            console.error('Failed to record the arena turn:', error);
+          }
+        } else {
+          // One or both sides never produced a votable answer (blank response, or a
+          // non-exhaustion error) — bothSidesReady in ArenaMessageBubble is false too,
+          // so this round can never be voted on and skipping the POST loses nothing
+          // vote-wise. But log it: without this, "never posted" and "posted then lost"
+          // look identical from the outside, and a comparison missing from restored
+          // history would otherwise be silent all the way through.
+          console.warn('Arena turn not recorded: at least one side produced no result.', {
+            sessionId: requestConfig.sessionId,
+            hasA: !!sideResults.a,
+            hasB: !!sideResults.b,
+          });
+        }
       } else {
         const assistantMessage = {
           role: 'assistant',
@@ -878,7 +1120,7 @@ function App() {
           isStreaming: true,
         };
 
-        setChats((prev) => updateChatById(prev, targetChatId, (chat) => ({
+        setActiveChats((prev) => updateChatById(prev, targetChatId, (chat) => ({
           ...chat,
           messages: [...chat.messages, assistantMessage],
         })));
@@ -894,7 +1136,7 @@ function App() {
           stream: true,
           onEvent: (event) => {
             if (event.type === 'stage') {
-              setChats((prev) => updateLastMessageInChat(prev, targetChatId, (message) => {
+              setActiveChats((prev) => updateLastMessageInChat(prev, targetChatId, (message) => {
                 if (message?.isArena || message?.role !== 'assistant') {
                   return message;
                 }
@@ -949,7 +1191,7 @@ function App() {
             }
 
             if (event.type === 'slow_warning') {
-              setChats((prev) => updateLastMessageInChat(prev, targetChatId, (message) => {
+              setActiveChats((prev) => updateLastMessageInChat(prev, targetChatId, (message) => {
                 if (message?.isArena || message?.role !== 'assistant') return message;
                 return { ...message, slowWarning: true };
               }));
@@ -957,7 +1199,7 @@ function App() {
             }
 
             if (event.type === 'thinking') {
-              setChats((prev) => updateLastMessageInChat(prev, targetChatId, (message) => {
+              setActiveChats((prev) => updateLastMessageInChat(prev, targetChatId, (message) => {
                 if (message?.isArena || message?.role !== 'assistant') {
                   return message;
                 }
@@ -970,7 +1212,7 @@ function App() {
             }
 
             if (event.type === 'summary') {
-              setChats((prev) => updateLastMessageInChat(prev, targetChatId, (message) => {
+              setActiveChats((prev) => updateLastMessageInChat(prev, targetChatId, (message) => {
                 if (message?.isArena || message?.role !== 'assistant') {
                   return message;
                 }
@@ -988,7 +1230,7 @@ function App() {
             }
 
             if (event.type === 'sources') {
-              setChats((prev) => updateLastMessageInChat(prev, targetChatId, (message) => {
+              setActiveChats((prev) => updateLastMessageInChat(prev, targetChatId, (message) => {
                 if (message?.isArena || message?.role !== 'assistant') return message;
                 return { ...message, sources: event.sources };
               }));
@@ -996,7 +1238,7 @@ function App() {
             }
 
             if (event.type === 'model') {
-              setChats((prev) => updateLastMessageInChat(prev, targetChatId, (message) => {
+              setActiveChats((prev) => updateLastMessageInChat(prev, targetChatId, (message) => {
                 if (message?.isArena || message?.role !== 'assistant' || message.responseModelId === event.modelId) {
                   return message;
                 }
@@ -1010,7 +1252,7 @@ function App() {
             }
 
             if (event.type === 'content') {
-              setChats((prev) => updateLastMessageInChat(prev, targetChatId, (message) => {
+              setActiveChats((prev) => updateLastMessageInChat(prev, targetChatId, (message) => {
                 if (message?.isArena || message?.role !== 'assistant') {
                   return message;
                 }
@@ -1025,7 +1267,7 @@ function App() {
           },
         });
 
-        setChats((prev) => updateLastMessageInChat(prev, targetChatId, (message) => {
+        setActiveChats((prev) => updateLastMessageInChat(prev, targetChatId, (message) => {
           if (message?.isArena || message?.role !== 'assistant') {
             return message;
           }
@@ -1054,7 +1296,7 @@ function App() {
       if (error?.code === 'user_stopped') {
         // Manual stop: keep whatever streamed, show a neutral "Stopped" notice and
         // a retry. No /v1/status probe, no model refresh — nothing failed.
-        setChats((prev) => applyLastMessageNotice(prev, targetChatId, buildStopNotice(), { userText: trimmedText }));
+        setActiveChats((prev) => applyLastMessageNotice(prev, targetChatId, buildStopNotice(), { userText: trimmedText }));
       } else {
         // Overload UX: for a timeout, fetch live load so the message can show
         // "~N in progress" past the threshold. Retry re-runs this same user turn.
@@ -1066,7 +1308,7 @@ function App() {
                   ? { active: error?.activeRequests, limit: error?.limit }
                   : {},
               );
-        setChats((prev) => applyLastMessageNotice(prev, targetChatId, buildErrorNotice(error, { load }), { userText: trimmedText }));
+        setActiveChats((prev) => applyLastMessageNotice(prev, targetChatId, buildErrorNotice(error, { load }), { userText: trimmedText }));
         refreshModelsAndApplyState();
       }
     } finally {
@@ -1184,7 +1426,15 @@ function App() {
     }
   };
 
+  // Guest-only, by design: this clears `chats` (the localStorage-backed list),
+  // never serverChats. While signed in, `chats` IS the guest's pre-sign-in
+  // history — hidden, not deleted (chatsForIdentity) — so running this here
+  // would silently destroy it while the sidebar (rendering serverChats)
+  // shows no effect at all: the same promise handleLogout above protects by
+  // never touching `chats`. Inert while signed in; SettingsModal is told
+  // (isAuthenticated) to not offer a control that would do nothing.
   const handleClearLocalHistory = () => {
+    if (auth.isAuthenticated) return;
     clearChats();
     const fresh = createNewChat({
       modelId: resolveValidId(models, localStorage.getItem(LAST_USED_MODEL_KEY), models[0]?.id || ''),
@@ -1197,6 +1447,9 @@ function App() {
 
   // Erase the server-side history but stay signed in — the identity survives, so only
   // the chat list resets. Distinct from handleDeleteData, which also drops the account.
+  // Resets serverChats directly (not local `chats`, and not through setActiveChats):
+  // this is unconditionally about the server-rendered view, and local history — whatever
+  // guest chats were hidden before this sign-in — is not this action's business.
   const handleDeleteServerHistory = async () => {
     try {
       await deleteServerHistory();
@@ -1204,12 +1457,11 @@ function App() {
       console.warn('Server history deletion failed', error);
       return;
     }
-    clearChats();
     const fresh = createNewChat({
       modelId: resolveValidId(models, localStorage.getItem(LAST_USED_MODEL_KEY), models[0]?.id || ''),
       knowledgeBaseId: resolveValidId(kbs, localStorage.getItem(LAST_USED_KB_KEY), kbs[0]?.id || ''),
     });
-    setChats([fresh]);
+    setServerChats([fresh]);
     setActiveChatId(fresh.id);
     setIsSettingsOpen(false);
   };
@@ -1243,7 +1495,7 @@ function App() {
     setIsConsentModalVisible(true);
   };
 
-  const sortedChats = [...chats].sort((a, b) => b.updatedAt - a.updatedAt);
+  const sortedChats = [...visibleChats].sort((a, b) => toTimestamp(b.updatedAt) - toTimestamp(a.updatedAt));
 
   return (
     <div className="app-container">
@@ -1269,6 +1521,7 @@ function App() {
         onOpenAuth={() => setIsAuthModalOpen(true)}
         onLogout={handleLogout}
         onOpenSettings={handleOpenSettings}
+        isAuthenticated={auth.isAuthenticated}
       />
 
       <main className="main-content">
@@ -1307,7 +1560,7 @@ function App() {
             );
             return (
               <ChatArea
-                messages={activeChat.messages}
+                messages={activeChatMessages}
                 isGenerating={isGeneratingNow}
                 onSendMessage={handleSendMessage}
                 onRetry={handleRetryMessage}
@@ -1317,8 +1570,9 @@ function App() {
                 selectedKb={selectedKb}
                 onKbChange={handleKbChange}
                 chatId={activeChatId}
-                setChats={setChats}
+                setChats={setActiveChats}
                 voteIsPending={voteIsPending}
+                isLoadingConversation={activeChatStillLoading}
               />
             );
           })()
@@ -1353,6 +1607,7 @@ function App() {
         onClose={() => setIsSettingsOpen(false)}
         improvementEnabled={improvementEnabled}
         onToggleImprovement={handleToggleImprovement}
+        isAuthenticated={auth.isAuthenticated}
         onClearHistory={handleClearLocalHistory}
         onDeleteServerHistory={handleDeleteServerHistory}
         onDeleteData={handleDeleteData}

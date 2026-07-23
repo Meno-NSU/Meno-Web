@@ -55,3 +55,36 @@ describe('ChatArea — stop / retry', () => {
     expect(queryByText('!')).toBeNull();
   });
 });
+
+describe('ChatArea — a chat whose content has not loaded yet', () => {
+  // A signed-in chat restored from a server conversation summary carries
+  // `messages: null` until its content is fetched (see chatFromSummary /
+  // App.jsx). This must render as the empty state, not crash.
+  it('renders the empty state instead of crashing when messages is null', () => {
+    expect(() => render(<ChatArea {...baseProps} messages={null} />)).not.toThrow();
+  });
+
+  // App.jsx computes `activeChatStillLoading` and must thread it in as
+  // `isLoadingConversation` — without a distinct visible state, a restored
+  // conversation looks exactly like a brand-new empty chat: the user can type
+  // and send into it before the fetch resolves, the optimistic append lands
+  // first, and (per the load effect's `messages === null` guard) the fetch
+  // then never re-fires — the restored history is lost for that session.
+  it('shows a loading state instead of the empty-chat hero, and disables the input', () => {
+    const { getByText, queryByText, container } = render(
+      <ChatArea {...baseProps} messages={null} isLoadingConversation />,
+    );
+    expect(getByText('Восстанавливаем историю чата…')).toBeTruthy();
+    expect(queryByText('Что хотите узнать об НГУ?')).toBeNull();
+    expect(container.querySelector('.chat-textarea').disabled).toBe(true);
+    expect(container.querySelector('.send-btn').disabled).toBe(true);
+  });
+
+  it('still shows the ordinary empty-chat hero, with a live input, when not loading', () => {
+    const { getByText, container } = render(
+      <ChatArea {...baseProps} messages={[]} isLoadingConversation={false} />,
+    );
+    expect(getByText('Что хотите узнать об НГУ?')).toBeTruthy();
+    expect(container.querySelector('.chat-textarea').disabled).toBe(false);
+  });
+});

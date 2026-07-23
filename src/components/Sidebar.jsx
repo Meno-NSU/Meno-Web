@@ -24,6 +24,7 @@ export default function Sidebar({
     isArenaMode, setIsArenaMode,
     user, onOpenAuth, onLogout,
     onOpenSettings,
+    isAuthenticated,
 }) {
     const { t, lang, setLanguage } = useTranslation();
     if (!isOpen) {
@@ -110,6 +111,9 @@ export default function Sidebar({
                         </ul>
                     ) : (
                         <div className="no-chats-msg">{t("noRecentChats")}</div>
+                    )}
+                    {!isAuthenticated && (
+                        <div className="sidebar-guest-notice">{t("guestChatsLocalOnly")}</div>
                     )}
                 </div>
 

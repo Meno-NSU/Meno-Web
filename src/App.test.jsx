@@ -225,6 +225,27 @@ describe('App — registration is one consent to purposes 1-3', () => {
   });
 });
 
+describe('App — an untouched first chat is not listed until it holds a message', () => {
+  it('shows an empty sidebar (no deletable "New Conversation") for a fresh guest, while the composer still works', async () => {
+    // Fresh guest: no stored chats. initData seeds a draft so the composer has a
+    // target, but a never-sent draft must NOT appear in the list — before the first
+    // message there is no conversation to show, and nothing to offer a delete on.
+    getAuthToken.mockReturnValue(null);
+    fetchMe.mockResolvedValue(null);
+
+    const { container } = render(<App />);
+
+    // Composer is live (the draft exists as the send target)...
+    await waitFor(() => expect(container.querySelector('.chat-textarea')).toBeTruthy());
+    // ...but the sidebar list is empty: no chat rows, no delete buttons, empty-state shown.
+    expect(container.querySelector('.chat-list-item')).toBeNull();
+    expect(container.querySelector('.delete-chat-btn')).toBeNull();
+    expect(container.querySelector('.no-chats-msg')).toBeTruthy();
+    // And no stray English "New Conversation" leaked into the UI.
+    expect(screen.queryByText('New Conversation')).toBeNull();
+  });
+});
+
 describe('App — opening a not-yet-loaded conversation', () => {
   it('fetches its content exactly once, even across unrelated re-renders and updates to the same chat', async () => {
     // Two models so a mid-load model switch (below) has something to switch

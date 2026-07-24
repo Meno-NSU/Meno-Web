@@ -5,6 +5,7 @@ const translations = {
     ru: {
         newChat: "Новый чат",
         recentChats: "Недавние чаты",
+        deleteChat: "Удалить чат",
         noRecentChats: "Нет недавних чатов",
         historyLoadFailed: "Не удалось загрузить историю. Проверьте соединение и обновите страницу.",
         guestChatsLocalOnly: "Чаты хранятся только в этом браузере. Войдите, чтобы они сохранялись в аккаунте и открывались на других устройствах.",
@@ -181,6 +182,7 @@ const translations = {
     en: {
         newChat: "New Chat",
         recentChats: "Recent Chats",
+        deleteChat: "Delete chat",
         noRecentChats: "No recent chats",
         historyLoadFailed: "Could not load your history. Check your connection and reload.",
         guestChatsLocalOnly: "Chats are stored only in this browser. Sign in to keep them in your account and open them anywhere.",

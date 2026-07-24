@@ -42,6 +42,7 @@ import {
   clearChats,
   createNewChat,
   generateTitle,
+  isEmptyDraft,
   loadChats,
   migrateChats,
   saveChats,
@@ -840,7 +841,7 @@ function App() {
     // chat). A server chat summary not yet opened carries `messages: null`
     // (see chatFromSummary) — Array.isArray excludes it from this check, so
     // an unopened conversation is never mistaken for an empty one.
-    const existingEmpty = visibleChats.find((c) => Array.isArray(c.messages) && c.messages.length === 0);
+    const existingEmpty = visibleChats.find(isEmptyDraft);
     if (existingEmpty) {
       setActiveChatId(existingEmpty.id);
       return;
@@ -1588,13 +1589,18 @@ function App() {
   };
 
   const sortedChats = [...visibleChats].sort((a, b) => toTimestamp(b.updatedAt) - toTimestamp(a.updatedAt));
+  // The list the sidebar renders excludes a never-sent draft: before the first
+  // message there is no conversation to show, so the sidebar stays empty and the
+  // draft carries no delete affordance. The draft still lives in visibleChats as
+  // the composer's send target; on first send it gains a message and appears here.
+  const listedChats = sortedChats.filter((chat) => !isEmptyDraft(chat));
 
   return (
     <div className="app-container">
       <Sidebar
         isOpen={isSidebarOpen}
         toggleSidebar={toggleSidebar}
-        chats={sortedChats}
+        chats={listedChats}
         activeChatId={activeChatId}
         onSelectChat={(id) => {
           setActiveChatId(id);

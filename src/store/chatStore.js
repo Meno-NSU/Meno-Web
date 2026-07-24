@@ -1,5 +1,20 @@
 const STORAGE_KEY = 'meno_core_chats';
-const DEFAULT_CHAT_TITLE = 'New Conversation';
+// A chat with no title of its own. Kept empty on purpose: the UI localizes it at
+// render time via `chat.title || t('newChat')`, so we never store a hardcoded
+// (English) default that would then show through in the Russian interface.
+const DEFAULT_CHAT_TITLE = '';
+// The English default older builds stored into localStorage. Normalized back to
+// "untitled" on load so a returning guest's old drafts also localize.
+const LEGACY_DEFAULT_TITLE = 'New Conversation';
+
+// A never-sent draft — the "Новый чат" the composer targets before the first send.
+// Its message array exists but is empty, which distinguishes it from an unloaded
+// server chat (`messages === null`) and a real chat (`messages.length > 0`). Such a
+// draft is a valid send target but must not appear in the sidebar list: until the
+// first message there is no conversation to show yet.
+export function isEmptyDraft(chat) {
+    return Array.isArray(chat?.messages) && chat.messages.length === 0;
+}
 
 // Generate a unique id (crypto UUID; also reused as the backend session id).
 const generateId = () => crypto.randomUUID();
@@ -51,6 +66,13 @@ export function buildRuntimeConfig({ chatId, modelId = '', knowledgeBaseId = '' 
     };
 }
 
+// A stored title, cleaned to our "untitled = empty" convention: trims whitespace,
+// and treats the old English default as untitled so it localizes at render.
+function normalizeStoredTitle(value) {
+    const trimmed = typeof value === 'string' ? value.trim() : '';
+    return trimmed && trimmed !== LEGACY_DEFAULT_TITLE ? trimmed : DEFAULT_CHAT_TITLE;
+}
+
 export function migrateChats(
     chats,
     {
@@ -73,9 +95,7 @@ export function migrateChats(
         return {
             ...chat,
             id: chatId,
-            title: typeof chat?.title === 'string' && chat.title.trim()
-                ? chat.title
-                : DEFAULT_CHAT_TITLE,
+            title: normalizeStoredTitle(chat?.title),
             messages: Array.isArray(chat?.messages) ? chat.messages : [],
             updatedAt: typeof chat?.updatedAt === 'number' ? chat.updatedAt : Date.now(),
             runtimeConfig: buildRuntimeConfig({

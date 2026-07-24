@@ -5,7 +5,9 @@ import {
   chatsForIdentity,
   clearChats,
   createNewChat,
+  isEmptyDraft,
   loadChats,
+  migrateChats,
   saveChats,
 } from './chatStore.js';
 
@@ -24,6 +26,43 @@ describe('createNewChat id', () => {
         expect(a.id).not.toBe(b.id);
         // the id is reused as the backend session id
         expect(a.runtimeConfig.sessionId).toBe(a.id);
+    });
+});
+
+describe('createNewChat title', () => {
+    it('is untitled (empty) so the UI localizes it, never a hardcoded English default', () => {
+        expect(createNewChat().title).toBe('');
+    });
+});
+
+describe('isEmptyDraft', () => {
+    it('is true only for a never-sent draft (an empty message array)', () => {
+        expect(isEmptyDraft({ messages: [] })).toBe(true);
+    });
+    it('is false for an unloaded server chat (messages === null)', () => {
+        expect(isEmptyDraft({ messages: null })).toBe(false);
+    });
+    it('is false for a real chat that holds messages', () => {
+        expect(isEmptyDraft({ messages: [{ role: 'user', content: 'hi' }] })).toBe(false);
+    });
+    it('is false for a malformed chat with no messages field', () => {
+        expect(isEmptyDraft({})).toBe(false);
+        expect(isEmptyDraft(null)).toBe(false);
+    });
+});
+
+describe('migrateChats title normalization', () => {
+    it('rewrites the legacy English default title to untitled so it localizes', () => {
+        const [chat] = migrateChats([{ id: 'c1', title: 'New Conversation', messages: [] }]);
+        expect(chat.title).toBe('');
+    });
+    it('keeps a real title', () => {
+        const [chat] = migrateChats([{ id: 'c1', title: 'Как поступить в НГУ?', messages: [] }]);
+        expect(chat.title).toBe('Как поступить в НГУ?');
+    });
+    it('treats a blank/whitespace title as untitled', () => {
+        const [chat] = migrateChats([{ id: 'c1', title: '   ', messages: [] }]);
+        expect(chat.title).toBe('');
     });
 });
 

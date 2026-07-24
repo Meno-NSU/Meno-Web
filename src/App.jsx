@@ -546,6 +546,19 @@ function App() {
         return;
       }
       setHistoryLoadFailed(false);
+      if (summaries.length === 0) {
+        // A signed-in user with no stored history still needs a chat to work in —
+        // the same fresh draft a guest gets from initData. Without it visibleChats
+        // is empty, activeChatId is set to null, and handleSendMessage returns
+        // silently on `!targetChatId`: the composer looks live but sending does
+        // nothing. The draft lives only in serverChats (never localStorage), and
+        // its first sent message creates the real conversation server-side.
+        setServerChats([createNewChat({
+          modelId: resolveValidId(models, localStorage.getItem(LAST_USED_MODEL_KEY), models[0]?.id || ''),
+          knowledgeBaseId: resolveValidId(kbs, localStorage.getItem(LAST_USED_KB_KEY), kbs[0]?.id || ''),
+        })]);
+        return;
+      }
       setServerChats(summaries.map((s) => chatFromSummary(s, {
         defaultModelId: resolveValidId(models, localStorage.getItem(LAST_USED_MODEL_KEY), models[0]?.id || ''),
         defaultKnowledgeBaseId: resolveValidId(kbs, localStorage.getItem(LAST_USED_KB_KEY), kbs[0]?.id || ''),

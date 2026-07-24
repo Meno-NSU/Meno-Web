@@ -182,3 +182,25 @@
 .auth-consent-notice a {
     color: var(--accent-primary);
 }
+
+.auth-consent-check {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    font-size: 0.8125rem;
+    line-height: 1.45;
+    color: var(--text-secondary);
+    text-align: left;
+    cursor: pointer;
+    margin: 0.25rem 0 0.25rem;
+}
+
+.auth-consent-check input {
+    flex: 0 0 auto;
+    margin-top: 0.15rem;
+    cursor: pointer;
+}
+
+.auth-consent-check a {
+    color: var(--accent-primary);
+}

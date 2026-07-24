@@ -63,6 +63,8 @@ import {
   getAuthToken,
   fetchMe,
   login,
+  register,
+  patchPrivacySettings,
   submitSurvey,
   sendChatMessage,
 } from './services/api.js';
@@ -178,6 +180,48 @@ describe('App — a signed-in user with no stored history can still send', () =>
     fireEvent.submit(container.querySelector('.input-form'));
 
     await waitFor(() => expect(sendChatMessage).toHaveBeenCalledTimes(1));
+  });
+});
+
+describe('App — registration is one consent to purposes 1-3', () => {
+  it('records menoImprovement:true (source registration) once the consent box is checked', async () => {
+    // The mandatory registration checkbox grants purposes 1-3 in one act, so the
+    // improvement toggle (purpose 3) must start ON — this is the exact wire whose
+    // previous `false` left the Settings toggle unchecked after accepting consent.
+    getLegalDocuments.mockResolvedValue([{ kind: 'personal_data_consent', version: '2.0' }]);
+    register.mockResolvedValue({
+      token: 'tok-new',
+      user: { id: 'u2', email: 'new@nsu.ru', nickname: null },
+    });
+    patchPrivacySettings.mockResolvedValue({});
+    fetchConversations.mockResolvedValue([]);
+    fetchConversation.mockResolvedValue({ turns: [] });
+
+    const { container } = render(<App />);
+    await waitFor(() => expect(container.querySelector('.auth-signin-btn')).toBeTruthy());
+
+    fireEvent.click(container.querySelector('.auth-signin-btn'));
+    fireEvent.click(container.querySelectorAll('.auth-tab')[1]); // register tab
+    fireEvent.change(container.querySelector('.auth-card input[type="email"]'), {
+      target: { value: 'new@nsu.ru' },
+    });
+    fireEvent.change(container.querySelector('.auth-card input[type="password"]'), {
+      target: { value: 'secret123' },
+    });
+    fireEvent.click(container.querySelector('.auth-consent-check input[type="checkbox"]'));
+    fireEvent.submit(container.querySelector('.auth-form'));
+
+    await waitFor(() => expect(register).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(patchPrivacySettings).toHaveBeenCalledWith(
+        expect.objectContaining({
+          documentVersion: '2.0',
+          serviceAndHistory: true,
+          menoImprovement: true,
+          source: 'registration',
+        }),
+      ),
+    );
   });
 });
 

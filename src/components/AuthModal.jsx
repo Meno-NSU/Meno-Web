@@ -17,6 +17,10 @@ function AuthModalCard({ onClose, login, register }) {
     const [password, setPassword] = useState('');
     const [error, setError] = useState(null);
     const [pending, setPending] = useState(false);
+    // Registration requires an explicit consent action (152-ФЗ): checking this box grants
+    // consent to purposes 1-3 of the Consent document in one action. Without it there is no
+    // account. Reset whenever the tab changes so a stale check can't carry into a new attempt.
+    const [consentChecked, setConsentChecked] = useState(false);
     const emailRef = useRef(null);
 
     useEffect(() => {
@@ -34,11 +38,17 @@ function AuthModalCard({ onClose, login, register }) {
     const switchMode = (next) => {
         setMode(next);
         setError(null);
+        setConsentChecked(false);
     };
+
+    // Registration is gated on the consent box; login never is.
+    const submitDisabled = pending || (mode === 'register' && !consentChecked);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (pending) return;
+        // Belt to the disabled button's braces: registration cannot proceed without consent.
+        if (mode === 'register' && !consentChecked) return;
         setPending(true);
         setError(null);
         try {
@@ -142,16 +152,34 @@ function AuthModalCard({ onClose, login, register }) {
                         </div>
                     )}
 
-                    <button className="btn-primary auth-submit" type="submit" disabled={pending}>
+                    {/* Registration is one explicit, affirmative consent action (152-ФЗ): the
+                        box grants consent to purposes 1-3 of the Consent document, and the
+                        submit button stays disabled until it is checked. Reading a policy is
+                        not consent — the check is. */}
+                    {mode === 'register' && (
+                        <label className="auth-consent-check">
+                            <input
+                                type="checkbox"
+                                checked={consentChecked}
+                                onChange={(e) => setConsentChecked(e.target.checked)}
+                                disabled={pending}
+                            />
+                            <span>
+                                {t('authConsentCheckboxPrefix')}
+                                <a href="/consent" target="_blank" rel="noopener noreferrer">
+                                    {t('authConsentCheckboxLink')}
+                                </a>.
+                            </span>
+                        </label>
+                    )}
+
+                    <button className="btn-primary auth-submit" type="submit" disabled={submitDisabled}>
                         {pending ? '…' : mode === 'login' ? t('authSubmitSignIn') : t('authSubmitRegister')}
                     </button>
 
-                    {/* Stated as consent to account processing — not as "you accept the
-                        Policy": reading a policy is not consent to process data. */}
                     {mode === 'register' && (
                         <p className="auth-consent-notice">
-                            {t('authConsentNoticePrefix')}
-                            {' '}{t('authConsentNoticeDocs')}{' '}
+                            {t('authConsentNoticeDocs')}{' '}
                             <a href="/consent" target="_blank" rel="noopener noreferrer">{t('consentReadConsent')}</a>
                             {', '}
                             <a href="/terms" target="_blank" rel="noopener noreferrer">{t('consentReadTerms')}</a>

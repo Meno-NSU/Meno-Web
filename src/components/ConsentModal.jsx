@@ -43,9 +43,6 @@ export default function ConsentModal({ onContinue, onDefer, dismissible = false 
                     </button>
                 )}
                 <h2 className="consent-modal-title">{t('consentModalTitle')}</h2>
-                {/* Both buttons record SERVICE_AND_HISTORY, so the storage notice must be
-                    stated up front — otherwise that consent would not be informed. */}
-                <p className="consent-modal-storage">{t('consentModalStorageNotice')}</p>
                 <p className="consent-modal-grant">
                     {t('consentModalGrantPrefix')}
                     <a href="/consent" target="_blank" rel="noopener noreferrer">
@@ -53,7 +50,6 @@ export default function ConsentModal({ onContinue, onDefer, dismissible = false 
                     </a>
                     {t('consentModalGrantSuffix')}
                 </p>
-                <p className="consent-modal-decline">{t('consentModalDeclineNote')}</p>
                 <p className="consent-modal-docs">
                     <a href="/privacy" target="_blank" rel="noopener noreferrer">
                         {t('consentModalPolicyLink')}

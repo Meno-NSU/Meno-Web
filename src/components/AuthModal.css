@@ -152,8 +152,13 @@
     padding: 0.65rem 1rem;
 }
 
-.auth-submit:disabled {
-    opacity: 0.7;
+/* Disabled (e.g. registration before consent is given): a plain grey button in
+   the site's palette — not a faded-blue primary. Overrides .btn-primary's accent
+   fill and its :hover, so it never flashes blue. Theme-aware via the tokens. */
+.auth-submit:disabled,
+.auth-submit:disabled:hover {
+    background-color: var(--border-color);
+    color: var(--text-tertiary);
     cursor: default;
 }
 

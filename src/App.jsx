@@ -679,13 +679,25 @@ function App() {
       return;
     }
 
-    // Fallback origin ≈ where the topbar toggle lives.
-    const x = event?.clientX ?? window.innerWidth - 48;
+    // Origin of the circular reveal = the clicked control (fallback ≈ the
+    // top-right topbar toggle). Expressed in PERCENTAGES of the viewport, never
+    // pixels: on a HiDPI/Retina display Chromium resolves clip-path on the
+    // ::view-transition-new(root) snapshot in *device* pixels, so a CSS-px
+    // `circle(at 962px 30px)` lands at half the intended spot (the reveal
+    // drifts to the top-centre) and the px radius under-reaches the far corner
+    // (the circle snaps shut at the end). Percentages are relative to the
+    // snapshot box — which always maps to the viewport — so they render at the
+    // correct spot for any devicePixelRatio. (Confirmed: px → top-centre,
+    // % → from the toggle, on a DPR-2 screen.)
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    const x = event?.clientX ?? w - 48;
     const y = event?.clientY ?? 48;
-    const maxRadius = Math.hypot(
-      Math.max(x, window.innerWidth - x),
-      Math.max(y, window.innerHeight - y),
-    );
+    const xPct = (x / w) * 100;
+    const yPct = (y / h) * 100;
+    // Radius that reaches the farthest corner, as a % of the length circle()
+    // resolves percentage radii against: hypot(w, h) / √2.
+    const endPct = (Math.hypot(Math.max(x, w - x), Math.max(y, h - y)) * Math.SQRT2 / Math.hypot(w, h)) * 100;
 
     document.documentElement.classList.add('theme-switching');
     const transition = document.startViewTransition(() => {
@@ -698,8 +710,8 @@ function App() {
         document.documentElement.animate(
           {
             clipPath: [
-              `circle(0px at ${x}px ${y}px)`,
-              `circle(${maxRadius}px at ${x}px ${y}px)`,
+              `circle(0% at ${xPct}% ${yPct}%)`,
+              `circle(${endPct}% at ${xPct}% ${yPct}%)`,
             ],
           },
           { duration: 550, easing: 'ease-in-out', pseudoElement: '::view-transition-new(root)' },

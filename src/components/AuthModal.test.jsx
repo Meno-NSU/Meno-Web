@@ -34,7 +34,7 @@ describe('AuthModal', () => {
         expect(login).toHaveBeenCalledWith('demo@nsu.ru', 'secret123');
     });
 
-    it('has no nickname field (temporarily removed) and registers without one', async () => {
+    it('has no nickname field (temporarily removed) and registers without one once consent is given', async () => {
         const register = vi.fn().mockResolvedValue({});
         const { container } = renderModal({ register });
 
@@ -48,9 +48,46 @@ describe('AuthModal', () => {
         fireEvent.change(container.querySelector('input[type="password"]'), {
             target: { value: 'secret123' },
         });
+        fireEvent.click(screen.getByRole('checkbox')); // grant consent
         fireEvent.submit(container.querySelector('form'));
 
         await waitFor(() => expect(register).toHaveBeenCalledWith('demo@nsu.ru', 'secret123', null));
+    });
+
+    it('blocks registration until the consent box is checked', async () => {
+        const register = vi.fn().mockResolvedValue({});
+        const { container } = renderModal({ register });
+
+        fireEvent.click(screen.getAllByRole('tab')[1]); // switch to register
+        fireEvent.change(container.querySelector('input[type="email"]'), {
+            target: { value: 'demo@nsu.ru' },
+        });
+        fireEvent.change(container.querySelector('input[type="password"]'), {
+            target: { value: 'secret123' },
+        });
+
+        // Consent not given yet: the submit is disabled and submitting does nothing.
+        expect(container.querySelector('.auth-submit').disabled).toBe(true);
+        fireEvent.submit(container.querySelector('form'));
+        expect(register).not.toHaveBeenCalled();
+
+        // Checking the box enables submission.
+        fireEvent.click(screen.getByRole('checkbox'));
+        expect(container.querySelector('.auth-submit').disabled).toBe(false);
+        fireEvent.submit(container.querySelector('form'));
+        await waitFor(() => expect(register).toHaveBeenCalledWith('demo@nsu.ru', 'secret123', null));
+    });
+
+    it('drops a stale consent check when switching tabs and back', () => {
+        const { container } = renderModal();
+        fireEvent.click(screen.getAllByRole('tab')[1]); // register
+        fireEvent.click(screen.getByRole('checkbox'));
+        expect(screen.getByRole('checkbox').checked).toBe(true);
+
+        fireEvent.click(screen.getAllByRole('tab')[0]); // back to login
+        fireEvent.click(screen.getAllByRole('tab')[1]); // register again
+        expect(screen.getByRole('checkbox').checked).toBe(false);
+        expect(container.querySelector('.auth-submit').disabled).toBe(true);
     });
 
     it('surfaces a backend error message and keeps the modal open', async () => {

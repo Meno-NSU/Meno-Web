@@ -1476,10 +1476,14 @@ function App() {
     setIsConsentModalVisible(false);
     const version = await resolveConsentVersion();
     if (version) {
+      // The mandatory registration checkbox is one affirmative act granting purposes 1-3 of
+      // the Consent document, so improvement (purpose 3) starts ON. The user can later revoke
+      // just purpose 3 from Settings ("Улучшать Менон на моих диалогах") without touching the
+      // service/history consent that keeps the account working.
       patchPrivacySettings({
         documentVersion: version,
         serviceAndHistory: true,
-        menoImprovement: false,
+        menoImprovement: true,
         source: 'registration',
       }).catch((error) => console.warn('Registration consent not recorded', error));
     }

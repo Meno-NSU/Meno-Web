@@ -51,24 +51,10 @@
     padding-right: 1.5rem; /* leave room for the close button when dismissible */
 }
 
-.consent-modal-storage {
-    font-size: 0.85rem;
-    line-height: 1.55;
-    color: var(--text-primary);
-    margin: 0 0 0.8rem;
-}
-
 .consent-modal-grant {
     font-size: 0.85rem;
     line-height: 1.55;
     color: var(--text-secondary);
-    margin: 0 0 0.8rem;
-}
-
-.consent-modal-decline {
-    font-size: 0.8rem;
-    line-height: 1.5;
-    color: var(--text-tertiary, var(--text-secondary));
     margin: 0 0 0.8rem;
 }
 
@@ -105,10 +91,11 @@
     transition: all 0.15s ease;
 }
 
-/* Muted, unobtrusive defer (left). */
+/* Muted, unobtrusive defer (left) — grey text, no border. */
 .consent-modal-defer {
     background: transparent;
     color: var(--text-tertiary);
+    border: none;
 }
 
 .consent-modal-defer:hover {

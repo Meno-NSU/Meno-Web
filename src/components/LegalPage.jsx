@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Moon, Sun } from './icons.jsx';
 import { useTranslation } from '../i18n.js';
-import { LEGAL_DOC_TITLE_KEYS } from '../services/consentGate.js';
 import LegalDocumentView from './LegalDocumentView.jsx';
 import './LegalPage.css';
 
@@ -18,9 +17,6 @@ export default function LegalPage({ kind }) {
         document.documentElement.setAttribute('data-theme', theme);
         localStorage.setItem('theme', theme);
     }, [theme]);
-
-    const titleKey = LEGAL_DOC_TITLE_KEYS[kind];
-    const title = titleKey ? t(titleKey) : '';
 
     return (
         <div className="legal-page">
@@ -41,8 +37,9 @@ export default function LegalPage({ kind }) {
                 </div>
             </header>
             <main className="legal-page-main">
+                {/* The document's own H1 (its full formal title) is the page heading —
+                    no separate chrome title, so the heading is not shown twice. */}
                 <article className="legal-page-article">
-                    <h1 className="legal-page-title">{title}</h1>
                     <LegalDocumentView key={kind} kind={kind} />
                 </article>
             </main>

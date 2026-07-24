@@ -574,6 +574,29 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [auth.isAuthenticated]);
 
+  // Consent is per-account on the server. A signed-in account must hold its own
+  // SERVICE_AND_HISTORY grant, or the backend silently drops every chat at the persist
+  // gate — so re-check the account's server state on sign-in. The mount gate above only
+  // covers the guest identity and keys on the browser-wide `meno.consentDecided` flag,
+  // which must never suppress the prompt for an account that has not consented (that flag
+  // being set for one identity was exactly what left old accounts un-prompted and their
+  // chats silently unstored). Both modal buttons record SERVICE_AND_HISTORY, so any choice
+  // heals the account.
+  useEffect(() => {
+    if (!auth.ready || !auth.isAuthenticated) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const state = await getPrivacySettings();
+        if (!cancelled && !state?.serviceAndHistory) {
+          setConsentDismissible(false); // blocking: without it the account cannot store history
+          setIsConsentModalVisible(true);
+        }
+      } catch { /* unknown — a later action can re-trigger the prompt */ }
+    })();
+    return () => { cancelled = true; };
+  }, [auth.ready, auth.isAuthenticated]);
+
   // Whether the active chat is a server chat still waiting on its content fetch.
   // Deliberately a primitive, not the serverChats array itself: updateChatById /
   // updateLastMessageInChat return a NEW array reference on every streamed token

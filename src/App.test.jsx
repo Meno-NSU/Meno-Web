@@ -246,6 +246,35 @@ describe('App — an untouched first chat is not listed until it holds a message
   });
 });
 
+describe('App — a signed-in account without server consent is prompted (per-account, not per-browser)', () => {
+  it('prompts on sign-in when the account lacks SERVICE_AND_HISTORY, even if this browser already decided consent', async () => {
+    // The bug: consent is per-account on the server, but the mount gate keys on the
+    // browser-wide `meno.consentDecided` flag and never re-checks on sign-in. With that
+    // flag set, an account whose server serviceAndHistory is false was never prompted, so
+    // the backend silently dropped every chat. Reproduce: flag set + signed-in + service false.
+    localStorage.setItem('meno.consentDecided', '1');
+    getAuthToken.mockReturnValue('tok-old-account');
+    fetchMe.mockResolvedValue({ id: 'u-old', email: 'old@nsu.ru', nickname: 'Old' });
+    getPrivacySettings.mockResolvedValue({ serviceAndHistory: false, menoImprovement: false });
+
+    const { container } = render(<App />);
+
+    await waitFor(() => expect(container.querySelector('.consent-modal-card')).toBeTruthy());
+  });
+
+  it('does NOT prompt a signed-in account that already granted SERVICE_AND_HISTORY', async () => {
+    localStorage.setItem('meno.consentDecided', '1');
+    getAuthToken.mockReturnValue('tok-ok');
+    fetchMe.mockResolvedValue({ id: 'u-ok', email: 'ok@nsu.ru', nickname: 'Ok' });
+    getPrivacySettings.mockResolvedValue({ serviceAndHistory: true, menoImprovement: false });
+
+    const { container } = render(<App />);
+    await waitFor(() => expect(fetchMe).toHaveBeenCalled());
+    await waitFor(() => expect(getPrivacySettings).toHaveBeenCalled());
+    expect(container.querySelector('.consent-modal-card')).toBeNull();
+  });
+});
+
 describe('App — opening a not-yet-loaded conversation', () => {
   it('fetches its content exactly once, even across unrelated re-renders and updates to the same chat', async () => {
     // Two models so a mid-load model switch (below) has something to switch

@@ -15,10 +15,10 @@ beforeEach(() => {
 const PENDING = () => new Promise(() => {}); // never resolves — stays in loading
 
 describe('LegalDocumentView', () => {
-    it('fetches the document by kind and renders its markdown content and version', async () => {
+    it('fetches the document by kind and renders its markdown content', async () => {
         getLegalDocument.mockResolvedValue({
             kind: 'personal_data_consent',
-            version: '1.0',
+            version: '2.0',
             url: '/consent',
             sha256: 'x',
             effectiveAt: null,
@@ -30,7 +30,6 @@ describe('LegalDocumentView', () => {
             expect(container.querySelector('h1')?.textContent).toContain('Заголовок');
         });
         expect(container.textContent).toContain('Текст согласия.');
-        expect(container.querySelector('.legal-doc-meta')?.textContent).toContain('1.0');
     });
 
     it('shows a loading state before the content arrives', () => {

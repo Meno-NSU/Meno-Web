@@ -7,7 +7,6 @@ vi.mock('./LegalDocumentView.jsx', () => ({
 }));
 
 import LegalPage from './LegalPage.jsx';
-import { translateOnce as tr } from '../i18n.js';
 
 function renderPage(kind) {
     return render(
@@ -18,9 +17,11 @@ function renderPage(kind) {
 }
 
 describe('LegalPage', () => {
-    it('renders the localized document title as the page heading', () => {
-        renderPage('personal_data_consent');
-        expect(screen.getByRole('heading', { name: tr('consentReadConsent') })).toBeTruthy();
+    it('renders no chrome title of its own — the document supplies its own H1', () => {
+        // Deduplicated: the page used to render a short localized title above the document,
+        // which then repeated its own full formal H1. The document's H1 is now the only heading.
+        const { container } = renderPage('personal_data_consent');
+        expect(container.querySelector('.legal-page-title')).toBeNull();
     });
 
     it('embeds the shared document view for the kind', () => {

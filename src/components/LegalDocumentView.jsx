@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import remarkBreaks from 'remark-breaks';
 import { useTranslation } from '../i18n.js';
 import { getLegalDocument } from '../services/api.js';
 import './LegalDocumentView.css';
@@ -28,12 +29,12 @@ export default function LegalDocumentView({ kind }) {
     if (state.status === 'error') {
         return <p className="legal-doc-error" role="alert">{t('legalLoadError')}</p>;
     }
+    // The document carries its own version/date footer at the bottom (styled muted by
+    // LegalDocumentView.css). remark-breaks honours the single newlines the documents are
+    // authored with, so consecutive metadata lines no longer collapse into one paragraph.
     return (
-        <>
-            <p className="legal-doc-meta">{t('legalVersionLabel')} {state.doc.version}</p>
-            <div className="legal-doc-markdown">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>{state.doc.content}</ReactMarkdown>
-            </div>
-        </>
+        <div className="legal-doc-markdown">
+            <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]}>{state.doc.content}</ReactMarkdown>
+        </div>
     );
 }

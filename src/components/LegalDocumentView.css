@@ -11,16 +11,17 @@
     color: var(--danger);
 }
 
-.legal-doc-meta {
-    font-size: 0.8rem;
-    color: var(--text-tertiary);
-    margin: 0 0 0.9rem;
-}
-
 .legal-doc-markdown {
     color: var(--text-primary);
     font-size: 0.95rem;
     line-height: 1.6;
+}
+
+/* The version/date footer sits after the document's final divider — mute it. */
+.legal-doc-markdown hr:last-of-type ~ p {
+    color: var(--text-tertiary);
+    font-size: 0.8rem;
+    margin-top: 0.6em;
 }
 
 .legal-doc-markdown h1,

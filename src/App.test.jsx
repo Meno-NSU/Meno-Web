@@ -157,6 +157,30 @@ describe('App — a signed-in identity replaces the visible chats, and signing o
   });
 });
 
+describe('App — a signed-in user with no stored history can still send', () => {
+  it('has a chat to send into after signing in with an empty history', async () => {
+    // Returning signed-in user (stored token verified on mount), no conversations
+    // on the server. Before the fix serverChats stayed [], so activeChatId was
+    // null and handleSendMessage returned silently — the send never fired.
+    getAuthToken.mockReturnValue('tok-existing');
+    fetchMe.mockResolvedValue({ id: 'u1', email: 'demo@nsu.ru', nickname: 'Demo' });
+    fetchConversations.mockResolvedValue([]);
+    sendChatMessage.mockResolvedValue({});
+
+    const { container } = render(<App />);
+
+    await waitFor(() => expect(fetchConversations).toHaveBeenCalled());
+    await waitFor(() => expect(container.querySelector('.chat-textarea')).toBeTruthy());
+
+    fireEvent.change(container.querySelector('.chat-textarea'), {
+      target: { value: 'Первый вопрос после логина' },
+    });
+    fireEvent.submit(container.querySelector('.input-form'));
+
+    await waitFor(() => expect(sendChatMessage).toHaveBeenCalledTimes(1));
+  });
+});
+
 describe('App — opening a not-yet-loaded conversation', () => {
   it('fetches its content exactly once, even across unrelated re-renders and updates to the same chat', async () => {
     // Two models so a mid-load model switch (below) has something to switch

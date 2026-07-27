@@ -123,6 +123,13 @@ export default function ChatInput({ onSend, onStop, generating = false, disabled
             </form>
             <div className="input-footer">
                 <span className="input-disclaimer">{t("disclaimer")}</span>
+                <span className="input-history-notice">
+                    {t("historyNoticePrefix")}
+                    <a href="/terms" target="_blank" rel="noreferrer">{t("historyNoticeTermsLink")}</a>
+                    {t("historyNoticeMiddle")}
+                    <a href="/privacy" target="_blank" rel="noreferrer">{t("historyNoticePolicyLink")}</a>
+                    {t("historyNoticeSuffix")}
+                </span>
             </div>
         </div>
     );

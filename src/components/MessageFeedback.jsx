@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ThumbsUp, ThumbsDown, Check, SendHorizontal } from './icons.jsx';
 import { useTranslation } from '../i18n.js';
 import { clearFeedback, submitFeedback } from '../services/api.js';
+import Tooltip from './Tooltip.jsx';
 import './MessageFeedback.css';
 
 // 👍/👎 + optional comment on a completed assistant message. The backend
@@ -86,28 +87,30 @@ export default function MessageFeedback({ message, chatId, setChats }) {
     return (
         <div className="message-feedback">
             <div className="feedback-thumbs">
-                <button
-                    className={`feedback-btn ${feedback?.value === 'up' ? 'active' : ''}`}
-                    onClick={() => handleThumb('up')}
-                    disabled={pending}
-                    title={t('feedbackGoodTitle')}
-                    aria-label={t('feedbackGoodTitle')}
-                    aria-pressed={feedback?.value === 'up'}
-                    type="button"
-                >
-                    <ThumbsUp size={14} />
-                </button>
-                <button
-                    className={`feedback-btn down ${feedback?.value === 'down' ? 'active' : ''}`}
-                    onClick={() => handleThumb('down')}
-                    disabled={pending}
-                    title={t('feedbackBadTitle')}
-                    aria-label={t('feedbackBadTitle')}
-                    aria-pressed={feedback?.value === 'down'}
-                    type="button"
-                >
-                    <ThumbsDown size={14} />
-                </button>
+                <Tooltip text={t('tipFeedbackGood')} side="top" align="left">
+                    <button
+                        className={`feedback-btn ${feedback?.value === 'up' ? 'active' : ''}`}
+                        onClick={() => handleThumb('up')}
+                        disabled={pending}
+                        aria-label={t('feedbackGoodTitle')}
+                        aria-pressed={feedback?.value === 'up'}
+                        type="button"
+                    >
+                        <ThumbsUp size={14} />
+                    </button>
+                </Tooltip>
+                <Tooltip text={t('tipFeedbackBad')} side="top" align="left">
+                    <button
+                        className={`feedback-btn down ${feedback?.value === 'down' ? 'active' : ''}`}
+                        onClick={() => handleThumb('down')}
+                        disabled={pending}
+                        aria-label={t('feedbackBadTitle')}
+                        aria-pressed={feedback?.value === 'down'}
+                        type="button"
+                    >
+                        <ThumbsDown size={14} />
+                    </button>
+                </Tooltip>
             </div>
 
             {errorNotice && (

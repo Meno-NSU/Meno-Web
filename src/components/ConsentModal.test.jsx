@@ -36,10 +36,11 @@ describe('ConsentModal (consent gate)', () => {
         expect(buttons[buttons.length - 1].classList.contains('consent-modal-continue')).toBe(true);
     });
 
-    it('links to the consent and policy documents in new tabs', () => {
+    it('links to the terms, policy and consent documents in new tabs', () => {
         const { container } = renderModal();
-        expect(container.querySelector('a[href="/consent"]')).not.toBeNull();
+        expect(container.querySelector('a[href="/terms"]')).not.toBeNull();
         expect(container.querySelector('a[href="/privacy"]')).not.toBeNull();
+        expect(container.querySelector('a[href="/consent"]')).not.toBeNull();
         for (const a of container.querySelectorAll('a')) {
             expect(a.getAttribute('target')).toBe('_blank');
         }

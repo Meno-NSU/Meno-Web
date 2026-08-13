@@ -43,17 +43,23 @@ export default function ConsentModal({ onContinue, onDefer, dismissible = false 
                     </button>
                 )}
                 <h2 className="consent-modal-title">{t('consentModalTitle')}</h2>
+                <p className="consent-modal-intro">
+                    {t('consentModalIntroPrefix')}
+                    <a href="/terms" target="_blank" rel="noopener noreferrer">
+                        {t('consentModalTermsLink')}
+                    </a>
+                    {t('consentModalIntroMid')}
+                    <a href="/privacy" target="_blank" rel="noopener noreferrer">
+                        {t('consentModalPolicyLink')}
+                    </a>
+                    {t('consentModalIntroSuffix')}
+                </p>
                 <p className="consent-modal-grant">
                     {t('consentModalGrantPrefix')}
                     <a href="/consent" target="_blank" rel="noopener noreferrer">
                         {t('consentModalConsentLink')}
                     </a>
                     {t('consentModalGrantSuffix')}
-                </p>
-                <p className="consent-modal-docs">
-                    <a href="/privacy" target="_blank" rel="noopener noreferrer">
-                        {t('consentModalPolicyLink')}
-                    </a>
                 </p>
                 <div className="consent-modal-actions">
                     <button

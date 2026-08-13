@@ -37,7 +37,7 @@ describe('SettingsBar leaderboard toggle', () => {
     it('opens the leaderboard from chat view', () => {
         const setCurrentView = vi.fn();
         renderBar({ currentView: 'chat', setCurrentView });
-        const btn = screen.getByTitle(/leaderboard|таблиц/i);
+        const btn = screen.getByRole('button', { name: /leaderboard|таблиц/i });
         fireEvent.click(btn);
         expect(setCurrentView).toHaveBeenCalledWith('leaderboard');
     });
@@ -45,15 +45,31 @@ describe('SettingsBar leaderboard toggle', () => {
     it('closes the leaderboard when already open', () => {
         const setCurrentView = vi.fn();
         renderBar({ currentView: 'leaderboard', setCurrentView });
-        const btn = screen.getByTitle(/leaderboard|таблиц/i);
+        const btn = screen.getByRole('button', { name: /leaderboard|таблиц/i });
         fireEvent.click(btn);
         expect(setCurrentView).toHaveBeenCalledWith('chat');
     });
 
     it('marks the trophy button active when leaderboard is open', () => {
         renderBar({ currentView: 'leaderboard' });
-        const btn = screen.getByTitle(/leaderboard|таблиц/i);
+        const btn = screen.getByRole('button', { name: /leaderboard|таблиц/i });
         expect(btn.className).toMatch(/\bactive\b/);
+    });
+});
+
+describe('SettingsBar explanatory tooltips', () => {
+    it('attaches localized hint bubbles to the header controls', () => {
+        const { container } = renderBar();
+        const texts = [...container.querySelectorAll('.tooltip-bubble')].map((el) => el.textContent);
+        expect(texts.some((s) => /две модели|two models/i.test(s))).toBe(true); // arena
+        expect(texts.some((s) => /рейтинг|ratings/i.test(s))).toBe(true); // leaderboard
+        expect(texts.some((s) => /язык|language/i.test(s))).toBe(true); // language
+        expect(texts.some((s) => /тему|theme/i.test(s))).toBe(true); // theme
+    });
+
+    it('keeps the hardcoded English titles out (hints are localizable now)', () => {
+        renderBar();
+        expect(screen.queryByTitle(/Arena Mode is|Switch language|Switch to (dark|light) mode/)).toBeNull();
     });
 });
 
@@ -61,14 +77,14 @@ describe('SettingsBar auth controls', () => {
     it('shows the sign-in button for anonymous users and opens the auth modal', () => {
         const onOpenAuth = vi.fn();
         renderBar({ user: null, onOpenAuth });
-        const btn = screen.getByTitle(/sign in|войти/i);
+        const btn = screen.getByRole('button', { name: /sign in|войти/i });
         fireEvent.click(btn);
         expect(onOpenAuth).toHaveBeenCalled();
     });
 
     it('shows the account chip with the nickname when signed in', () => {
         renderBar({ user: { id: 1, email: 'demo@nsu.ru', nickname: 'Demo' } });
-        expect(screen.queryByTitle(/sign in|войти/i)).toBeNull();
+        expect(screen.queryByRole('button', { name: /sign in|войти/i })).toBeNull();
         expect(screen.getByText('Demo')).toBeTruthy();
     });
 

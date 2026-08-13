@@ -34,7 +34,7 @@ export default function Sidebar({
     const { t, lang, setLanguage } = useTranslation();
     if (!isOpen) {
         return (
-            <button className="sidebar-toggle-btn collapsed" onClick={toggleSidebar} title="Open sidebar">
+            <button className="sidebar-toggle-btn collapsed" onClick={toggleSidebar} title={t("openSidebar")}>
                 <PanelLeft size={20} />
             </button>
         );
@@ -150,7 +150,7 @@ export default function Sidebar({
                     <button
                         className="sidebar-action-btn"
                         onClick={handleLang}
-                        title="Switch language"
+                        title={t('langToggleAria')}
                     >
                         <span className="sidebar-action-icon" style={{ fontWeight: 600 }}>{lang.toUpperCase()}</span>
                         <span className="sidebar-action-label">{lang === 'ru' ? 'Язык' : 'Language'}</span>
@@ -166,7 +166,7 @@ export default function Sidebar({
                     <button
                         className={`sidebar-action-btn arena ${isArenaMode ? 'active' : ''}`}
                         onClick={handleArena}
-                        title={`Arena Mode is ${isArenaMode ? 'ON' : 'OFF'}`}
+                        title={t('tipArena')}
                     >
                         <span className="sidebar-action-icon" aria-hidden="true"><Swords size={20} /></span>
                         <span className="sidebar-action-label">
@@ -176,7 +176,7 @@ export default function Sidebar({
                     <button
                         className="sidebar-action-btn"
                         onClick={handleTheme}
-                        title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+                        title={t('themeToggleAria')}
                     >
                         {theme === 'light'
                             ? <Moon size={20} className="sidebar-action-icon" />

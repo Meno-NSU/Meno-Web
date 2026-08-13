@@ -13,13 +13,8 @@ describe('ChatInput footer', () => {
         expect(container.querySelector('.input-disclaimer')).not.toBeNull();
     });
 
-    it('shows the history notice with links to the Terms and the Policy', () => {
-        // History is stored for everyone as core service behaviour (not a consent), so the
-        // user is informed of it here — with the two governing documents linked.
+    it('does not show the history notice (the consent gate covers storage and the documents)', () => {
         const { container } = render(<ChatInput onSend={vi.fn()} onStop={vi.fn()} />);
-        const notice = container.querySelector('.input-history-notice');
-        expect(notice).not.toBeNull();
-        const hrefs = [...notice.querySelectorAll('a')].map((a) => a.getAttribute('href'));
-        expect(hrefs).toEqual(expect.arrayContaining(['/terms', '/privacy']));
+        expect(container.querySelector('.input-history-notice')).toBeNull();
     });
 });

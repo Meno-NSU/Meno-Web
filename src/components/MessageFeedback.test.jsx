@@ -36,7 +36,7 @@ describe('MessageFeedback', () => {
         const setChats = makeSetChats(chatsWith(baseMessage));
         render(<MessageFeedback message={baseMessage} chatId="chat-1" setChats={setChats} />);
 
-        fireEvent.click(screen.getByTitle(/good|хороший/i));
+        fireEvent.click(screen.getByRole('button', { name: /good|хороший/i }));
 
         await waitFor(() => expect(submitFeedback).toHaveBeenCalledWith({
             completionId: 'chatcmpl-1',
@@ -53,7 +53,7 @@ describe('MessageFeedback', () => {
         const setChats = makeSetChats(chatsWith(message));
         render(<MessageFeedback message={message} chatId="chat-1" setChats={setChats} />);
 
-        fireEvent.click(screen.getByTitle(/bad|плохой/i));
+        fireEvent.click(screen.getByRole('button', { name: /bad|плохой/i }));
 
         await waitFor(() => expect(clearFeedback).toHaveBeenCalledWith({
             completionId: 'chatcmpl-1',
@@ -67,7 +67,7 @@ describe('MessageFeedback', () => {
         const setChats = makeSetChats(chatsWith(message));
         render(<MessageFeedback message={message} chatId="chat-1" setChats={setChats} />);
 
-        fireEvent.click(screen.getByTitle(/good|хороший/i));
+        fireEvent.click(screen.getByRole('button', { name: /good|хороший/i }));
 
         await waitFor(() => expect(submitFeedback).toHaveBeenCalledWith({
             completionId: 'chatcmpl-1',
@@ -122,7 +122,7 @@ describe('MessageFeedback ownership refusal (404)', () => {
         const setChats = makeSetChats(chatsWith(baseMessage));
         render(<MessageFeedback message={baseMessage} chatId="chat-1" setChats={setChats} />);
 
-        fireEvent.click(screen.getByTitle(/good|хороший/i));
+        fireEvent.click(screen.getByRole('button', { name: /good|хороший/i }));
 
         expect(await screen.findByText(/принадлежит другому профилю/i)).toBeTruthy();
         // The refused rating was never applied — no optimistic patch happened.
@@ -134,7 +134,7 @@ describe('MessageFeedback ownership refusal (404)', () => {
         const setChats = makeSetChats(chatsWith(baseMessage));
         const { container } = render(<MessageFeedback message={baseMessage} chatId="chat-1" setChats={setChats} />);
 
-        fireEvent.click(screen.getByTitle(/good|хороший/i));
+        fireEvent.click(screen.getByRole('button', { name: /good|хороший/i }));
 
         await waitFor(() => expect(submitFeedback).toHaveBeenCalled());
         expect(container.querySelector('.feedback-error')).toBeNull();
@@ -145,10 +145,10 @@ describe('MessageFeedback ownership refusal (404)', () => {
         const setChats = makeSetChats(chatsWith(baseMessage));
         render(<MessageFeedback message={baseMessage} chatId="chat-1" setChats={setChats} />);
 
-        fireEvent.click(screen.getByTitle(/good|хороший/i));
+        fireEvent.click(screen.getByRole('button', { name: /good|хороший/i }));
         expect(await screen.findByText(/принадлежит другому профилю/i)).toBeTruthy();
 
-        fireEvent.click(screen.getByTitle(/bad|плохой/i));
+        fireEvent.click(screen.getByRole('button', { name: /bad|плохой/i }));
         await waitFor(() => expect(screen.queryByText(/принадлежит другому профилю/i)).toBeNull());
     });
 });

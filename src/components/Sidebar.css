@@ -25,7 +25,11 @@
 }
 
 .sidebar-header {
-    padding: 1rem;
+    /* Same height as .settings-bar so the logo and the collapse button sit on
+       one line with the topbar icons (both rows center at ~29.5px). */
+    height: 60px;
+    flex-shrink: 0;
+    padding: 0 1rem;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -62,7 +66,8 @@
 
 .sidebar-toggle-btn.collapsed {
     position: absolute;
-    top: 1rem;
+    /* Vertically centered against the 60px settings bar: (60 - 36) / 2. */
+    top: 12px;
     left: 1rem;
     z-index: 50;
     background-color: var(--bg-primary);
@@ -117,6 +122,10 @@
     flex: 1;
     overflow-y: auto;
     padding: 1rem;
+    /* Column flex so the guest notice can center itself in the free space
+       below the chat list via auto vertical margins. */
+    display: flex;
+    flex-direction: column;
 }
 
 .sidebar-section-title {
@@ -243,11 +252,15 @@
     text-align: center;
 }
 
+/* Quiet caption: same size as the placeholder but a tier dimmer, floated to
+   the vertical middle of the leftover space via the auto margins. */
 .sidebar-guest-notice {
     padding: 0.5rem;
     font-size: 0.875rem;
-    color: var(--text-tertiary);
-    text-align: center;
+    line-height: 1.5;
+    color: var(--text-quaternary);
+    text-align: left;
+    margin: auto 0;
 }
 
 /* Backdrop: hidden by default; visible only when sidebar is open at mobile widths. */

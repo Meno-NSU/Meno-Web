@@ -5,6 +5,7 @@ import { Copy, Check, ChevronDown, Brain, ExternalLink, Trophy, ArrowCircleLeft,
 import { useTranslation } from '../i18n.js';
 import ChatInput from './ChatInput.jsx';
 import MessageFeedback from './MessageFeedback.jsx';
+import Tooltip from './Tooltip.jsx';
 import { submitArenaVote } from '../services/api.js';
 import { formatNotice } from '../services/chatNotice.js';
 import { buildArenaHistories, arenaTurnIndex } from '../services/arenaHistory.js';
@@ -358,9 +359,11 @@ function MessageBubble({ message, chatId, setChats, onRetry, isLast }) {
 
                 <div className="message-footer">
                     <div className="message-actions-bar">
-                        <button className="copy-btn" onClick={handleCopy} title="Copy message">
-                            {copied ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
-                        </button>
+                        <Tooltip text={t('tipCopy')} side="top" align="left">
+                            <button className="copy-btn" onClick={handleCopy} aria-label={t('tipCopy')}>
+                                {copied ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
+                            </button>
+                        </Tooltip>
                         {/* Thumbs need the completion id the backend attaches
                             feedback to — it lands on the message only after a
                             response finishes streaming. */}

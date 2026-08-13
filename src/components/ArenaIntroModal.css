@@ -1,0 +1,89 @@
+.arena-intro-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(10, 12, 16, 0.55);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1100; /* same layer as the consent gate, above regular modals */
+    padding: 1rem;
+    animation: arenaIntroFadeIn 0.15s ease;
+}
+
+@keyframes arenaIntroFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.arena-intro-card {
+    position: relative;
+    width: min(400px, 100%);
+    max-height: calc(100vh - 2rem);
+    overflow-y: auto;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 1rem;
+    box-shadow: var(--shadow-lg);
+    padding: 1.6rem 1.5rem 1.4rem;
+    text-align: center;
+    animation: arenaIntroIn 0.18s ease;
+}
+
+@keyframes arenaIntroIn {
+    from { opacity: 0; transform: translateY(8px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.arena-intro-close {
+    position: absolute;
+    top: 0.6rem;
+    right: 0.6rem;
+    width: 30px;
+    height: 30px;
+}
+
+.arena-intro-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: var(--bg-tertiary);
+    color: var(--accent-primary);
+    margin-bottom: 0.75rem;
+}
+
+.arena-intro-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 0.6rem;
+}
+
+.arena-intro-body {
+    font-size: 0.875rem;
+    line-height: 1.55;
+    color: var(--text-secondary);
+    margin: 0 0 1.1rem;
+    text-align: left;
+}
+
+.arena-intro-ok {
+    width: 100%;
+    padding: 0.6rem 1.1rem;
+    border-radius: 0.6rem;
+    font-size: 0.9rem;
+    font-weight: 500;
+    background: var(--accent-primary);
+    border: 1px solid var(--accent-primary);
+    color: var(--accent-text);
+    transition: all 0.15s ease;
+}
+
+.arena-intro-ok:hover {
+    background: var(--accent-hover);
+    border-color: var(--accent-hover);
+}

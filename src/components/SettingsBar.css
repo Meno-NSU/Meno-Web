@@ -166,6 +166,12 @@
     gap: 0.5rem;
 }
 
+/* While the model menu is open, the trigger's hover hint would float over the
+   menu items — suppress it until the menu closes. */
+.model-dropdown:has(.model-dropdown-menu) .tooltip-bubble {
+    display: none;
+}
+
 /* Explicit Toggle Button Styling */
 .btn-explicit {
     display: flex;

@@ -9,6 +9,8 @@
   --text-primary: #313131;
   --text-secondary: #54585a;
   --text-tertiary: #9b9fa1;
+  /* Quietest tier: fine print that should register only when looked for. */
+  --text-quaternary: #c2c6c8;
 
   --border-color: #e5e7eb;
 
@@ -54,6 +56,7 @@
   --text-primary: #f3f4f6;
   --text-secondary: #9ca3af;
   --text-tertiary: #6b7280;
+  --text-quaternary: #4d525c;
 
   --border-color: #2d313b;
 

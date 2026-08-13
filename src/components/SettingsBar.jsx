@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Trophy, Moon, Sun, ChevronDown, ChevronRight, AlertCircle, Menu, MessageSquarePlus, LogIn, LogOut, UserRound, Lock, Swords, Check, Circle, Schedule, CloudOff } from './icons.jsx';
 import { useTranslation } from '../i18n.js';
+import Tooltip from './Tooltip.jsx';
 import './SettingsBar.css';
 
 function StatusIcon({ state }) {
@@ -157,35 +158,39 @@ export default function SettingsBar({
             {/* Spacer to align content nicely when sidebar is collapsed */}
             <div className={`settings-spacer ${!isSidebarOpen ? 'spaced' : ''}`}></div>
 
-            <button
-                className="btn-icon sidebar-hamburger"
-                onClick={onOpenSidebar}
-                title={t('openSidebar')}
-                aria-label={t('openSidebar')}
-            >
-                <Menu size={20} />
-            </button>
+            <Tooltip text={t('tipSidebar')} align="left">
+                <button
+                    className="btn-icon sidebar-hamburger"
+                    onClick={onOpenSidebar}
+                    aria-label={t('openSidebar')}
+                >
+                    <Menu size={20} />
+                </button>
+            </Tooltip>
 
             <div className="settings-controls">
                 <div className="model-dropdown" ref={dropdownRef}>
-                    <button
-                        className={`model-dropdown-trigger ${!hasModels ? 'no-models' : ''}`}
-                        onClick={() => {
-                            const willOpen = !isDropdownOpen;
-                            setIsDropdownOpen(willOpen);
-                            if (willOpen && onDropdownOpen) onDropdownOpen();
-                        }}
-                        type="button"
-                    >
-                        {!hasModels && <AlertCircle size={16} className="no-models-icon" />}
-                        <span className="model-dropdown-label">
-                            {currentModelName}
-                            {currentIsOr && coreModelId && (
-                                <span className="model-dropdown-sublabel">gen only · {coreModelId} for retrieval</span>
-                            )}
-                        </span>
-                        <ChevronDown size={16} className={`model-dropdown-chevron ${isDropdownOpen ? 'open' : ''}`} />
-                    </button>
+                    <Tooltip text={t('tipModelSelect')} align="left">
+                        <button
+                            className={`model-dropdown-trigger ${!hasModels ? 'no-models' : ''}`}
+                            onClick={() => {
+                                const willOpen = !isDropdownOpen;
+                                setIsDropdownOpen(willOpen);
+                                if (willOpen && onDropdownOpen) onDropdownOpen();
+                            }}
+                            type="button"
+                            aria-label={t('tipModelSelect')}
+                        >
+                            {!hasModels && <AlertCircle size={16} className="no-models-icon" />}
+                            <span className="model-dropdown-label">
+                                {currentModelName}
+                                {currentIsOr && coreModelId && (
+                                    <span className="model-dropdown-sublabel">gen only · {coreModelId} for retrieval</span>
+                                )}
+                            </span>
+                            <ChevronDown size={16} className={`model-dropdown-chevron ${isDropdownOpen ? 'open' : ''}`} />
+                        </button>
+                    </Tooltip>
 
                     {isDropdownOpen && (
                         <div className="model-dropdown-menu">
@@ -224,14 +229,15 @@ export default function SettingsBar({
                 </div>
             </div>
 
-            <button
-                className="btn-icon new-chat-btn-icon"
-                onClick={onNewChat}
-                title={t('newChat')}
-                aria-label={t('newChat')}
-            >
-                <MessageSquarePlus size={20} />
-            </button>
+            <Tooltip text={t('tipNewChat')}>
+                <button
+                    className="btn-icon new-chat-btn-icon"
+                    onClick={onNewChat}
+                    aria-label={t('newChat')}
+                >
+                    <MessageSquarePlus size={20} />
+                </button>
+            </Tooltip>
 
             <div className="settings-actions">
                 {user ? (
@@ -266,45 +272,54 @@ export default function SettingsBar({
                         )}
                     </div>
                 ) : (
-                    <button
-                        className="btn-icon auth-signin-btn"
-                        onClick={onOpenAuth}
-                        title={t('signIn')}
-                        aria-label={t('signIn')}
-                    >
-                        <LogIn size={20} />
-                    </button>
+                    <Tooltip text={t('tipSignIn')} align="right">
+                        <button
+                            className="btn-icon auth-signin-btn"
+                            onClick={onOpenAuth}
+                            aria-label={t('signIn')}
+                        >
+                            <LogIn size={20} />
+                        </button>
+                    </Tooltip>
                 )}
-                <button
-                    className="btn-icon lang-toggle"
-                    onClick={handleLangToggle}
-                    title="Switch language"
-                    style={{ fontWeight: "600", fontSize: "1rem" }}
-                >
-                    {lang.toUpperCase()}
-                </button>
-                <button
-                    className={`btn-icon leaderboard-toggle ${currentView === 'leaderboard' ? 'active' : ''}`}
-                    onClick={handleLeaderboardClick}
-                    title={t('arenaLeaderboardTitle')}
-                >
-                    <Trophy size={20} />
-                </button>
-                <button
-                    className={`btn-explicit arena-toggle ${isArenaMode ? 'active' : ''}`}
-                    onClick={() => setIsArenaMode(!isArenaMode)}
-                    title={`Arena Mode is ${isArenaMode ? 'ON' : 'OFF'}`}
-                >
-                    <span className="arena-icon"><Swords size={17} /></span>
-                    <span className="arena-text">{isArenaMode ? t('battleArenaModeOn') : t('battleArenaModeOff')}</span>
-                </button>
-                <button
-                    className="btn-icon theme-toggle"
-                    onClick={toggleTheme}
-                    title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
-                >
-                    {theme === 'light' ? <Moon size={19} /> : <Sun size={16} />}
-                </button>
+                <Tooltip text={t('tipLanguage')} align="right">
+                    <button
+                        className="btn-icon lang-toggle"
+                        onClick={handleLangToggle}
+                        aria-label={t('langToggleAria')}
+                        style={{ fontWeight: "600", fontSize: "1rem" }}
+                    >
+                        {lang.toUpperCase()}
+                    </button>
+                </Tooltip>
+                <Tooltip text={t('tipLeaderboard')} align="right">
+                    <button
+                        className={`btn-icon leaderboard-toggle ${currentView === 'leaderboard' ? 'active' : ''}`}
+                        onClick={handleLeaderboardClick}
+                        aria-label={t('arenaLeaderboardTitle')}
+                    >
+                        <Trophy size={20} />
+                    </button>
+                </Tooltip>
+                <Tooltip text={t('tipArena')} align="right">
+                    <button
+                        className={`btn-explicit arena-toggle ${isArenaMode ? 'active' : ''}`}
+                        onClick={() => setIsArenaMode(!isArenaMode)}
+                        aria-label={isArenaMode ? t('battleArenaModeOn') : t('battleArenaModeOff')}
+                    >
+                        <span className="arena-icon"><Swords size={17} /></span>
+                        <span className="arena-text">{isArenaMode ? t('battleArenaModeOn') : t('battleArenaModeOff')}</span>
+                    </button>
+                </Tooltip>
+                <Tooltip text={t('tipTheme')} align="right">
+                    <button
+                        className="btn-icon theme-toggle"
+                        onClick={toggleTheme}
+                        aria-label={t('themeToggleAria')}
+                    >
+                        {theme === 'light' ? <Moon size={19} /> : <Sun size={16} />}
+                    </button>
+                </Tooltip>
             </div>
         </header>
     );

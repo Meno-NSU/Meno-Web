@@ -190,20 +190,8 @@
     margin-top: 0.75rem;
 }
 
-.input-disclaimer,
-.input-consent-notice,
-.input-history-notice {
+.input-disclaimer {
     display: block;
-}
-
-.input-consent-notice,
-.input-history-notice {
-    margin-top: 0.15rem;
-}
-
-.input-consent-notice a,
-.input-history-notice a {
-    color: var(--accent-primary);
 }
 
 @media (max-width: 768px) {

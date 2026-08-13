@@ -51,6 +51,7 @@
     padding-right: 1.5rem; /* leave room for the close button when dismissible */
 }
 
+.consent-modal-intro,
 .consent-modal-grant {
     font-size: 0.85rem;
     line-height: 1.55;
@@ -58,20 +59,18 @@
     margin: 0 0 0.8rem;
 }
 
-.consent-modal-docs {
-    font-size: 0.82rem;
-    line-height: 1.5;
-    margin: 0 0 1.2rem;
+.consent-modal-grant {
+    margin-bottom: 1.2rem; /* last paragraph before the actions row */
 }
 
-.consent-modal-grant a,
-.consent-modal-docs a {
+.consent-modal-intro a,
+.consent-modal-grant a {
     color: var(--accent-primary);
     text-decoration: none;
 }
 
-.consent-modal-grant a:hover,
-.consent-modal-docs a:hover {
+.consent-modal-intro a:hover,
+.consent-modal-grant a:hover {
     text-decoration: underline;
 }
 

@@ -51,9 +51,12 @@ import { useAuth } from './store/authStore.js';
 import SurveyModal from './components/SurveyModal.jsx';
 import ConsentModal from './components/ConsentModal.jsx';
 import SettingsModal from './components/SettingsModal.jsx';
+import ArenaIntroModal from './components/ArenaIntroModal.jsx';
 import { submitSurvey } from './services/api.js';
 import { shouldShowConsentModal, hasDecidedConsent, setConsentDecided, getConsentDeferredUntil, deferConsent, CONSENT_DECISION_FLAG, CONSENT_DEFER_UNTIL_KEY, CONSENT_KIND } from './services/consentGate.js';
 import { shouldShowSurvey } from './services/surveyGate.js';
+import { hasSeenArenaIntro, markArenaIntroSeen } from './services/arenaIntro.js';
+import { watchFrameRate, isLowFrameRate } from './services/frameRate.js';
 import { translateOnce as i18nLookup } from './i18n.js';
 import { buildErrorNotice, buildStopNotice } from './services/chatNotice.js';
 import { dropTrailingNotice } from './services/chatTurns.js';
@@ -344,6 +347,15 @@ function App() {
 
   // Arena Mode
   const [isArenaMode, setIsArenaMode] = useState(false);
+  // One-time Arena explainer, shown the first time the mode is switched on.
+  const [showArenaIntro, setShowArenaIntro] = useState(false);
+  const handleArenaModeChange = (on) => {
+    setIsArenaMode(on);
+    if (on && !hasSeenArenaIntro()) {
+      markArenaIntroSeen();
+      setShowArenaIntro(true);
+    }
+  };
 
   // Core model annotation from /v1/models response
   const [coreModelId, setCoreModelId] = useState(null);
@@ -630,6 +642,10 @@ function App() {
     localStorage.setItem('theme', theme);
   }, [theme]);
 
+  // Passive frame-rate sampling backing the theme-switch fallback (toggleTheme
+  // skips the circular reveal while the browser is capped at ~30fps).
+  useEffect(() => watchFrameRate(), []);
+
   const activeChat = visibleChats.find((chat) => chat.id === activeChatId) || EMPTY_CHAT;
   const selectedModel = activeChat.runtimeConfig?.modelId || '';
   const selectedKb = activeChat.runtimeConfig?.knowledgeBaseId || '';
@@ -669,12 +685,14 @@ function App() {
   }, [selectedModel, selectedKb]);
 
   // Theme switch "flows" across the screen: a circular reveal growing from
-  // the clicked control, via the View Transitions API. Browsers without it
-  // (and reduced-motion users) just get the instant switch.
+  // the clicked control, via the View Transitions API. Browsers without it,
+  // reduced-motion users — and frame-rate-capped browsers (Chrome Energy
+  // Saver pins rAF at ~30fps, where the 550ms circle visibly stutters; see
+  // services/frameRate.js) — just get the instant switch.
   const toggleTheme = (event) => {
     const next = theme === 'light' ? 'dark' : 'light';
     const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
-    if (typeof document.startViewTransition !== 'function' || reduceMotion) {
+    if (typeof document.startViewTransition !== 'function' || reduceMotion || isLowFrameRate()) {
       setTheme(next);
       return;
     }
@@ -1626,7 +1644,7 @@ function App() {
         theme={theme}
         toggleTheme={toggleTheme}
         isArenaMode={isArenaMode}
-        setIsArenaMode={setIsArenaMode}
+        setIsArenaMode={handleArenaModeChange}
         user={auth.user}
         onOpenAuth={() => setIsAuthModalOpen(true)}
         onLogout={handleLogout}
@@ -1646,7 +1664,7 @@ function App() {
           onModelChange={handleModelChange}
           onDropdownOpen={handleModelsDropdownOpen}
           isArenaMode={isArenaMode}
-          setIsArenaMode={setIsArenaMode}
+          setIsArenaMode={handleArenaModeChange}
           currentView={currentView}
           setCurrentView={setCurrentView}
           coreModelId={coreModelId}
@@ -1711,6 +1729,10 @@ function App() {
           onDefer={handleConsentDefer}
           dismissible={consentDismissible}
         />
+      )}
+
+      {showArenaIntro && (
+        <ArenaIntroModal onClose={() => setShowArenaIntro(false)} />
       )}
 
       <SettingsModal

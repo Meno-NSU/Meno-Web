@@ -1,9 +1,12 @@
-import { useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { ThumbsUp, ThumbsDown, Check, SendHorizontal } from './icons.jsx';
 import { useTranslation } from '../i18n.js';
 import { clearFeedback, submitFeedback } from '../services/api.js';
 import Tooltip from './Tooltip.jsx';
 import './MessageFeedback.css';
+
+const COMMENT_MAX_LENGTH = 20000;
+const COMMENT_COUNTER_THRESHOLD = 18000;
 
 // 👍/👎 + optional comment on a completed assistant message. The backend
 // upserts by (completion_id, session_id): re-clicking the active thumb clears
@@ -20,6 +23,15 @@ export default function MessageFeedback({ message, chatId, setChats }) {
     const [errorNotice, setErrorNotice] = useState(null);
 
     const feedback = message.feedback || null;
+    const textareaRef = useRef(null);
+
+    // Grow with the text; the CSS max-height (40vh) caps it and overflow-y scrolls.
+    useLayoutEffect(() => {
+        const el = textareaRef.current;
+        if (!el) return;
+        el.style.height = 'auto';
+        el.style.height = `${el.scrollHeight}px`;
+    }, [commentDraft, feedback]);
 
     // Messages have no stable id of their own — the completion id is unique
     // per assistant response, so patch by it.
@@ -119,18 +131,29 @@ export default function MessageFeedback({ message, chatId, setChats }) {
 
             {feedback && (
                 <div className="feedback-comment-row">
-                    <input
-                        className="feedback-comment-input"
-                        type="text"
-                        maxLength={2000}
-                        placeholder={t('feedbackCommentPlaceholder')}
-                        value={commentDraft}
-                        onChange={(e) => setCommentDraft(e.target.value)}
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter') handleSendComment();
-                        }}
-                        disabled={pending}
-                    />
+                    <div className="feedback-comment-field">
+                        <textarea
+                            ref={textareaRef}
+                            className="feedback-comment-input"
+                            rows={3}
+                            maxLength={COMMENT_MAX_LENGTH}
+                            placeholder={t('feedbackCommentPlaceholder')}
+                            value={commentDraft}
+                            onChange={(e) => setCommentDraft(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                                    e.preventDefault();
+                                    handleSendComment();
+                                }
+                            }}
+                            disabled={pending}
+                        />
+                        {commentDraft.length > COMMENT_COUNTER_THRESHOLD && (
+                            <span className="feedback-comment-counter">
+                                {commentDraft.length} / {COMMENT_MAX_LENGTH}
+                            </span>
+                        )}
+                    </div>
                     <button
                         className="feedback-comment-send"
                         onClick={handleSendComment}

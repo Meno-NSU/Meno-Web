@@ -70,11 +70,12 @@
 
 .feedback-comment-row {
     display: flex;
-    align-items: center;
+    align-items: flex-end;
     gap: 0.3rem;
     flex: 1;
     min-width: 200px;
-    max-width: 380px;
+    max-width: 640px;
+    width: 100%;
     animation: feedbackRowIn 0.18s ease;
 }
 
@@ -89,8 +90,28 @@
     }
 }
 
-.feedback-comment-input {
+.feedback-comment-field {
     flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+}
+
+.feedback-comment-counter {
+    align-self: flex-end;
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+}
+
+.feedback-comment-input {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    resize: none;
+    max-height: 40vh;
+    overflow-y: auto;
+    line-height: 1.4;
     min-width: 0;
     background: var(--bg-secondary);
     color: var(--text-primary);

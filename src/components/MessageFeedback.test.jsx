@@ -91,7 +91,7 @@ describe('MessageFeedback', () => {
 
         const input = container.querySelector('.feedback-comment-input');
         fireEvent.change(input, { target: { value: 'очень полезно' } });
-        fireEvent.keyDown(input, { key: 'Enter' });
+        fireEvent.keyDown(input, { key: 'Enter', ctrlKey: true });
 
         await waitFor(() => expect(submitFeedback).toHaveBeenCalledWith({
             completionId: 'chatcmpl-1',
@@ -100,6 +100,44 @@ describe('MessageFeedback', () => {
             comment: 'очень полезно',
         }));
         expect(setChats.lastResult[0].messages[1].feedback).toEqual({ value: 'up', comment: 'очень полезно' });
+    });
+
+    it('uses a 20 000 character multi-line textarea', () => {
+        const message = { ...baseMessage, feedback: { value: 'up', comment: null } };
+        const { container } = render(
+            <MessageFeedback message={message} chatId="chat-1" setChats={makeSetChats(chatsWith(message))} />,
+        );
+        const input = container.querySelector('.feedback-comment-input');
+        expect(input.tagName).toBe('TEXTAREA');
+        expect(input.maxLength).toBe(20000);
+        expect(container.querySelector('.feedback-comment-counter')).toBeNull();
+        fireEvent.change(input, { target: { value: 'x'.repeat(18500) } });
+        expect(container.querySelector('.feedback-comment-counter')).not.toBeNull();
+    });
+
+    it('does not submit on plain Enter', () => {
+        const message = { ...baseMessage, feedback: { value: 'up', comment: null } };
+        const { container } = render(
+            <MessageFeedback message={message} chatId="chat-1" setChats={makeSetChats(chatsWith(message))} />,
+        );
+        const input = container.querySelector('.feedback-comment-input');
+        fireEvent.change(input, { target: { value: 'line' } });
+        fireEvent.keyDown(input, { key: 'Enter' });
+        expect(submitFeedback).not.toHaveBeenCalled();
+    });
+
+    it('submits a long (5 000 char) comment whole via Ctrl+Enter', async () => {
+        const message = { ...baseMessage, feedback: { value: 'down', comment: null } };
+        const { container } = render(
+            <MessageFeedback message={message} chatId="chat-1" setChats={makeSetChats(chatsWith(message))} />,
+        );
+        const long = 'абв\n'.repeat(1250).trim() + 'я'.repeat(1000);
+        const input = container.querySelector('.feedback-comment-input');
+        fireEvent.change(input, { target: { value: long } });
+        fireEvent.keyDown(input, { key: 'Enter', metaKey: true });
+        await waitFor(() => expect(submitFeedback).toHaveBeenCalledWith(
+            expect.objectContaining({ comment: long.trim() }),
+        ));
     });
 
     it('does not re-send an unchanged comment', () => {

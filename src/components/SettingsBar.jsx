@@ -27,10 +27,12 @@ function ModelItem({ model, selected, onSelect, onRequireAuth }) {
     // and rejects chat requests against them — clicking one opens the auth
     // modal instead of selecting an unusable model.
     const requiresAuth = Boolean(model.requires_auth);
+    // `until` is null when the backend gives no retry time (an external backend that is down).
+    const until = formatUntil(model.status?.until);
     const stateLabel = model.status?.state === 'rate_limited'
-        ? `Rate-limited ${formatUntil(model.status.until)}`
+        ? ['Rate-limited', until].filter(Boolean).join(' ')
         : model.status?.state === 'unreachable'
-            ? `Unreachable ${formatUntil(model.status.until)}`
+            ? ['Unreachable', until].filter(Boolean).join(' ')
             : null;
     return (
         <button
@@ -74,6 +76,19 @@ function ModelGroup({ title, subtitle, items, selectedModel, onSelect, onRequire
             ))}
         </div>
     );
+}
+
+// Models of other backends with the same API (provider "external"): one group per backend,
+// titled with its name, in the order the backend lists them.
+function externalGroups(models) {
+    const groups = new Map();
+    for (const m of models) {
+        if (m.provider !== 'external') continue;
+        const key = m.backend_id || m.backend_name || '';
+        if (!groups.has(key)) groups.set(key, { title: m.backend_name || m.backend_id, items: [] });
+        groups.get(key).items.push(m);
+    }
+    return [...groups.entries()];
 }
 
 function AllFreeModelsExpander({ items, selectedModel, onSelect, onRequireAuth }) {
@@ -204,6 +219,16 @@ export default function SettingsBar({
                                         onRequireAuth={handleModelRequiresAuth}
                                         coreModelId={coreModelId}
                                     />
+                                    {externalGroups(models).map(([key, group]) => (
+                                        <ModelGroup
+                                            key={`external-${key}`}
+                                            title={group.title}
+                                            items={group.items}
+                                            selectedModel={selectedModel}
+                                            onSelect={handleSelectModel}
+                                            onRequireAuth={handleModelRequiresAuth}
+                                        />
+                                    ))}
                                     <ModelGroup
                                         title={t('modelGroupOther')}
                                         items={models.filter(m => m.provider === 'openrouter' && m.featured)}

@@ -140,3 +140,50 @@ describe('SettingsBar locked models', () => {
         expect(locked.title).toMatch(/sign in|войдите/i);
     });
 });
+
+describe('SettingsBar external backends', () => {
+    const models = [
+        { id: 'local-vllm', provider: 'vllm', display_name: 'Local vLLM' },
+        { id: 'gemma@lab', provider: 'external', backend_id: 'lab', backend_name: 'Лаборатория', display_name: 'Gemma' },
+        { id: 'lite@lab', provider: 'external', backend_id: 'lab', backend_name: 'Лаборатория', display_name: 'Lite' },
+        {
+            id: 'qwen@b2', provider: 'external', backend_id: 'b2', backend_name: 'Второй бэкенд', display_name: 'Qwen',
+            status: { state: 'unreachable', until: null },
+        },
+    ];
+
+    function openDropdown(container) {
+        fireEvent.click(container.querySelector('.model-dropdown-trigger'));
+    }
+
+    it('shows one group per backend, titled with its name', () => {
+        const { container } = renderBar({ models });
+        openDropdown(container);
+        const groups = [...container.querySelectorAll('.model-dropdown-group')].map((g) => ({
+            title: g.querySelector('.model-dropdown-group-header')?.textContent ?? null,
+            items: [...g.querySelectorAll('.model-item-name')].map((n) => n.textContent),
+        }));
+        expect(groups).toEqual([
+            { title: null, items: ['Local vLLM'] },
+            { title: 'Лаборатория', items: ['Gemma', 'Lite'] },
+            { title: 'Второй бэкенд', items: ['Qwen'] },
+        ]);
+    });
+
+    it('selects a model of another backend like any other', () => {
+        const onModelChange = vi.fn();
+        const { container } = renderBar({ models, onModelChange });
+        openDropdown(container);
+        fireEvent.click(screen.getByText('Lite'));
+        expect(onModelChange).toHaveBeenCalledWith('lite@lab');
+    });
+
+    it('marks a backend that does not answer as unreachable, without a bogus time', () => {
+        const { container } = renderBar({ models });
+        openDropdown(container);
+        const item = screen.getByText('Qwen').closest('button');
+        expect(item.disabled).toBe(true);
+        expect(item.textContent).toMatch(/Unreachable/);
+        expect(item.textContent).not.toMatch(/null/);
+    });
+});

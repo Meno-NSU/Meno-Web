@@ -281,10 +281,6 @@
     flex-shrink: 0;
 }
 
-/* Trigger label with OR sublabel */
-.model-dropdown-label { display: flex; flex-direction: column; align-items: flex-start; }
-.model-dropdown-sublabel { font-size: 0.7rem; color: var(--text-tertiary, #aaa); }
-
 /* Auth: anonymous sign-in icon / signed-in account chip with dropdown */
 .auth-menu {
     position: relative;

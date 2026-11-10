@@ -301,6 +301,7 @@ describe('App — opening a not-yet-loaded conversation', () => {
     // restarted the fetch on every such change; it must now depend on the
     // loaded/not-loaded boolean instead and stay put.
     fireEvent.click(container.querySelector('.model-dropdown-trigger'));
+    fireEvent.click(container.querySelector('.version-row'));
     fireEvent.click(screen.getByText('Model 2'));
     expect(callsForSrv2()).toBe(1);
 

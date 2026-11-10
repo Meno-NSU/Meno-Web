@@ -24,7 +24,6 @@ function renderBar({
             setIsArenaMode={() => {}}
             currentView={currentView}
             setCurrentView={setCurrentView}
-            coreModelId=""
             onOpenSidebar={() => {}}
             user={user}
             onOpenAuth={onOpenAuth}

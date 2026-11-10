@@ -358,9 +358,6 @@ function App() {
     }
   };
 
-  // Core model annotation from /v1/models response
-  const [coreModelId, setCoreModelId] = useState(null);
-
   // Auth (S3): optional sign-in — anonymous users keep full chat access.
   const auth = useAuth();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -462,13 +459,12 @@ function App() {
         .catch(() => { /* version fetched on demand when a choice is made */ });
     });
     const initData = async () => {
-      const [{ models: fetchedModels, coreModelId: fetchedCoreModelId }, fetchedKbs] = await Promise.all([
+      const [{ models: fetchedModels }, fetchedKbs] = await Promise.all([
         fetchModels(),
         fetchKnowledgeBases(),
       ]);
 
       setModels(fetchedModels);
-      setCoreModelId(fetchedCoreModelId);
       setKbs(fetchedKbs);
 
       const defaultModelId = resolveModelId(fetchedModels, localStorage.getItem(LAST_USED_MODEL_KEY));
@@ -527,11 +523,10 @@ function App() {
 
     const poll = async () => {
       if (document.hidden) return;
-      const [{ models: freshModels, coreModelId: freshCoreModelId }, freshKbs] = await Promise.all([
+      const [{ models: freshModels }, freshKbs] = await Promise.all([
         fetchModels(),
         fetchKnowledgeBases(),
       ]);
-      setCoreModelId(freshCoreModelId);
       setModels((prev) => {
         const prevIds = prev.map((m) => m.id).sort().join(',');
         const nextIds = freshModels.map((m) => m.id).sort().join(',');
@@ -791,8 +786,7 @@ function App() {
   };
 
   const handleModelsDropdownOpen = async () => {
-    const { models: freshModels, coreModelId: freshCoreModelId } = await refreshModels();
-    setCoreModelId(freshCoreModelId);
+    const { models: freshModels } = await refreshModels();
     setModels((prev) => {
       const signature = (list) => list
         .map((m) => `${m.id}:${m.status?.state ?? ''}`).sort().join(',');
@@ -802,9 +796,8 @@ function App() {
 
   const refreshModelsAndApplyState = useCallback(async () => {
     try {
-      const { models: freshModels, coreModelId: freshCoreModelId } = await refreshModels();
+      const { models: freshModels } = await refreshModels();
       setModels(freshModels);
-      setCoreModelId(freshCoreModelId);
     } catch { /* ignore */ }
   }, []);
 
@@ -1689,7 +1682,6 @@ function App() {
           setIsArenaMode={handleArenaModeChange}
           currentView={currentView}
           setCurrentView={setCurrentView}
-          coreModelId={coreModelId}
           onOpenSidebar={() => setIsSidebarOpen(true)}
           user={auth.user}
           onOpenAuth={() => setIsAuthModalOpen(true)}

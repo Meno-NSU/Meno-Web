@@ -167,6 +167,111 @@ describe('VersionPicker', () => {
         fireEvent.click(menu().getByText('Менон 1.1'));
         expect(document.activeElement).toBe(menu().getByText('Gemma 4 12B').closest('button'));
     });
+
+    it('stays on the versions when the open version drops out and comes back', () => {
+        const { open, rerender, onSelect, onRequireAuth, onOpen } = setup();
+        const props = { selectedModel: 'meno-lite', onSelect, onRequireAuth, onOpen };
+        open();
+        fireEvent.click(screen.getByText('Менон 1.1'));
+        rerender(<VersionPicker models={V10} {...props} />);
+        rerender(<VersionPicker models={PROD} {...props} />);
+        expect(document.querySelector('.version-back')).toBeNull();
+        expect(document.querySelectorAll('.version-row')).toHaveLength(2);
+    });
+});
+
+describe('VersionPicker keyboard focus', () => {
+    const trigger = () => document.querySelector('.model-dropdown-trigger');
+
+    it('moves focus to the back control when no model of the version takes it', () => {
+        const { open, menu } = setup();
+        open();
+        fireEvent.click(menu().getByText('Менон 1.0')); // the current version: no same-model rule
+        expect(document.activeElement).toBe(document.querySelector('.version-back'));
+    });
+
+    it('moves focus to the back control when the version lacks the same model', () => {
+        const ragu = [entry('x@ragu', 'ragu', 'RAGU', 'x', 'x'), entry('y@ragu', 'ragu', 'RAGU', 'y', 'y')];
+        const { open, menu } = setup({ models: [...PROD, ...ragu] });
+        open();
+        fireEvent.click(menu().getByText('RAGU'));
+        expect(document.activeElement).toBe(document.querySelector('.version-back'));
+    });
+
+    it('puts focus back on the row of the version just left', () => {
+        const { open, menu } = setup();
+        open();
+        fireEvent.click(menu().getByText('Менон 1.1'));
+        fireEvent.click(document.querySelector('.version-back'));
+        expect(document.activeElement).toBe(menu().getByText('Менон 1.1').closest('button'));
+    });
+
+    it('returns focus to the trigger on Escape', () => {
+        const { open, menu } = setup();
+        open();
+        fireEvent.click(menu().getByText('Менон 1.1'));
+        fireEvent.keyDown(document, { key: 'Escape' });
+        expect(document.activeElement).toBe(trigger());
+    });
+
+    it('returns focus to the trigger after choosing a model', () => {
+        const { open, menu } = setup();
+        open();
+        fireEvent.click(menu().getByText('Менон 1.1'));
+        fireEvent.click(menu().getByText('Gemma 4 12B'));
+        expect(document.activeElement).toBe(trigger());
+    });
+
+    it('returns focus to the trigger after choosing a one-model version', () => {
+        const cag = { id: 'lite@cag', provider: 'external', stand_id: 'cag', stand_name: 'CAG', llm_id: 'lite', llm_name: 'lite' };
+        const { open } = setup({ models: [...PROD, cag] });
+        open();
+        fireEvent.click(screen.getByText('CAG'));
+        expect(document.activeElement).toBe(trigger());
+    });
+
+    it('returns focus to the trigger when the sign-in prompt opens', () => {
+        const lab = { id: 'x@lab', provider: 'external', stand_id: 'lab', stand_name: 'Лаб', llm_id: 'x', llm_name: 'x', requires_auth: true };
+        const { open, onRequireAuth } = setup({ models: [...PROD, lab] });
+        open();
+        fireEvent.click(screen.getByText('Лаб'));
+        expect(onRequireAuth).toHaveBeenCalledTimes(1);
+        expect(document.activeElement).toBe(trigger());
+    });
+
+    it('leaves focus where the user clicked on an outside click', () => {
+        const { open } = setup();
+        const outside = document.createElement('button');
+        document.body.appendChild(outside);
+        outside.focus();
+        open();
+        fireEvent.mouseDown(outside);
+        expect(document.querySelector('.model-dropdown-menu')).toBeNull();
+        expect(document.activeElement).toBe(outside);
+        outside.remove();
+    });
+});
+
+describe('VersionPicker accessible names', () => {
+    it('names the trigger by the version and model, and says whether the menu is open', () => {
+        const { open } = setup({ selectedModel: 'gemma-4-12B-it@menon-1.1' });
+        const button = screen.getByRole('button', { name: 'Менон 1.1 · Gemma 4 12B' });
+        expect(button.getAttribute('aria-haspopup')).toBe('true');
+        expect(button.getAttribute('aria-expanded')).toBe('false');
+        const hint = document.getElementById(button.getAttribute('aria-describedby'));
+        expect(hint.textContent).toBe('Версия Менона и модель, которые отвечают на ваши вопросы.');
+        open();
+        expect(button.getAttribute('aria-expanded')).toBe('true');
+    });
+
+    it('names the back control by the version it shows', () => {
+        const { open, menu } = setup();
+        open();
+        fireEvent.click(menu().getByText('Менон 1.1'));
+        const back = screen.getByRole('button', { name: 'Менон 1.1' });
+        expect(back.className).toContain('version-back');
+        expect(back.title).toBe('Назад к версиям');
+    });
 });
 
 describe('VersionPicker stylesheet', () => {

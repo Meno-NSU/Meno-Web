@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback, useId } from 'react';
 import { ChevronDown, ChevronRight, AlertCircle, Lock, Check, Circle, Schedule, CloudOff } from './icons.jsx';
 import { useTranslation } from '../i18n.js';
 import Tooltip from './Tooltip.jsx';
@@ -103,7 +103,7 @@ function AllFreeModelsExpander({ items, selectedModel, onSelect, onRequireAuth }
     );
 }
 
-function VersionRow({ name, group, current, currentModelName, onChoose }) {
+function VersionRow({ name, group, current, currentModelName, onChoose, autoFocus }) {
     const { t } = useTranslation();
     const unavailable = group.entries.every(m => !isAvailable(m));
     const single = group.entries.length === 1;
@@ -113,6 +113,7 @@ function VersionRow({ name, group, current, currentModelName, onChoose }) {
             onClick={onChoose}
             disabled={unavailable}
             type="button"
+            autoFocus={autoFocus}
         >
             <span className="version-row-name">{name}</span>
             {current && !single && <span className="version-row-model">{currentModelName}</span>}
@@ -127,26 +128,29 @@ export default function VersionPicker({ models, selectedModel, onSelect, onRequi
     const { t } = useTranslation();
     const [isOpen, setIsOpen] = useState(false);
     const [openStandId, setOpenStandId] = useState(null); // null = step 1
+    // The version whose step 2 was just left: its row takes focus back in step 1.
+    const [returnStandId, setReturnStandId] = useState(null);
     const rootRef = useRef(null);
+    const triggerRef = useRef(null);
+    const hintId = useId();
 
-    const close = () => {
+    // The one way the menu closes. Escape and a choice hand focus back to the
+    // trigger, so keyboard users are not dropped on the page body; an outside
+    // click leaves focus where the user clicked.
+    const close = useCallback((focusTrigger = false) => {
         setIsOpen(false);
         setOpenStandId(null);
-    };
+        setReturnStandId(null);
+        if (focusTrigger) triggerRef.current?.focus();
+    }, []);
 
     useEffect(() => {
         if (!isOpen) return undefined;
         const onMouseDown = (e) => {
-            if (rootRef.current && !rootRef.current.contains(e.target)) {
-                setIsOpen(false);
-                setOpenStandId(null);
-            }
+            if (rootRef.current && !rootRef.current.contains(e.target)) close();
         };
         const onKeyDown = (e) => {
-            if (e.key === 'Escape') {
-                setIsOpen(false);
-                setOpenStandId(null);
-            }
+            if (e.key === 'Escape') close(true);
         };
         document.addEventListener('mousedown', onMouseDown);
         document.addEventListener('keydown', onKeyDown);
@@ -154,22 +158,24 @@ export default function VersionPicker({ models, selectedModel, onSelect, onRequi
             document.removeEventListener('mousedown', onMouseDown);
             document.removeEventListener('keydown', onKeyDown);
         };
-    }, [isOpen]);
+    }, [isOpen, close]);
 
     const hasModels = models.length > 0;
     const groups = groupByVersion(models);
     const currentEntry = models.find(m => m.id === selectedModel);
     const current = currentEntry ? describeEntry(currentEntry) : null;
     const currentGroup = current && groups.find(g => g.standId === current.standId);
-    // A refreshed list may drop the open version: fall back to step 1.
+    // A refreshed list may drop the open version: go back to step 1 for good, so the
+    // version coming back in a later list does not reopen a stale step 2.
     const openGroup = groups.find(g => g.standId === openStandId) ?? null;
+    if (openStandId !== null && !openGroup) setOpenStandId(null);
 
     const handleSelect = (id) => {
         onSelect(id);
-        close();
+        close(true);
     };
     const handleRequireAuth = () => {
-        close();
+        close(true);
         onRequireAuth?.();
     };
     const handleChoose = (group) => {
@@ -181,11 +187,18 @@ export default function VersionPicker({ models, selectedModel, onSelect, onRequi
         if (only.requires_auth) handleRequireAuth();
         else handleSelect(only.id);
     };
+    const handleBack = () => {
+        setReturnStandId(openStandId);
+        setOpenStandId(null);
+    };
 
+    // Entries inside the collapsed «All free models» expander are not rendered,
+    // so they cannot take focus.
+    const isShown = (group, m) => !(group.standId === MENON_10 && m.provider === 'openrouter' && !m.featured);
     let focusId = null;
     if (openGroup && openGroup.standId !== current?.standId && current) {
         const same = openGroup.entries.find(m => describeEntry(m).llmId === current.llmId);
-        if (same && isUsable(same) && isAvailable(same)) focusId = same.id;
+        if (same && isUsable(same) && isAvailable(same) && isShown(openGroup, same)) focusId = same.id;
     }
 
     const renderModels = (group) => {
@@ -202,7 +215,7 @@ export default function VersionPicker({ models, selectedModel, onSelect, onRequi
                     {...common}
                 />
                 <AllFreeModelsExpander
-                    items={group.entries.filter(m => m.provider === 'openrouter' && !m.featured)}
+                    items={group.entries.filter(m => !isShown(group, m))}
                     selectedModel={selectedModel}
                     onSelect={handleSelect}
                     onRequireAuth={handleRequireAuth}
@@ -211,19 +224,31 @@ export default function VersionPicker({ models, selectedModel, onSelect, onRequi
         );
     };
 
+    // The accessible name is what the trigger shows (version · model); the tooltip
+    // sentence describes it.
+    const triggerName = !hasModels
+        ? t('noModelsAvailable')
+        : current ? `${versionName(currentGroup, t)} · ${current.llmName}` : t('model');
+
     return (
         <div className="model-dropdown" ref={rootRef}>
-            <Tooltip text={t('tipModelSelect')} align="left">
+            <Tooltip text={t('tipModelSelect')} align="left" id={hintId}>
                 <button
+                    ref={triggerRef}
                     className={`model-dropdown-trigger ${!hasModels ? 'no-models' : ''}`}
                     onClick={() => {
-                        const willOpen = !isOpen;
-                        setIsOpen(willOpen);
-                        setOpenStandId(null);
-                        if (willOpen) onOpen?.();
+                        if (isOpen) {
+                            close();
+                            return;
+                        }
+                        setIsOpen(true);
+                        onOpen?.();
                     }}
                     type="button"
-                    aria-label={t('tipModelSelect')}
+                    aria-label={triggerName}
+                    aria-describedby={hintId}
+                    aria-haspopup="true"
+                    aria-expanded={isOpen}
                 >
                     {!hasModels && <AlertCircle size={16} className="no-models-icon" />}
                     <span className="model-dropdown-label">
@@ -244,11 +269,14 @@ export default function VersionPicker({ models, selectedModel, onSelect, onRequi
                         <div className="model-dropdown-item no-models-hint">{t('noModelsAvailable')}</div>
                     ) : openGroup ? (
                         <>
+                            {/* Named by the visible version name (label in name); the
+                                purpose is the title. Takes focus unless a model does. */}
                             <button
                                 className="version-back"
-                                onClick={() => setOpenStandId(null)}
-                                aria-label={t('versionBack')}
+                                onClick={handleBack}
+                                title={t('versionBack')}
                                 type="button"
+                                autoFocus={!focusId}
                             >
                                 <ChevronRight size={16} className="version-back-icon" />
                                 <span>{versionName(openGroup, t)}</span>
@@ -267,6 +295,7 @@ export default function VersionPicker({ models, selectedModel, onSelect, onRequi
                                     current={g.standId === current?.standId}
                                     currentModelName={current?.llmName}
                                     onChoose={() => handleChoose(g)}
+                                    autoFocus={g.standId === returnStandId}
                                 />
                             ))}
                         </>

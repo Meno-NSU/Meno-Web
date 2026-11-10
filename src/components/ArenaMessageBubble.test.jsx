@@ -236,4 +236,16 @@ describe('ArenaMessageBubble vote handling', () => {
         expect(screen.getByText('B: Менон 1.0 · gone-model')).toBeTruthy();
         expect(container.textContent).not.toMatch(/nsu-/);
     });
+
+    it('renders a restored voted side with a null model as a dash', () => {
+        const bubble = makeBubble();
+        bubble.arenaData.voted = true;
+        bubble.arenaData.winner = 'b';
+        bubble.arenaData.a = { model: null, kb: null, content: '' };
+        render(
+            <ArenaMessageBubble message={bubble} chatId="chat-1" setChats={vi.fn()} isGenerating={false} question="q" messagesBeforeRound={[]} models={[]} />,
+        );
+        expect(screen.getByText('A: —')).toBeTruthy();
+        expect(screen.getByText('B: Менон 1.0 · m-b')).toBeTruthy();
+    });
 });

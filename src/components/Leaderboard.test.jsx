@@ -58,4 +58,13 @@ describe('Leaderboard', () => {
         await waitFor(() => expect(screen.getByText('v1')).toBeTruthy());
         expect(screen.getByText('v2')).toBeTruthy();
     });
+
+    it('falls back to row.model for rows without the stand fields', async () => {
+        globalThis.fetch = vi.fn().mockResolvedValue({ json: () => Promise.resolve({ data: [
+            { model: 'old-model', knowledge_base: 'old-kb', elo: 1500, win_rate: 50, matches: 2 },
+        ] }) });
+        render(<Leaderboard />);
+        await waitFor(() => expect(screen.getByText('old-model')).toBeTruthy());
+        expect(screen.queryByText('old-kb')).toBeNull();
+    });
 });

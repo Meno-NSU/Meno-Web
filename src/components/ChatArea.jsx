@@ -383,6 +383,7 @@ function MessageBubble({ message, chatId, setChats, onRetry, isLast }) {
 
 // ── Arena Message bubble ─────────────────────────────────────────────────────
 function sideLabel(modelId, models, t) {
+    if (!modelId) return '—';
     const entry = (models || []).find((m) => m.id === modelId) ?? { id: modelId };
     const d = describeEntry(entry);
     return `${versionName({ standId: d.standId, standName: d.standName }, t)} · ${d.llmName}`;

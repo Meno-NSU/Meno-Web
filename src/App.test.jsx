@@ -582,3 +582,45 @@ describe('App — continuing a restored chat that contains an arena round', () =
     ]);
   });
 });
+
+describe('App — the version picker follows the model list', () => {
+  const backend = { provider: 'external', status: { state: 'available' } };
+  const entry = (id, extra) => ({ id, display_name: id, ...backend, ...extra });
+
+  it('keeps a chat in its version when its model goes away', async () => {
+    localStorage.setItem('lastUsedModelId', 'a@menon-1.1');
+    const c = entry('c', { stand_id: 'menon-1.0', stand_name: 'Menon 1.0', llm_id: 'c', llm_name: 'C' });
+    const a = entry('a@menon-1.1', { stand_id: 'menon-1.1', stand_name: 'Menon 1.1', llm_id: 'a', llm_name: 'A' });
+    const b = entry('b@menon-1.1', { stand_id: 'menon-1.1', stand_name: 'Menon 1.1', llm_id: 'b', llm_name: 'B' });
+    fetchModels.mockResolvedValue({ models: [c, a, b], coreModelId: 'c' });
+    refreshModels.mockResolvedValue({ models: [c, b], coreModelId: 'c' });
+
+    const { container } = render(<App />);
+    await waitFor(() => expect(container.querySelector('.version-trigger-model')?.textContent).toBe('A'));
+
+    fireEvent.click(container.querySelector('.model-dropdown-trigger'));
+    await waitFor(() => expect(container.querySelector('.version-trigger-model')?.textContent).toBe('B'));
+    expect(container.querySelector('.version-trigger-version').textContent).toBe('Менон 1.1');
+  });
+
+  it('shows a model that turned unreachable after the menu refreshes', async () => {
+    const m1 = { id: 'm1', display_name: 'Model 1', provider: 'vllm', status: { state: 'available' } };
+    const m2 = { id: 'm2', display_name: 'Model 2', provider: 'vllm', status: { state: 'available' } };
+    fetchModels.mockResolvedValue({ models: [m1, m2], coreModelId: 'm1' });
+    refreshModels.mockResolvedValue({
+      models: [m1, { ...m2, status: { state: 'unreachable' } }],
+      coreModelId: 'm1',
+    });
+
+    const { container } = render(<App />);
+    await waitFor(() => expect(container.querySelector('.model-dropdown-trigger')).toBeTruthy());
+    fireEvent.click(container.querySelector('.model-dropdown-trigger'));
+    const row = await waitFor(() => {
+      const found = [...container.querySelectorAll('.version-row')].find((r) => r.textContent.includes('Менон 1.0'));
+      expect(found).toBeTruthy();
+      return found;
+    });
+    fireEvent.click(row);
+    await waitFor(() => expect(screen.getByText('Model 2').closest('button').disabled).toBe(true));
+  });
+});

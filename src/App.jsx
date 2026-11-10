@@ -57,6 +57,7 @@ import { shouldShowConsentModal, hasDecidedConsent, setConsentDecided, getConsen
 import { shouldShowSurvey } from './services/surveyGate.js';
 import { hasSeenArenaIntro, markArenaIntroSeen } from './services/arenaIntro.js';
 import { watchFrameRate, isLowFrameRate } from './services/frameRate.js';
+import { rememberVersions, fallbackModelId } from './services/versions.js';
 import { translateOnce as i18nLookup } from './i18n.js';
 import { buildErrorNotice, buildStopNotice } from './services/chatNotice.js';
 import { dropTrailingNotice } from './services/chatTurns.js';
@@ -650,16 +651,19 @@ function App() {
   const selectedModel = activeChat.runtimeConfig?.modelId || '';
   const selectedKb = activeChat.runtimeConfig?.knowledgeBaseId || '';
 
+  const knownVersionsRef = useRef(new Map());
+  useEffect(() => {
+    rememberVersions(knownVersionsRef.current, models);
+  }, [models]);
+
   // Auto-fallback when the selected model disappears from the available list
   // or becomes locked behind login (e.g. the user signed out while an
   // OpenRouter model was selected — the server would reject chat against it).
   useEffect(() => {
     if (models.length === 0 || !activeChatId) return;
-    const usable = (m) => !m.requires_auth;
-    if (selectedModel && models.some((m) => m.id === selectedModel && usable(m))) return;
-    const fallback = models.find(usable)?.id || '';
-    if (fallback) {
-      updateActiveChatRuntimeConfig({ modelId: fallback });
+    const target = fallbackModelId(models, selectedModel, knownVersionsRef.current);
+    if (target && target !== selectedModel) {
+      updateActiveChatRuntimeConfig({ modelId: target });
     }
   }, [models, selectedModel, activeChatId]);
 
@@ -768,9 +772,9 @@ function App() {
     const { models: freshModels, coreModelId: freshCoreModelId } = await refreshModels();
     setCoreModelId(freshCoreModelId);
     setModels((prev) => {
-      const prevIds = prev.map((m) => m.id).sort().join(',');
-      const nextIds = freshModels.map((m) => m.id).sort().join(',');
-      return prevIds === nextIds ? prev : freshModels;
+      const signature = (list) => list
+        .map((m) => `${m.id}:${m.status?.state ?? ''}`).sort().join(',');
+      return signature(prev) === signature(freshModels) ? prev : freshModels;
     });
   };
 

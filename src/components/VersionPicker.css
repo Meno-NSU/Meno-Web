@@ -26,6 +26,26 @@
     white-space: pre;
 }
 
+.model-dropdown .model-dropdown-menu {
+    max-width: min(420px, calc(100vw - 32px));
+}
+
+.model-item-name {
+    flex: 1;
+    min-width: 0;
+    text-align: left;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.model-dropdown-item > .model-status-icon,
+.model-dropdown-item > .model-item-check,
+.model-dropdown-item > .model-item-state,
+.version-row-chevron {
+    flex-shrink: 0;
+}
+
 .version-row-name {
     flex: 1;
     min-width: 0;
@@ -39,6 +59,8 @@
     margin-left: auto;
     padding: 0 0.5rem;
     max-width: 45%;
+    flex-shrink: 1;
+    min-width: 0;
     font-size: 0.7rem;
     color: var(--text-tertiary, #aaa);
     overflow: hidden;
@@ -80,7 +102,22 @@
     transform: rotate(180deg);
 }
 
+.version-back span {
+    min-width: 0;
+}
+
 @media (max-width: 768px) {
+    /* Pin the open menu inside the screen, under the 60px header. */
+    .model-dropdown .model-dropdown-menu {
+        position: fixed;
+        top: 64px;
+        left: 16px;
+        right: 16px;
+        width: auto;
+        min-width: 0;
+        max-width: none;
+    }
+
     .model-dropdown-label {
         flex-direction: column;
         align-items: flex-start;

@@ -177,4 +177,17 @@ describe('VersionPicker stylesheet', () => {
         const mobile = css.slice(css.indexOf('@media (max-width: 768px)'));
         expect(mobile).toMatch(/\.model-dropdown-label\s*\{[^}]*flex-direction:\s*column/);
     });
+
+    it('keeps the open menu inside a phone screen and ellipsizes long names', () => {
+        const mobile = css.slice(css.indexOf('@media (max-width: 768px)'));
+        const menu = mobile.match(/\.model-dropdown \.model-dropdown-menu\s*\{[^}]*\}/)[0];
+        expect(menu).toMatch(/position:\s*fixed/);
+        expect(menu).toMatch(/left:\s*16px/);
+        expect(menu).toMatch(/right:\s*16px/);
+        for (const sel of ['\\.version-row-name', '\\.model-item-name']) {
+            const rule = css.match(new RegExp(sel + '\\s*\\{[^}]*\\}'))[0];
+            expect(rule).toMatch(/text-overflow:\s*ellipsis/);
+            expect(rule).toMatch(/min-width:\s*0/);
+        }
+    });
 });

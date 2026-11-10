@@ -317,6 +317,8 @@ describe('App — opening a not-yet-loaded conversation', () => {
 
     await waitFor(() => expect(screen.getByText('A2')).toBeTruthy());
     expect(callsForSrv2()).toBe(1);
+    // The model picked while loading stays, rather than the one the last answer came from (m1).
+    expect(container.querySelector('.version-trigger-model').textContent).toBe('Model 2');
   });
 });
 
@@ -659,6 +661,34 @@ describe('App — the version picker follows the model list', () => {
       expect(trigger(container)).toEqual({ version: 'Менон 1.1', model: 'A' });
       expect(localStorage.getItem('lastUsedModelId')).toBe('a@menon-1.1');
     });
+  });
+
+  // A restored conversation continues where it left off: the picker shows the model of its
+  // last answer, not the one used last in some other chat.
+  it('opens a restored server chat in the model of its last answer', async () => {
+    const v10 = entry('c', { stand_id: 'menon-1.0', stand_name: 'Menon 1.0', llm_id: 'c', llm_name: 'C' });
+    const v11 = entry('a@menon-1.1', { stand_id: 'menon-1.1', stand_name: 'Menon 1.1', llm_id: 'a', llm_name: 'A' });
+    const ragu = entry('r@ragu', { stand_id: 'ragu', stand_name: 'RAGU', llm_id: 'r', llm_name: 'R' });
+    fetchModels.mockResolvedValue({ models: [v10, v11, ragu], coreModelId: 'c' });
+    refreshModels.mockResolvedValue({ models: [v10, v11, ragu], coreModelId: 'c' });
+    localStorage.setItem('lastUsedModelId', 'a@menon-1.1');
+    getAuthToken.mockReturnValue('tok-existing');
+    fetchMe.mockResolvedValue({ id: 'u1', email: 'demo@nsu.ru', nickname: 'Demo' });
+    fetchConversations.mockResolvedValue([
+      { id: 'srv-1', preview: 'Какое расписание?', updated_at: '2026-07-20T00:00:00Z' },
+    ]);
+    fetchConversation.mockResolvedValue({
+      turns: [
+        { kind: 'user', content: 'Какое расписание?', created_at: 'x' },
+        { kind: 'answer', content: 'Ответ RAGU', model: 'r@ragu', request_id: 'run-1', sources: [], created_at: 'x' },
+      ],
+    });
+
+    const { container } = render(<App />);
+    await waitFor(() => expect(screen.getByText('Ответ RAGU')).toBeTruthy());
+    await waitFor(() => expect(container.querySelector('.version-trigger-version')?.textContent).toBe('RAGU'));
+    expect(container.querySelector('.version-trigger-model').textContent).toBe('R');
+    expect(container.querySelector('.message-model-label').textContent).toBe('RAGU · R');
   });
 
   it('shows a model that turned unreachable after the menu refreshes', async () => {

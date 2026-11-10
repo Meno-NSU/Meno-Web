@@ -35,7 +35,7 @@ import {
   nextArenaTurnIndex,
   projectArenaMessagesForContinuation,
 } from './services/arenaHistory.js';
-import { messagesFromTurns } from './services/conversationRestore.js';
+import { messagesFromTurns, lastAnswerModelId } from './services/conversationRestore.js';
 import {
   chatFromSummary,
   chatsForIdentity,
@@ -622,6 +622,8 @@ function App() {
   // already outstanding (e.g. React's dev-mode double-invoke of effects) — belt
   // and suspenders alongside the dependency fix above.
   const conversationFetchesInFlightRef = useRef(new Set());
+  // Server chats whose model the user picked while their content was loading.
+  const modelPickedWhileLoadingRef = useRef(new Set());
 
   // Load one conversation's content the first time it's opened.
   useEffect(() => {
@@ -637,7 +639,17 @@ function App() {
         // 404 (or a network failure — fetchConversation reads the same either
         // way) means gone or not ours; show it empty rather than spinning forever.
         const messages = conversation ? messagesFromTurns(conversation.turns) : [];
-        setServerChats((prev) => prev.map((c) => (c.id === chatIdBeingFetched ? { ...c, messages } : c)));
+        // The chat was listed with the last-used model (chatFromSummary); now that its content
+        // is here, select the model its last answer came from, so the picker shows what the
+        // conversation actually used. A model that is gone is moved within its version by the
+        // auto-fallback effect, as for any other chat. A model the user picked meanwhile stays.
+        const pickedWhileLoading = modelPickedWhileLoadingRef.current.delete(chatIdBeingFetched);
+        const lastModelId = pickedWhileLoading ? null : lastAnswerModelId(messages);
+        setServerChats((prev) => prev.map((c) => {
+          if (c.id !== chatIdBeingFetched) return c;
+          if (!lastModelId) return { ...c, messages };
+          return { ...c, messages, runtimeConfig: { ...c.runtimeConfig, modelId: lastModelId } };
+        }));
       } finally {
         conversationFetchesInFlightRef.current.delete(chatIdBeingFetched);
       }
@@ -782,6 +794,9 @@ function App() {
   };
 
   const handleModelChange = (modelId) => {
+    // A pick made while a server chat's content is still loading wins over the model its
+    // last answer came from (see the load effect).
+    if (activeChatStillLoading) modelPickedWhileLoadingRef.current.add(activeChatId);
     updateActiveChatRuntimeConfig({ modelId });
   };
 

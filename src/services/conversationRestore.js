@@ -80,3 +80,14 @@ export function messagesFromTurns(turns) {
     }
     return messages;
 }
+
+// The model of the last ordinary answer in restored messages, or null when there is none
+// (an empty conversation, or arena rounds only: those have two models, so neither is "the" one).
+// A restored chat opens with it selected, so the picker shows the model the conversation used.
+export function lastAnswerModelId(messages) {
+    for (let i = (messages || []).length - 1; i >= 0; i--) {
+        const m = messages[i];
+        if (m?.role === 'assistant' && !m.isArena && m.responseModelId) return m.responseModelId;
+    }
+    return null;
+}

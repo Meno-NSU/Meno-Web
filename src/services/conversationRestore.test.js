@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { messagesFromTurns } from './conversationRestore.js';
+import { messagesFromTurns, lastAnswerModelId } from './conversationRestore.js';
 
 const SOURCES = [{ document_title: 'Устав НГУ', source_url: 'https://nsu.ru/ustav' }];
 
@@ -99,4 +99,27 @@ describe('messagesFromTurns', () => {
     expect(messagesFromTurns(undefined)).toEqual([]);
     expect(messagesFromTurns([])).toEqual([]);
   });
+});
+
+describe('lastAnswerModelId', () => {
+    it('is the model of the last ordinary answer', () => {
+        const messages = messagesFromTurns([
+            { kind: 'user', content: 'q1' },
+            { kind: 'answer', content: 'a1', model: 'gemma-4-12B-it@menon-1.1' },
+            { kind: 'user', content: 'q2' },
+            { kind: 'answer', content: 'a2', model: 'gemma-4-12B-it@ragu' },
+            { kind: 'user', content: 'q3' },
+        ]);
+        expect(lastAnswerModelId(messages)).toBe('gemma-4-12B-it@ragu');
+    });
+
+    it('skips arena rounds and is null without an ordinary answer', () => {
+        const arena = { kind: 'arena', sides: [{ key: 'a', model: 'm1' }, { key: 'b', model: 'm2' }] };
+        expect(lastAnswerModelId(messagesFromTurns([{ kind: 'user', content: 'q' }, arena]))).toBeNull();
+        expect(lastAnswerModelId(messagesFromTurns([
+            { kind: 'user', content: 'q' }, { kind: 'answer', content: 'a', model: 'meno-lite' },
+            { kind: 'user', content: 'q2' }, arena,
+        ]))).toBe('meno-lite');
+        expect(lastAnswerModelId([])).toBeNull();
+    });
 });

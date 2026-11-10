@@ -168,6 +168,33 @@ describe('VersionPicker', () => {
         expect(document.activeElement).toBe(menu().getByText('Gemma 4 12B').closest('button'));
     });
 
+    it('labels an unreachable model without a time as just unreachable', () => {
+        const down = (state) => ({ status: { state } });
+        const ragu = [
+            entry('a@ragu', 'ragu', 'RAGU', 'a', 'a'),
+            entry('b@ragu', 'ragu', 'RAGU', 'b', 'b', down('unreachable')),
+            entry('c@ragu', 'ragu', 'RAGU', 'c', 'c', down('rate_limited')),
+        ];
+        const { open, menu } = setup({ models: [...PROD, ...ragu] });
+        open();
+        fireEvent.click(menu().getByText('RAGU'));
+        const b = menu().getByText('b').closest('button');
+        const c = menu().getByText('c').closest('button');
+        expect(b.querySelector('.model-item-state').textContent).toBe('Unreachable');
+        expect(b.title).toBe('Unreachable');
+        expect(c.querySelector('.model-item-state').textContent).toBe('Rate-limited');
+        expect(document.querySelector('.model-dropdown-menu').textContent).not.toContain('null');
+    });
+
+    it('shows the model name and the check on a current one-model version', () => {
+        const cag = { id: 'lite@cag', provider: 'external', stand_id: 'cag', stand_name: 'CAG', llm_id: 'lite', llm_name: 'meno-lite' };
+        const { open, menu } = setup({ models: [...PROD, cag], selectedModel: 'lite@cag' });
+        open();
+        const row = menu().getByText('CAG').closest('button');
+        expect(row.querySelector('.version-row-model').textContent).toBe('meno-lite');
+        expect(row.querySelector('.model-item-check')).toBeTruthy();
+    });
+
     it('stays on the versions when the open version drops out and comes back', () => {
         const { open, rerender, onSelect, onRequireAuth, onOpen } = setup();
         const props = { selectedModel: 'meno-lite', onSelect, onRequireAuth, onOpen };

@@ -28,10 +28,12 @@ function ModelItem({ model, selected, onSelect, onRequireAuth, autoFocus }) {
     // and rejects chat requests against them — clicking one opens the auth
     // modal instead of selecting an unusable model.
     const requiresAuth = Boolean(model.requires_auth);
+    // A status without `until` has no time part: join only the parts that are there.
+    const until = formatUntil(model.status?.until);
     const stateLabel = model.status?.state === 'rate_limited'
-        ? `Rate-limited ${formatUntil(model.status.until)}`
+        ? ['Rate-limited', until].filter(Boolean).join(' ')
         : model.status?.state === 'unreachable'
-            ? `Unreachable ${formatUntil(model.status.until)}`
+            ? ['Unreachable', until].filter(Boolean).join(' ')
             : null;
     return (
         <button
@@ -116,7 +118,7 @@ function VersionRow({ name, group, current, currentModelName, onChoose, autoFocu
             autoFocus={autoFocus}
         >
             <span className="version-row-name">{name}</span>
-            {current && !single && <span className="version-row-model">{currentModelName}</span>}
+            {current && <span className="version-row-model">{currentModelName}</span>}
             {unavailable && <span className="model-item-state">{t('versionUnavailable')}</span>}
             {!unavailable && !single && <ChevronRight size={16} className="version-row-chevron" />}
             {!unavailable && single && current && <span className="model-item-check"><Check size={16} /></span>}

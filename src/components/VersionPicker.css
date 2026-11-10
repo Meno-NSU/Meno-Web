@@ -2,6 +2,7 @@
    The menu itself reuses the .model-dropdown* rules from SettingsBar.css. */
 
 .model-dropdown-label {
+    display: flex;
     flex-direction: row;
     align-items: baseline;
     gap: 0;

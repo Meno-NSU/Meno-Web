@@ -2,6 +2,9 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, fireEvent, screen, within } from '@testing-library/react';
 import VersionPicker from './VersionPicker.jsx';
 import { setLanguage } from '../i18n.js';
+import { readFileSync } from 'node:fs';
+
+const css = readFileSync('src/components/VersionPicker.css', 'utf-8');
 
 const entry = (id, standId, standName, llmId, llmName, extra = {}) => ({
     id, provider: 'vllm', stand_id: standId, stand_name: standName, llm_id: llmId, llm_name: llmName, ...extra,
@@ -163,5 +166,15 @@ describe('VersionPicker', () => {
         open();
         fireEvent.click(menu().getByText('Менон 1.1'));
         expect(document.activeElement).toBe(menu().getByText('Gemma 4 12B').closest('button'));
+    });
+});
+
+describe('VersionPicker stylesheet', () => {
+    // jsdom does no layout, so guard the rules the two-line trigger depends on.
+    it('makes the trigger label a flex container and stacks it on phones', () => {
+        const label = css.match(/\.model-dropdown-label\s*\{[^}]*\}/)[0];
+        expect(label).toMatch(/display:\s*flex/);
+        const mobile = css.slice(css.indexOf('@media (max-width: 768px)'));
+        expect(mobile).toMatch(/\.model-dropdown-label\s*\{[^}]*flex-direction:\s*column/);
     });
 });

@@ -1,3 +1,7 @@
+import { describeEntry } from './versions.js';
+
+const BUILTIN_ARENA_VERSIONS = new Set(['menon-1.0', 'menon-1.1']);
+
 // Some OpenRouter ids point to a meta-router that resolves to a random
 // underlying model per request. Those can't honestly appear on the arena —
 // we'd be rating an opaque routing layer, and the same id could collide
@@ -21,6 +25,8 @@ export function buildArenaPool(models) {
             // Locked-behind-login models would just 401 at chat time and burn
             // a substitution retry — keep them out of the anonymous pool.
             && !m.requires_auth
+            // Built-in versions are always eligible; any other stand must opt in.
+            && (BUILTIN_ARENA_VERSIONS.has(describeEntry(m).standId) || m.arena === true)
     );
 }
 
@@ -35,11 +41,22 @@ function modelWeight(model) {
     return model?.provider === 'vllm' ? POOL_WEIGHT_VLLM : POOL_WEIGHT_OPENROUTER;
 }
 
+// Draw a version uniformly among versions that still have a candidate, then a
+// model inside it (vLLM 3 : OpenRouter 1 in Менон 1.0, uniform elsewhere).
 export function pickRandomFromPool(pool, exclude) {
-    const candidates = pool.filter(m => !exclude.has(m.id));
-    if (candidates.length === 0) return null;
-    const weights = candidates.map(modelWeight);
-    const total = weights.reduce((s, w) => s + w, 0);
+    const byVersion = new Map();
+    for (const m of pool) {
+        if (exclude.has(m.id)) continue;
+        const v = describeEntry(m).standId;
+        if (!byVersion.has(v)) byVersion.set(v, []);
+        byVersion.get(v).push(m);
+    }
+    if (byVersion.size === 0) return null;
+    const versions = [...byVersion.keys()];
+    const version = versions[Math.min(Math.floor(Math.random() * versions.length), versions.length - 1)];
+    const candidates = byVersion.get(version);
+    const weights = candidates.map((m) => (version === 'menon-1.0' ? modelWeight(m) : 1));
+    const total = weights.reduce((sum, w) => sum + w, 0);
     let r = Math.random() * total;
     for (let i = 0; i < candidates.length; i++) {
         r -= weights[i];

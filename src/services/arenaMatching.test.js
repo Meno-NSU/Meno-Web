@@ -7,6 +7,7 @@ import {
     POOL_WEIGHT_VLLM,
     runArenaSideWithSubstitution,
 } from './arenaMatching.js';
+import { describeEntry } from './versions.js';
 
 describe('buildArenaPool', () => {
     it('keeps every available model, regardless of provider or featured flag', () => {
@@ -304,6 +305,57 @@ describe('pickArenaPair', () => {
             expect(pair.a.id).not.toBe('a');
             expect(pair.b.id).not.toBe('a');
             expect(pair.a.id).not.toBe(pair.b.id);
+        }
+    });
+});
+
+describe('arena version × model draw', () => {
+    const v10 = (id, provider = 'vllm') => ({ id, provider, stand_id: 'menon-1.0' });
+    const v11 = (id) => ({ id, provider: 'vllm', stand_id: 'menon-1.1' });
+    const stand = (id, arena = true) => ({ id, provider: 'external', stand_id: 'ragu', arena });
+
+    it('drops a plain stand entry and keeps an arena one', () => {
+        expect(buildArenaPool([stand('p@ragu', false)])).toEqual([]);
+        expect(buildArenaPool([stand('p@ragu', true)]).map((m) => m.id)).toEqual(['p@ragu']);
+    });
+
+    it('keeps built-in versions without the arena flag', () => {
+        const pool = buildArenaPool([v10('a'), v11('b@menon-1.1')]);
+        expect(pool).toHaveLength(2);
+    });
+
+    it('draws each version about 1/3 of the time', () => {
+        const pool = [v10('a'), v10('b'), v11('c'), v11('d'), stand('e')];
+        const counts = {};
+        const N = 3000;
+        for (let i = 0; i < N; i++) {
+            const v = describeEntry(pickRandomFromPool(pool, new Set())).standId;
+            counts[v] = (counts[v] || 0) + 1;
+        }
+        for (const v of ['menon-1.0', 'menon-1.1', 'ragu']) {
+            expect(Math.abs(counts[v] / N - 1 / 3)).toBeLessThan(0.03);
+        }
+    });
+
+    it('never draws a version with no candidate left', () => {
+        const pool = [v10('a'), v11('c'), stand('e')];
+        const exclude = new Set(['c', 'e']);
+        for (let i = 0; i < 200; i++) expect(pickRandomFromPool(pool, exclude).id).toBe('a');
+        expect(pickRandomFromPool(pool, new Set(['a', 'c', 'e']))).toBeNull();
+    });
+
+    it('weights vLLM 3:1 inside Menon 1.0', () => {
+        const pool = [v10('a'), v10('b', 'openrouter')];
+        let a = 0;
+        for (let i = 0; i < 4000; i++) if (pickRandomFromPool(pool, new Set()).id === 'a') a++;
+        expect(Math.abs(a / 4000 - 0.75)).toBeLessThan(0.04);
+    });
+
+    it('pair is always two different ids', () => {
+        const pool = [v10('a'), v11('c'), stand('e')];
+        for (let i = 0; i < 300; i++) {
+            const p = pickArenaPair(pool);
+            expect(p.a.id).not.toBe(p.b.id);
         }
     });
 });

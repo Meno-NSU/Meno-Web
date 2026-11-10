@@ -88,3 +88,28 @@ describe('ChatArea — a chat whose content has not loaded yet', () => {
     expect(container.querySelector('.chat-textarea').disabled).toBe(false);
   });
 });
+
+describe('ChatArea — answer labels', () => {
+  // The label under an answer names the version and the model the way the picker does,
+  // never the raw id («gemma-4-12B-it@ragu»).
+  it('labels an answer «version · model», not by its raw id', () => {
+    const models = [{ id: 'gemma-4-12B-it@ragu', provider: 'external', stand_id: 'ragu', stand_name: 'RAGU', llm_id: 'gemma-4-12B-it', llm_name: 'Gemma 4 12B' }];
+    const { container } = render(
+      <ChatArea {...baseProps} models={models} messages={[
+        { role: 'user', content: 'q' },
+        { role: 'assistant', content: 'a', responseModelId: 'gemma-4-12B-it@ragu' },
+      ]} />,
+    );
+    expect(container.querySelector('.message-model-label').textContent).toBe('RAGU · Gemma 4 12B');
+  });
+
+  it('labels an answer whose model is no longer listed by its id suffix', () => {
+    const { container } = render(
+      <ChatArea {...baseProps} models={[]} messages={[
+        { role: 'user', content: 'q' },
+        { role: 'assistant', content: 'a', responseModelId: 'gemma-4-12B-it@menon-1.1' },
+      ]} />,
+    );
+    expect(container.querySelector('.message-model-label').textContent).toBe('Менон 1.1 · gemma-4-12B-it');
+  });
+});

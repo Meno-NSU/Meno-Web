@@ -152,7 +152,7 @@ export default function ChatArea({ messages: rawMessages, isGenerating, onSendMe
                                 : messages.slice(0, index);
                             return <ArenaMessageBubble key={index} message={msg} chatId={chatId} setChats={setChats} isGenerating={isGenerating} question={question} messagesBeforeRound={messagesBeforeRound} models={models} />;
                         }
-                        return <MessageBubble key={index} message={msg} chatId={chatId} setChats={setChats} onRetry={onRetry} isLast={index === messages.length - 1} />;
+                        return <MessageBubble key={index} message={msg} chatId={chatId} setChats={setChats} onRetry={onRetry} isLast={index === messages.length - 1} models={models} />;
                     })}
 
                     {isGenerating && (() => {
@@ -297,7 +297,7 @@ function SourcesBlock({ sources }) {
 }
 
 // ── Message bubble ───────────────────────────────────────────────────────────
-function MessageBubble({ message, chatId, setChats, onRetry, isLast }) {
+function MessageBubble({ message, chatId, setChats, onRetry, isLast, models }) {
     const { t } = useTranslation();
     const isUser = message.role === 'user';
     const [copied, setCopied] = useState(false);
@@ -373,7 +373,7 @@ function MessageBubble({ message, chatId, setChats, onRetry, isLast }) {
                         )}
                     </div>
                     {effectiveModelId && (
-                        <span className="message-model-label">{effectiveModelId}</span>
+                        <span className="message-model-label">{modelLabel(effectiveModelId, models, t)}</span>
                     )}
                 </div>
             </div>
@@ -382,7 +382,8 @@ function MessageBubble({ message, chatId, setChats, onRetry, isLast }) {
 }
 
 // ── Arena Message bubble ─────────────────────────────────────────────────────
-function sideLabel(modelId, models, t) {
+// «version · model» for a model id, as the picker names it; also for ids no longer listed.
+function modelLabel(modelId, models, t) {
     if (!modelId) return '—';
     const entry = (models || []).find((m) => m.id === modelId) ?? {
         id: modelId,
@@ -545,7 +546,7 @@ export function ArenaMessageBubble({ message, chatId, setChats, isGenerating, qu
                 <div className="arena-scroll" ref={scrollRef}>
                 <div className="arena-column a" style={{ flex: 1, backgroundColor: bgA, border: borderA, borderRadius: '12px', padding: '1rem', overflowX: 'auto', display: 'flex', flexDirection: 'column' }}>
                     <div className="arena-header" style={{ marginBottom: '1rem', fontWeight: 'bold', display: 'flex', justifyContent: 'space-between' }}>
-                        <span>{(arenaData.voted || arenaData.namesRevealed) ? `A: ${sideLabel(arenaData.a.model, models, t)}` : 'Model A'}</span>
+                        <span>{(arenaData.voted || arenaData.namesRevealed) ? `A: ${modelLabel(arenaData.a.model, models, t)}` : 'Model A'}</span>
                         {arenaData.voted && arenaData.winner === 'a' && <span style={{ color: 'var(--primary)', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}><Trophy size={16} /> Winner</span>}
                     </div>
                     <div className="message-markdown prose" style={{ flex: 1, paddingBottom: isGenerating ? '2rem' : '0' }}>
@@ -573,7 +574,7 @@ export function ArenaMessageBubble({ message, chatId, setChats, isGenerating, qu
 
                 <div className="arena-column b" style={{ flex: 1, backgroundColor: bgB, border: borderB, borderRadius: '12px', padding: '1rem', overflowX: 'auto', display: 'flex', flexDirection: 'column' }}>
                     <div className="arena-header" style={{ marginBottom: '1rem', fontWeight: 'bold', display: 'flex', justifyContent: 'space-between' }}>
-                        <span>{(arenaData.voted || arenaData.namesRevealed) ? `B: ${sideLabel(arenaData.b.model, models, t)}` : 'Model B'}</span>
+                        <span>{(arenaData.voted || arenaData.namesRevealed) ? `B: ${modelLabel(arenaData.b.model, models, t)}` : 'Model B'}</span>
                         {arenaData.voted && arenaData.winner === 'b' && <span style={{ color: 'var(--primary)', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}><Trophy size={16} /> Winner</span>}
                     </div>
                     <div className="message-markdown prose" style={{ flex: 1, paddingBottom: isGenerating ? '2rem' : '0' }}>

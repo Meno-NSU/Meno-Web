@@ -38,4 +38,24 @@ describe('Leaderboard', () => {
             expect(url).not.toMatch(/\/v1\/leaderboard/);
         }
     });
+
+    it('names rows by version and model, built-ins localized', async () => {
+        globalThis.fetch = vi.fn().mockResolvedValue({ json: () => Promise.resolve({ data: [
+            { model: 'gemma-4-12B-it', knowledge_base: 'nsu-kb', stand_id: 'menon-1.0', stand_name: 'Менон 1.0', stand_version: null, llm_name: 'Gemma 4 12B', elo: 1500, win_rate: 50, matches: 3 },
+            { model: 'meno-lite@ragu', knowledge_base: 'nsu-ragu', stand_id: 'ragu', stand_name: 'RAGU', stand_version: 'v1', llm_name: 'meno-lite', elo: 1400, win_rate: 40, matches: 3 },
+        ] }) });
+        render(<Leaderboard />);
+        await waitFor(() => expect(screen.getByText('Менон 1.0 · Gemma 4 12B')).toBeTruthy());
+        expect(screen.getByText('RAGU · meno-lite')).toBeTruthy();
+        expect(screen.queryByText('nsu-ragu')).toBeNull();
+        expect(screen.queryByText('v1')).toBeNull();
+    });
+
+    it('shows the version text when a stand has rows of several versions', async () => {
+        const row = (v) => ({ model: 'x', stand_id: 'ragu', stand_name: 'RAGU', stand_version: v, llm_name: 'meno-lite', elo: 1, win_rate: 1, matches: 1 });
+        globalThis.fetch = vi.fn().mockResolvedValue({ json: () => Promise.resolve({ data: [row('v1'), row('v2')] }) });
+        render(<Leaderboard />);
+        await waitFor(() => expect(screen.getByText('v1')).toBeTruthy());
+        expect(screen.getByText('v2')).toBeTruthy();
+    });
 });

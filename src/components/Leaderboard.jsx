@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Trophy, Users, X } from './icons.jsx';
 import { useTranslation } from '../i18n.js';
 import { fetchContributorLeaderboard } from '../services/api.js';
+import { describeEntry, versionName } from '../services/versions.js';
 import './Leaderboard.css';
 
 // The contributor board is SEALED: `ContributorsTable` and `fetchContributorLeaderboard`
@@ -15,6 +16,18 @@ const CONTRIBUTOR_BOARD_ENABLED = false;
 
 function ArenaTable({ data }) {
     const { t } = useTranslation();
+    const versionsByStand = new Map();
+    for (const row of data) {
+        if (!row.stand_id) continue;
+        if (!versionsByStand.has(row.stand_id)) versionsByStand.set(row.stand_id, new Set());
+        versionsByStand.get(row.stand_id).add(row.stand_version ?? null);
+    }
+    const rowName = (row) => {
+        if (!row.stand_id) return row.model;
+        const d = describeEntry({ id: row.model, stand_id: row.stand_id, stand_name: row.stand_name, llm_name: row.llm_name });
+        return `${versionName(d, t)} · ${d.llmName}`;
+    };
+    const showVersion = (row) => row.stand_id && row.stand_version && versionsByStand.get(row.stand_id).size > 1;
     return (
         <table className="leaderboard-table">
             <thead>
@@ -31,8 +44,8 @@ function ArenaTable({ data }) {
                     <tr key={i} className={i < 3 ? `rank-${i + 1}` : ''}>
                         <td className="rank-col" data-label={t('arenaRank')}>#{i + 1}</td>
                         <td data-label={t('arenaSetup')}>
-                            <div className="setup-name">{row.model}</div>
-                            <div className="setup-kb" style={{fontSize: '0.85em', color: 'var(--text-2)'}}>{row.knowledge_base}</div>
+                            <div className="setup-name">{rowName(row)}</div>
+                            {showVersion(row) && <div className="setup-kb" style={{fontSize: '0.85em', color: 'var(--text-2)'}}>{row.stand_version}</div>}
                         </td>
                         <td className="elo-col" data-label={t('arenaEloRating')} style={{fontWeight: 'bold', color: 'var(--primary)'}}>{row.elo}</td>
                         <td data-label={t('arenaWinRate')}>{row.win_rate}%</td>

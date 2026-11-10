@@ -10,6 +10,7 @@ import { submitArenaVote } from '../services/api.js';
 import { formatNotice } from '../services/chatNotice.js';
 import { buildArenaHistories, arenaTurnIndex } from '../services/arenaHistory.js';
 import { groupSourcesByTitle, formatSourceUrl } from '../services/sourceGrouping.js';
+import { describeEntry, versionName } from '../services/versions.js';
 import './ChatArea.css';
 import { ReasoningBlock, LoadingPhrase } from './ReasoningBlock.jsx';
 import { extractReasoning } from './reasoning.js';
@@ -98,7 +99,7 @@ function ThinkBlock({ content, thinkTime, streaming }) {
 }
 
 // ── Main ChatArea ────────────────────────────────────────────────────────────
-export default function ChatArea({ messages: rawMessages, isGenerating, onSendMessage, onRetry, onStop, kbs, selectedKb, onKbChange, modelsAvailable, chatId, setChats, voteIsPending, isLoadingConversation }) {
+export default function ChatArea({ messages: rawMessages, isGenerating, onSendMessage, onRetry, onStop, kbs, selectedKb, onKbChange, modelsAvailable, models, chatId, setChats, voteIsPending, isLoadingConversation }) {
     const { t } = useTranslation();
     const messagesEndRef = useRef(null);
 
@@ -149,7 +150,7 @@ export default function ChatArea({ messages: rawMessages, isGenerating, onSendMe
                             const messagesBeforeRound = questionIndex >= 0
                                 ? messages.slice(0, questionIndex)
                                 : messages.slice(0, index);
-                            return <ArenaMessageBubble key={index} message={msg} chatId={chatId} setChats={setChats} isGenerating={isGenerating} question={question} messagesBeforeRound={messagesBeforeRound} />;
+                            return <ArenaMessageBubble key={index} message={msg} chatId={chatId} setChats={setChats} isGenerating={isGenerating} question={question} messagesBeforeRound={messagesBeforeRound} models={models} />;
                         }
                         return <MessageBubble key={index} message={msg} chatId={chatId} setChats={setChats} onRetry={onRetry} isLast={index === messages.length - 1} />;
                     })}
@@ -381,7 +382,13 @@ function MessageBubble({ message, chatId, setChats, onRetry, isLast }) {
 }
 
 // ── Arena Message bubble ─────────────────────────────────────────────────────
-export function ArenaMessageBubble({ message, chatId, setChats, isGenerating, question, messagesBeforeRound }) {
+function sideLabel(modelId, models, t) {
+    const entry = (models || []).find((m) => m.id === modelId) ?? { id: modelId };
+    const d = describeEntry(entry);
+    return `${versionName({ standId: d.standId, standName: d.standName }, t)} · ${d.llmName}`;
+}
+
+export function ArenaMessageBubble({ message, chatId, setChats, isGenerating, question, messagesBeforeRound, models }) {
     const { t } = useTranslation();
     const { arenaData } = message;
     const [voting, setVoting] = useState(false);
@@ -532,7 +539,7 @@ export function ArenaMessageBubble({ message, chatId, setChats, isGenerating, qu
                 <div className="arena-scroll" ref={scrollRef}>
                 <div className="arena-column a" style={{ flex: 1, backgroundColor: bgA, border: borderA, borderRadius: '12px', padding: '1rem', overflowX: 'auto', display: 'flex', flexDirection: 'column' }}>
                     <div className="arena-header" style={{ marginBottom: '1rem', fontWeight: 'bold', display: 'flex', justifyContent: 'space-between' }}>
-                        <span>{(arenaData.voted || arenaData.namesRevealed) ? `A: ${arenaData.a.model} (${arenaData.a.kb})` : 'Model A'}</span>
+                        <span>{(arenaData.voted || arenaData.namesRevealed) ? `A: ${sideLabel(arenaData.a.model, models, t)}` : 'Model A'}</span>
                         {arenaData.voted && arenaData.winner === 'a' && <span style={{ color: 'var(--primary)', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}><Trophy size={16} /> Winner</span>}
                     </div>
                     <div className="message-markdown prose" style={{ flex: 1, paddingBottom: isGenerating ? '2rem' : '0' }}>
@@ -560,7 +567,7 @@ export function ArenaMessageBubble({ message, chatId, setChats, isGenerating, qu
 
                 <div className="arena-column b" style={{ flex: 1, backgroundColor: bgB, border: borderB, borderRadius: '12px', padding: '1rem', overflowX: 'auto', display: 'flex', flexDirection: 'column' }}>
                     <div className="arena-header" style={{ marginBottom: '1rem', fontWeight: 'bold', display: 'flex', justifyContent: 'space-between' }}>
-                        <span>{(arenaData.voted || arenaData.namesRevealed) ? `B: ${arenaData.b.model} (${arenaData.b.kb})` : 'Model B'}</span>
+                        <span>{(arenaData.voted || arenaData.namesRevealed) ? `B: ${sideLabel(arenaData.b.model, models, t)}` : 'Model B'}</span>
                         {arenaData.voted && arenaData.winner === 'b' && <span style={{ color: 'var(--primary)', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}><Trophy size={16} /> Winner</span>}
                     </div>
                     <div className="message-markdown prose" style={{ flex: 1, paddingBottom: isGenerating ? '2rem' : '0' }}>

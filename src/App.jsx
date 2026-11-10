@@ -1709,6 +1709,7 @@ function App() {
                 onRetry={handleRetryMessage}
                 onStop={handleStopWaiting}
                 modelsAvailable={models.length > 0}
+                models={models}
                 kbs={kbs}
                 selectedKb={selectedKb}
                 onKbChange={handleKbChange}

@@ -1,0 +1,137 @@
+/* Version picker: trigger label, version rows, back control.
+   The menu itself reuses the .model-dropdown* rules from SettingsBar.css. */
+
+.model-dropdown-label {
+    display: flex;
+    flex-direction: row;
+    align-items: baseline;
+    gap: 0;
+    min-width: 0;
+}
+
+.version-trigger-version,
+.version-trigger-model {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+}
+
+.version-trigger-model {
+    color: var(--text-secondary);
+}
+
+.version-trigger-model::before {
+    content: ' · ';
+    white-space: pre;
+}
+
+.model-dropdown .model-dropdown-menu {
+    max-width: min(420px, calc(100vw - 32px));
+}
+
+.model-item-name {
+    flex: 1;
+    min-width: 0;
+    text-align: left;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.model-dropdown-item > .model-status-icon,
+.model-dropdown-item > .model-item-check,
+.model-dropdown-item > .model-item-state,
+.version-row-chevron {
+    flex-shrink: 0;
+}
+
+.version-row-name {
+    flex: 1;
+    min-width: 0;
+    text-align: left;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.version-row-model {
+    margin-left: auto;
+    padding: 0 0.5rem;
+    max-width: 45%;
+    flex-shrink: 1;
+    min-width: 0;
+    font-size: 0.7rem;
+    color: var(--text-tertiary, #aaa);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.version-row-chevron {
+    flex-shrink: 0;
+    color: var(--text-tertiary);
+}
+
+.version-back {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    width: 100%;
+    padding: 0.5rem 0.85rem 0.25rem;
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    cursor: pointer;
+    text-align: left;
+}
+
+.version-back:hover {
+    color: var(--text-primary);
+}
+
+.version-back span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.version-back-icon {
+    flex-shrink: 0;
+    transform: rotate(180deg);
+}
+
+@media (max-width: 768px) {
+    /* Pin the open menu inside the screen, under the 60px header. */
+    .model-dropdown .model-dropdown-menu {
+        position: fixed;
+        top: 64px;
+        left: 16px;
+        right: 16px;
+        width: auto;
+        min-width: 0;
+        max-width: none;
+    }
+
+    .model-dropdown-label {
+        flex-direction: column;
+        align-items: flex-start;
+        line-height: 1.2;
+    }
+
+    .version-trigger-version,
+    .version-trigger-model {
+        max-width: 100%;
+    }
+
+    .version-trigger-model {
+        font-size: 0.72rem;
+        color: var(--text-tertiary);
+    }
+
+    .version-trigger-model::before {
+        content: none;
+    }
+}

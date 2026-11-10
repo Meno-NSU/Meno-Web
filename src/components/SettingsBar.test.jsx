@@ -24,7 +24,6 @@ function renderBar({
             setIsArenaMode={() => {}}
             currentView={currentView}
             setCurrentView={setCurrentView}
-            coreModelId=""
             onOpenSidebar={() => {}}
             user={user}
             onOpenAuth={onOpenAuth}
@@ -117,6 +116,7 @@ describe('SettingsBar locked models', () => {
         const onModelChange = vi.fn();
         const { container } = renderBar({ models, onOpenAuth, onModelChange });
         openDropdown(container);
+        fireEvent.click(screen.getByText('Менон 1.0'));
         fireEvent.click(screen.getByText('OR Demo'));
         expect(onOpenAuth).toHaveBeenCalled();
         expect(onModelChange).not.toHaveBeenCalled();
@@ -127,6 +127,7 @@ describe('SettingsBar locked models', () => {
         const onModelChange = vi.fn();
         const { container } = renderBar({ models, onOpenAuth, onModelChange });
         openDropdown(container);
+        fireEvent.click(screen.getByText('Менон 1.0'));
         fireEvent.click(screen.getByText('Local vLLM'));
         expect(onModelChange).toHaveBeenCalledWith('local-vllm');
         expect(onOpenAuth).not.toHaveBeenCalled();
@@ -135,6 +136,7 @@ describe('SettingsBar locked models', () => {
     it('marks the locked item with a sign-in hint', () => {
         const { container } = renderBar({ models });
         openDropdown(container);
+        fireEvent.click(screen.getByText('Менон 1.0'));
         const locked = screen.getByText('OR Demo').closest('button');
         expect(locked.className).toMatch(/\blocked\b/);
         expect(locked.title).toMatch(/sign in|войдите/i);

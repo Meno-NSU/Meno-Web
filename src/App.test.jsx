@@ -301,6 +301,7 @@ describe('App — opening a not-yet-loaded conversation', () => {
     // restarted the fetch on every such change; it must now depend on the
     // loaded/not-loaded boolean instead and stay put.
     fireEvent.click(container.querySelector('.model-dropdown-trigger'));
+    fireEvent.click(container.querySelector('.version-row'));
     fireEvent.click(screen.getByText('Model 2'));
     expect(callsForSrv2()).toBe(1);
 
@@ -579,5 +580,105 @@ describe('App — continuing a restored chat that contains an arena round', () =
       { role: 'assistant', content: 'Ответ A' },
       { role: 'user', content: 'Продолжение разговора' },
     ]);
+  });
+});
+
+describe('App — the version picker follows the model list', () => {
+  const backend = { provider: 'external', status: { state: 'available' } };
+  const entry = (id, extra) => ({ id, display_name: id, ...backend, ...extra });
+
+  it('keeps a chat in its version when its model goes away', async () => {
+    localStorage.setItem('lastUsedModelId', 'a@menon-1.1');
+    const c = entry('c', { stand_id: 'menon-1.0', stand_name: 'Menon 1.0', llm_id: 'c', llm_name: 'C' });
+    const a = entry('a@menon-1.1', { stand_id: 'menon-1.1', stand_name: 'Menon 1.1', llm_id: 'a', llm_name: 'A' });
+    const b = entry('b@menon-1.1', { stand_id: 'menon-1.1', stand_name: 'Menon 1.1', llm_id: 'b', llm_name: 'B' });
+    fetchModels.mockResolvedValue({ models: [c, a, b], coreModelId: 'c' });
+    refreshModels.mockResolvedValue({ models: [c, b], coreModelId: 'c' });
+
+    const { container } = render(<App />);
+    await waitFor(() => expect(container.querySelector('.version-trigger-model')?.textContent).toBe('A'));
+
+    fireEvent.click(container.querySelector('.model-dropdown-trigger'));
+    await waitFor(() => expect(container.querySelector('.version-trigger-model')?.textContent).toBe('B'));
+    expect(container.querySelector('.version-trigger-version').textContent).toBe('Менон 1.1');
+  });
+
+  describe('after a reload, when the model a chat used is gone', () => {
+    // Stored state only: a reload has no previous model list, so the version comes from
+    // the `@` suffix — trusted because «menon-1.1» is a listed version.
+    const v10 = entry('c', { stand_id: 'menon-1.0', stand_name: 'Menon 1.0', llm_id: 'c', llm_name: 'C' });
+    const v11 = entry('a@menon-1.1', { stand_id: 'menon-1.1', stand_name: 'Menon 1.1', llm_id: 'a', llm_name: 'A' });
+    const trigger = (container) => ({
+      version: container.querySelector('.version-trigger-version')?.textContent,
+      model: container.querySelector('.version-trigger-model')?.textContent,
+    });
+
+    beforeEach(() => {
+      fetchModels.mockResolvedValue({ models: [v10, v11], coreModelId: 'c' });
+      refreshModels.mockResolvedValue({ models: [v10, v11], coreModelId: 'c' });
+      localStorage.setItem('lastUsedModelId', 'b@menon-1.1');
+    });
+
+    it('keeps a stored guest chat in its version', async () => {
+      saveChats([{
+        id: 'guest-1',
+        title: 'Чат в 1.1',
+        messages: [{ role: 'user', content: 'Привет' }],
+        updatedAt: Date.now(),
+        runtimeConfig: { modelId: 'b@menon-1.1', knowledgeBaseId: 'kb1', sessionId: 'guest-1' },
+      }]);
+
+      const { container } = render(<App />);
+      await waitFor(() => expect(screen.getByText('Чат в 1.1')).toBeTruthy());
+      await waitFor(() => expect(trigger(container).model).toBeTruthy());
+
+      expect(trigger(container)).toEqual({ version: 'Менон 1.1', model: 'A' });
+      expect(localStorage.getItem('lastUsedModelId')).toBe('a@menon-1.1');
+    });
+
+    it('starts a fresh visit in the version last used', async () => {
+      const { container } = render(<App />);
+      await waitFor(() => expect(trigger(container).model).toBeTruthy());
+
+      expect(trigger(container)).toEqual({ version: 'Менон 1.1', model: 'A' });
+      expect(localStorage.getItem('lastUsedModelId')).toBe('a@menon-1.1');
+    });
+
+    it('opens a signed-in user\'s server chats in the version last used', async () => {
+      getAuthToken.mockReturnValue('tok-existing');
+      fetchMe.mockResolvedValue({ id: 'u1', email: 'demo@nsu.ru', nickname: 'Demo' });
+      fetchConversations.mockResolvedValue([
+        { id: 'srv-1', preview: 'Чат с сервера', updated_at: '2026-07-20T00:00:00Z' },
+      ]);
+      fetchConversation.mockResolvedValue({ turns: [] });
+
+      const { container } = render(<App />);
+      await waitFor(() => expect(screen.getByText('Чат с сервера')).toBeTruthy());
+      await waitFor(() => expect(trigger(container).model).toBeTruthy());
+
+      expect(trigger(container)).toEqual({ version: 'Менон 1.1', model: 'A' });
+      expect(localStorage.getItem('lastUsedModelId')).toBe('a@menon-1.1');
+    });
+  });
+
+  it('shows a model that turned unreachable after the menu refreshes', async () => {
+    const m1 = { id: 'm1', display_name: 'Model 1', provider: 'vllm', status: { state: 'available' } };
+    const m2 = { id: 'm2', display_name: 'Model 2', provider: 'vllm', status: { state: 'available' } };
+    fetchModels.mockResolvedValue({ models: [m1, m2], coreModelId: 'm1' });
+    refreshModels.mockResolvedValue({
+      models: [m1, { ...m2, status: { state: 'unreachable' } }],
+      coreModelId: 'm1',
+    });
+
+    const { container } = render(<App />);
+    await waitFor(() => expect(container.querySelector('.model-dropdown-trigger')).toBeTruthy());
+    fireEvent.click(container.querySelector('.model-dropdown-trigger'));
+    const row = await waitFor(() => {
+      const found = [...container.querySelectorAll('.version-row')].find((r) => r.textContent.includes('Менон 1.0'));
+      expect(found).toBeTruthy();
+      return found;
+    });
+    fireEvent.click(row);
+    await waitFor(() => expect(screen.getByText('Model 2').closest('button').disabled).toBe(true));
   });
 });

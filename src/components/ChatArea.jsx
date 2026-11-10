@@ -384,7 +384,12 @@ function MessageBubble({ message, chatId, setChats, onRetry, isLast }) {
 // ── Arena Message bubble ─────────────────────────────────────────────────────
 function sideLabel(modelId, models, t) {
     if (!modelId) return '—';
-    const entry = (models || []).find((m) => m.id === modelId) ?? { id: modelId };
+    const entry = (models || []).find((m) => m.id === modelId) ?? {
+        id: modelId,
+        // Unlisted id (restored round, models not loaded yet): an @-suffix other
+        // than menon-1.1 is a stand, as in the backend's participant rule.
+        provider: modelId.includes('@') && !modelId.endsWith('@menon-1.1') ? 'external' : undefined,
+    };
     const d = describeEntry(entry);
     return `${versionName({ standId: d.standId, standName: d.standName }, t)} · ${d.llmName}`;
 }

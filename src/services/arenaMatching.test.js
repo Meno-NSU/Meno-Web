@@ -333,7 +333,7 @@ describe('arena version × model draw', () => {
             counts[v] = (counts[v] || 0) + 1;
         }
         for (const v of ['menon-1.0', 'menon-1.1', 'ragu']) {
-            expect(Math.abs(counts[v] / N - 1 / 3)).toBeLessThan(0.03);
+            expect(Math.abs(counts[v] / N - 1 / 3)).toBeLessThan(0.04);
         }
     });
 

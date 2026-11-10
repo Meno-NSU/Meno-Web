@@ -237,6 +237,20 @@ describe('ArenaMessageBubble vote handling', () => {
         expect(container.textContent).not.toMatch(/nsu-/);
     });
 
+    it('names an unlisted stand-suffixed id by its stand, not Менон 1.0', () => {
+        const bubble = makeBubble();
+        bubble.arenaData.voted = true;
+        bubble.arenaData.winner = 'a';
+        bubble.arenaData.a = { model: 'x@ragu', kb: 'nsu-ragu', content: 'A' };
+        bubble.arenaData.b = { model: 'gemma-4-12B-it@menon-1.1', kb: 'nsu-kb-11', content: 'B' };
+        const { container } = render(
+            <ArenaMessageBubble message={bubble} chatId="chat-1" setChats={vi.fn()} isGenerating={false} question="q" messagesBeforeRound={[]} models={[]} />,
+        );
+        expect(screen.getByText('A: ragu · x')).toBeTruthy();
+        expect(container.textContent).not.toMatch(/Менон 1\.0/);
+        expect(screen.getByText('B: Менон 1.1 · gemma-4-12B-it')).toBeTruthy();
+    });
+
     it('renders a restored voted side with a null model as a dash', () => {
         const bubble = makeBubble();
         bubble.arenaData.voted = true;

@@ -59,12 +59,21 @@ describe('Leaderboard', () => {
         expect(screen.getByText('v2')).toBeTruthy();
     });
 
+    it('never shows knowledge_base for rows with the stand fields', async () => {
+        globalThis.fetch = vi.fn().mockResolvedValue({ json: () => Promise.resolve({ data: [
+            { model: 'x', stand_id: 'ragu', stand_name: 'RAGU', llm_name: 'meno-lite', knowledge_base: 'new-kb', elo: 1, win_rate: 1, matches: 1 },
+        ] }) });
+        render(<Leaderboard />);
+        await waitFor(() => expect(screen.getByText('RAGU · meno-lite')).toBeTruthy());
+        expect(screen.queryByText('new-kb')).toBeNull();
+    });
+
     it('falls back to row.model for rows without the stand fields', async () => {
         globalThis.fetch = vi.fn().mockResolvedValue({ json: () => Promise.resolve({ data: [
             { model: 'old-model', knowledge_base: 'old-kb', elo: 1500, win_rate: 50, matches: 2 },
         ] }) });
         render(<Leaderboard />);
         await waitFor(() => expect(screen.getByText('old-model')).toBeTruthy());
-        expect(screen.queryByText('old-kb')).toBeNull();
+        expect(screen.getByText('old-kb')).toBeTruthy();
     });
 });

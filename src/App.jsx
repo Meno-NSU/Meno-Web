@@ -1074,7 +1074,7 @@ function App() {
         // users explicitly do not want the arena to compare a model with
         // itself. Each side's substitution pool starts pre-seeded with the
         // other side's pick, so retries also can't collide.
-        // pickArenaPair internally weighs vLLM models higher than OpenRouter.
+        // pickArenaPair draws each version about equally; within Менон 1.0 it weighs vLLM above OpenRouter.
         const pair = pickArenaPair(pool);
         if (!pair) {
           setActiveChats((prev) => updateChatById(prev, targetChatId, (chat) => ({

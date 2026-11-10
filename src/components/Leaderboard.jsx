@@ -45,6 +45,7 @@ function ArenaTable({ data }) {
                         <td className="rank-col" data-label={t('arenaRank')}>#{i + 1}</td>
                         <td data-label={t('arenaSetup')}>
                             <div className="setup-name">{rowName(row)}</div>
+                            {!row.stand_id && row.knowledge_base && <div className="setup-kb" style={{fontSize: '0.85em', color: 'var(--text-2)'}}>{row.knowledge_base}</div>}
                             {showVersion(row) && <div className="setup-kb" style={{fontSize: '0.85em', color: 'var(--text-2)'}}>{row.stand_version}</div>}
                         </td>
                         <td className="elo-col" data-label={t('arenaEloRating')} style={{fontWeight: 'bold', color: 'var(--primary)'}}>{row.elo}</td>

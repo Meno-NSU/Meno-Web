@@ -1,6 +1,6 @@
-import { describeEntry } from './versions.js';
+import { describeEntry, MENON_10, MENON_11 } from './versions.js';
 
-const BUILTIN_ARENA_VERSIONS = new Set(['menon-1.0', 'menon-1.1']);
+const BUILTIN_ARENA_VERSIONS = new Set([MENON_10, MENON_11]);
 
 // Some OpenRouter ids point to a meta-router that resolves to a random
 // underlying model per request. Those can't honestly appear on the arena —
@@ -55,7 +55,7 @@ export function pickRandomFromPool(pool, exclude) {
     const versions = [...byVersion.keys()];
     const version = versions[Math.min(Math.floor(Math.random() * versions.length), versions.length - 1)];
     const candidates = byVersion.get(version);
-    const weights = candidates.map((m) => (version === 'menon-1.0' ? modelWeight(m) : 1));
+    const weights = candidates.map((m) => (version === MENON_10 ? modelWeight(m) : 1));
     const total = weights.reduce((sum, w) => sum + w, 0);
     let r = Math.random() * total;
     for (let i = 0; i < candidates.length; i++) {
@@ -92,7 +92,7 @@ export async function runArenaSideWithSubstitution({
 }) {
     // 5 attempts (was 3) so we don't bail out of the round just because two
     // OR models happened to be rate-limited / silent / down at the same time.
-    // With a weighted pool of ~28 models the substitute branch will normally
+    // With a pool of dozens of models across versions the substitute branch will normally
     // find a working one within the first 2 tries; the extra budget is for
     // edge cases (open-router fleet wobble, vLLM endpoint blip, etc).
     const MAX_ATTEMPTS = 5;
@@ -139,7 +139,7 @@ export async function runArenaSideWithSubstitution({
             // Otherwise: substitute on ANY pre-stream failure (rate-limited,
             // unreachable, invalid_upstream_request from e.g. JAX rejecting
             // `seed`, transient_timeout, even internal_error). A single bad
-            // model in a 28-model pool used to kill the whole round; arena
+            // model in a large pool used to kill the whole round; arena
             // is only meaningful with two complete answers.
             if (onSubstitution) onSubstitution(candidate.id, err?.code || 'error');
         }

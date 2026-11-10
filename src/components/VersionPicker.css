@@ -92,6 +92,7 @@
 }
 
 .version-back span {
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -100,10 +101,6 @@
 .version-back-icon {
     flex-shrink: 0;
     transform: rotate(180deg);
-}
-
-.version-back span {
-    min-width: 0;
 }
 
 @media (max-width: 768px) {

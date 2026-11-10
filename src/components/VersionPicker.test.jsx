@@ -5,6 +5,7 @@ import { setLanguage } from '../i18n.js';
 import { readFileSync } from 'node:fs';
 
 const css = readFileSync('src/components/VersionPicker.css', 'utf-8');
+const barCss = readFileSync('src/components/SettingsBar.css', 'utf-8');
 
 const entry = (id, standId, standName, llmId, llmName, extra = {}) => ({
     id, provider: 'vllm', stand_id: standId, stand_name: standName, llm_id: llmId, llm_name: llmName, ...extra,
@@ -321,5 +322,27 @@ describe('VersionPicker stylesheet', () => {
             expect(rule).toMatch(/text-overflow:\s*ellipsis/);
             expect(rule).toMatch(/min-width:\s*0/);
         }
+    });
+
+    it('lets a long trigger label shrink instead of pushing the header buttons off screen', () => {
+        // Every box between the header and the label must be allowed to shrink: the
+        // controls column and the dropdown (min-width: 0), the Tooltip wrapper and the
+        // trigger (max-width: 100%). Measured in Chrome at 900px with the sidebar open.
+        const rule = (sel) => barCss.match(new RegExp(sel + '\\s*\\{[^}]*\\}'))[0];
+        expect(rule('\\.settings-controls')).toMatch(/min-width:\s*0/);
+        expect(rule('\\.model-dropdown')).toMatch(/min-width:\s*0/);
+        expect(rule('\\.model-dropdown > \\.tooltip-wrap')).toMatch(/max-width:\s*100%/);
+        expect(rule('\\.model-dropdown-trigger')).toMatch(/max-width:\s*100%/);
+    });
+
+    it('draws menu dividers in a theme colour and none right under a hint', () => {
+        expect(barCss).not.toMatch(/--divider/);
+        const group = barCss.match(/\.model-dropdown-group\s*\{[^}]*\}/)[0];
+        expect(group).toMatch(/border-top:\s*1px solid var\(--border-color\)/);
+        expect(barCss).toMatch(/\.model-dropdown-hint \+ \.model-dropdown-group\s*\{\s*border-top:\s*none/);
+    });
+
+    it('keeps one rule for the back control label', () => {
+        expect(css.match(/\.version-back span\s*\{/g)).toHaveLength(1);
     });
 });

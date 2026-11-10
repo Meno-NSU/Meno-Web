@@ -419,6 +419,20 @@ function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [improvementEnabled, setImprovementEnabled] = useState(null);
 
+  // The version of every model entry seen in a model list, so a chat whose entry
+  // vanished stays in that version (see fallbackModelId). Filled from `models` below.
+  const knownVersionsRef = useRef(new Map());
+
+  // The one rule for every model id the app picks on its own (a stored chat, a new
+  // chat, the default): keep a listed, usable id; otherwise another model of the same
+  // version, then Менон 1.0, then the first usable entry. After a reload nothing is
+  // known yet, so the version comes from the id's `@` suffix when it names a listed
+  // version. On an empty list the candidate is kept as is.
+  const resolveModelId = (list, candidate) => {
+    const id = typeof candidate === 'string' ? candidate.trim() : '';
+    return fallbackModelId(list, id, knownVersionsRef.current) || list[0]?.id || '';
+  };
+
   // Initialize data and migrate stored chats to the chat-scoped config shape.
   useEffect(() => {
     // Mint a guest session on first load so anonymous requests carry X-Guest-Token,
@@ -457,11 +471,7 @@ function App() {
       setCoreModelId(fetchedCoreModelId);
       setKbs(fetchedKbs);
 
-      const defaultModelId = resolveValidId(
-        fetchedModels,
-        localStorage.getItem(LAST_USED_MODEL_KEY),
-        fetchedModels[0]?.id || '',
-      );
+      const defaultModelId = resolveModelId(fetchedModels, localStorage.getItem(LAST_USED_MODEL_KEY));
       const defaultKnowledgeBaseId = resolveValidId(
         fetchedKbs,
         localStorage.getItem(LAST_USED_KB_KEY),
@@ -475,8 +485,21 @@ function App() {
         localStorage.setItem(LAST_USED_KB_KEY, defaultKnowledgeBaseId);
       }
 
+      // A stored chat whose model is gone keeps its version: resolve its id by the same
+      // rule first, so migrateChats (which swaps an unlisted id for the default) never
+      // has to move it to the default's version.
       const storedChats = loadChats();
-      const nextChats = migrateChats(storedChats, {
+      const resolvedChats = Array.isArray(storedChats)
+        ? storedChats.map((chat) => {
+          const modelId = chat?.runtimeConfig?.modelId;
+          if (typeof modelId !== 'string' || !modelId.trim()) return chat;
+          return {
+            ...chat,
+            runtimeConfig: { ...chat.runtimeConfig, modelId: resolveModelId(fetchedModels, modelId) },
+          };
+        })
+        : storedChats;
+      const nextChats = migrateChats(resolvedChats, {
         validModelIds: new Set(fetchedModels.map((model) => model.id)),
         validKnowledgeBaseIds: new Set(fetchedKbs.map((kb) => kb.id)),
         defaultModelId,
@@ -568,13 +591,13 @@ function App() {
         // nothing. The draft lives only in serverChats (never localStorage), and
         // its first sent message creates the real conversation server-side.
         setServerChats([createNewChat({
-          modelId: resolveValidId(models, localStorage.getItem(LAST_USED_MODEL_KEY), models[0]?.id || ''),
+          modelId: resolveModelId(models, localStorage.getItem(LAST_USED_MODEL_KEY)),
           knowledgeBaseId: resolveValidId(kbs, localStorage.getItem(LAST_USED_KB_KEY), kbs[0]?.id || ''),
         })]);
         return;
       }
       setServerChats(summaries.map((s) => chatFromSummary(s, {
-        defaultModelId: resolveValidId(models, localStorage.getItem(LAST_USED_MODEL_KEY), models[0]?.id || ''),
+        defaultModelId: resolveModelId(models, localStorage.getItem(LAST_USED_MODEL_KEY)),
         defaultKnowledgeBaseId: resolveValidId(kbs, localStorage.getItem(LAST_USED_KB_KEY), kbs[0]?.id || ''),
       })));
     })();
@@ -651,7 +674,6 @@ function App() {
   const selectedModel = activeChat.runtimeConfig?.modelId || '';
   const selectedKb = activeChat.runtimeConfig?.knowledgeBaseId || '';
 
-  const knownVersionsRef = useRef(new Map());
   useEffect(() => {
     rememberVersions(knownVersionsRef.current, models);
   }, [models]);
@@ -882,11 +904,7 @@ function App() {
     }
 
     const nextChat = createNewChat({
-      modelId: resolveValidId(
-        models,
-        selectedModel || localStorage.getItem(LAST_USED_MODEL_KEY),
-        models[0]?.id || '',
-      ),
+      modelId: resolveModelId(models, selectedModel || localStorage.getItem(LAST_USED_MODEL_KEY)),
       knowledgeBaseId: resolveValidId(
         kbs,
         selectedKb || localStorage.getItem(LAST_USED_KB_KEY),
@@ -912,7 +930,7 @@ function App() {
     auth.logout();
     if (chats.length === 0) {
       const fresh = createNewChat({
-        modelId: resolveValidId(models, localStorage.getItem(LAST_USED_MODEL_KEY), models[0]?.id || ''),
+        modelId: resolveModelId(models, localStorage.getItem(LAST_USED_MODEL_KEY)),
         knowledgeBaseId: resolveValidId(kbs, localStorage.getItem(LAST_USED_KB_KEY), kbs[0]?.id || ''),
       });
       setChats([fresh]);
@@ -945,7 +963,7 @@ function App() {
     }
 
     const requestConfig = {
-      modelId: resolveValidId(models, targetChat.runtimeConfig?.modelId, models[0]?.id || ''),
+      modelId: resolveModelId(models, targetChat.runtimeConfig?.modelId),
       knowledgeBaseId: resolveValidId(
         kbs,
         targetChat.runtimeConfig?.knowledgeBaseId,
@@ -1564,7 +1582,7 @@ function App() {
     if (auth.isAuthenticated) return;
     clearChats();
     const fresh = createNewChat({
-      modelId: resolveValidId(models, localStorage.getItem(LAST_USED_MODEL_KEY), models[0]?.id || ''),
+      modelId: resolveModelId(models, localStorage.getItem(LAST_USED_MODEL_KEY)),
       knowledgeBaseId: resolveValidId(kbs, localStorage.getItem(LAST_USED_KB_KEY), kbs[0]?.id || ''),
     });
     setChats([fresh]);
@@ -1585,7 +1603,7 @@ function App() {
       return;
     }
     const fresh = createNewChat({
-      modelId: resolveValidId(models, localStorage.getItem(LAST_USED_MODEL_KEY), models[0]?.id || ''),
+      modelId: resolveModelId(models, localStorage.getItem(LAST_USED_MODEL_KEY)),
       knowledgeBaseId: resolveValidId(kbs, localStorage.getItem(LAST_USED_KB_KEY), kbs[0]?.id || ''),
     });
     setServerChats([fresh]);
@@ -1612,7 +1630,7 @@ function App() {
     setConsentDismissible(false); // fresh identity → next prompt is a first prompt
     await ensureGuestSession();
     const fresh = createNewChat({
-      modelId: resolveValidId(models, localStorage.getItem(LAST_USED_MODEL_KEY), models[0]?.id || ''),
+      modelId: resolveModelId(models, localStorage.getItem(LAST_USED_MODEL_KEY)),
       knowledgeBaseId: resolveValidId(kbs, localStorage.getItem(LAST_USED_KB_KEY), kbs[0]?.id || ''),
     });
     setChats([fresh]);

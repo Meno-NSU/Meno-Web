@@ -1,5 +1,6 @@
+import { useState } from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, fireEvent, screen, waitFor } from '@testing-library/react';
+import { act, render, fireEvent, screen, waitFor } from '@testing-library/react';
 import MessageFeedback from './MessageFeedback.jsx';
 import { clearFeedback, submitFeedback } from '../services/api.js';
 
@@ -150,6 +151,111 @@ describe('MessageFeedback', () => {
     });
 });
 
+// Holds the chats in real state, so the component re-renders with what it patched, as in the app.
+function Harness({ initial }) {
+    const [chats, setChats] = useState(chatsWith(initial));
+    return <MessageFeedback message={chats[0].messages[1]} chatId="chat-1" setChats={setChats} />;
+}
+
+function deferred() {
+    let resolve;
+    let reject;
+    const promise = new Promise((res, rej) => {
+        resolve = res;
+        reject = rej;
+    });
+    return { promise, resolve, reject };
+}
+
+const good = () => screen.getByRole('button', { name: /good|хороший/i });
+const bad = () => screen.getByRole('button', { name: /bad|плохой/i });
+
+describe('MessageFeedback: the thumbs answer at once and only the final choice is saved', () => {
+    it('lights the thumb at once and keeps both thumbs clickable while saving', () => {
+        submitFeedback.mockReturnValueOnce(deferred().promise);
+        render(<Harness initial={baseMessage} />);
+
+        fireEvent.click(good());
+
+        expect(good().getAttribute('aria-pressed')).toBe('true');
+        expect(good().disabled).toBe(false);
+        expect(bad().disabled).toBe(false);
+    });
+
+    it('sends only where rapid clicks end up, once the save in flight is done', async () => {
+        const first = deferred();
+        submitFeedback.mockReturnValueOnce(first.promise);
+        render(<Harness initial={baseMessage} />);
+
+        fireEvent.click(good()); // saving «up»…
+        fireEvent.click(good()); // …then off, on again, and finally «down»
+        fireEvent.click(good());
+        fireEvent.click(bad());
+        expect(submitFeedback).toHaveBeenCalledTimes(1);
+
+        await act(async () => first.resolve({}));
+
+        await waitFor(() => expect(submitFeedback).toHaveBeenCalledTimes(2));
+        expect(submitFeedback).toHaveBeenLastCalledWith(expect.objectContaining({ value: 'down' }));
+        expect(clearFeedback).not.toHaveBeenCalled();
+        expect(bad().getAttribute('aria-pressed')).toBe('true');
+    });
+
+    it('sends nothing more when the clicks end where the saved rating is', async () => {
+        const first = deferred();
+        submitFeedback.mockReturnValueOnce(first.promise);
+        render(<Harness initial={baseMessage} />);
+
+        fireEvent.click(good());
+        fireEvent.click(good());
+        fireEvent.click(good());
+        await act(async () => first.resolve({}));
+
+        expect(submitFeedback).toHaveBeenCalledTimes(1);
+        expect(clearFeedback).not.toHaveBeenCalled();
+    });
+
+    it('keeps what was written when the rating is cleared, and brings it back when rated again', async () => {
+        render(<Harness initial={{ ...baseMessage, feedback: { value: 'down', comment: 'не тот год' } }} />);
+
+        fireEvent.click(bad()); // off
+        await waitFor(() => expect(clearFeedback).toHaveBeenCalledTimes(1));
+        fireEvent.click(good());
+
+        await waitFor(() => expect(submitFeedback).toHaveBeenCalledWith({
+            completionId: 'chatcmpl-1',
+            sessionId: 'chat-1',
+            value: 'up',
+            comment: 'не тот год',
+        }));
+        expect(document.querySelector('.feedback-comment-input').value).toBe('не тот год');
+        expect(document.querySelector('.feedback-comment-send').disabled).toBe(true);
+    });
+
+    it('puts the thumbs back and says so when the rating could not be saved', async () => {
+        submitFeedback.mockRejectedValueOnce(Object.assign(new Error('Boom'), { httpStatus: 500 }));
+        render(<Harness initial={baseMessage} />);
+
+        fireEvent.click(good());
+
+        expect(await screen.findByText(/не удалось сохранить/i)).toBeTruthy();
+        expect(good().getAttribute('aria-pressed')).toBe('false');
+    });
+
+    it('keeps a comment that could not be sent in the field, to send again', async () => {
+        submitFeedback.mockRejectedValueOnce(new Error('offline'));
+        render(<Harness initial={{ ...baseMessage, feedback: { value: 'up', comment: null } }} />);
+        const input = document.querySelector('.feedback-comment-input');
+
+        fireEvent.change(input, { target: { value: 'очень полезно' } });
+        fireEvent.keyDown(input, { key: 'Enter', ctrlKey: true });
+
+        expect(await screen.findByText(/не удалось сохранить/i)).toBeTruthy();
+        expect(input.value).toBe('очень полезно');
+        expect(document.querySelector('.feedback-comment-send').disabled).toBe(false);
+    });
+});
+
 describe('MessageFeedback ownership refusal (404)', () => {
     // The backend answers 404 (rather than a generic failure) when the caller does not
     // own the conversation — the realistic trigger is a chat started as a guest and rated
@@ -157,25 +263,14 @@ describe('MessageFeedback ownership refusal (404)', () => {
     // `httpStatus` on the thrown Error, which is what this mock reproduces.
     it('explains a 404 instead of showing a generic failure', async () => {
         submitFeedback.mockRejectedValueOnce(Object.assign(new Error('Not found'), { httpStatus: 404 }));
-        const setChats = makeSetChats(chatsWith(baseMessage));
-        render(<MessageFeedback message={baseMessage} chatId="chat-1" setChats={setChats} />);
+        render(<Harness initial={baseMessage} />);
 
-        fireEvent.click(screen.getByRole('button', { name: /good|хороший/i }));
+        fireEvent.click(good());
 
         expect(await screen.findByText(/принадлежит другому профилю/i)).toBeTruthy();
-        // The refused rating was never applied — no optimistic patch happened.
-        expect(setChats.lastResult).toBeUndefined();
-    });
-
-    it('leaves a non-404 failure exactly as before (no ownership message)', async () => {
-        submitFeedback.mockRejectedValueOnce(Object.assign(new Error('Boom'), { httpStatus: 500 }));
-        const setChats = makeSetChats(chatsWith(baseMessage));
-        const { container } = render(<MessageFeedback message={baseMessage} chatId="chat-1" setChats={setChats} />);
-
-        fireEvent.click(screen.getByRole('button', { name: /good|хороший/i }));
-
-        await waitFor(() => expect(submitFeedback).toHaveBeenCalled());
-        expect(container.querySelector('.feedback-error')).toBeNull();
+        expect(screen.queryByText(/не удалось сохранить/i)).toBeNull();
+        // The refused rating does not stay lit.
+        expect(good().getAttribute('aria-pressed')).toBe('false');
     });
 
     it('clears the ownership notice on a fresh attempt', async () => {

@@ -8,22 +8,33 @@ import './MessageFeedback.css';
 const COMMENT_MAX_LENGTH = 20000;
 const COMMENT_COUNTER_THRESHOLD = 18000;
 
-// 👍/👎 + optional comment on a completed assistant message. The backend
-// upserts by (completion_id, session_id): re-clicking the active thumb clears
-// the feedback, switching thumbs overwrites it, and sending a comment re-posts
-// the current value with the comment attached.
+const sameFeedback = (a, b) => (
+    a === b || (Boolean(a) && Boolean(b) && a.value === b.value && (a.comment ?? null) === (b.comment ?? null))
+);
+
+// 👍/👎 + optional comment on a completed assistant message. The rating is the
+// current opinion of the answer: re-clicking the active thumb clears it,
+// switching thumbs replaces it, and the comment rides along. A click shows at
+// once; the server is brought to the last choice by one request at a time, so
+// fast clicking sends only where it ends up. Clearing a rating keeps what was
+// written: rating again brings the comment back.
 export default function MessageFeedback({ message, chatId, setChats }) {
     const { t } = useTranslation();
-    const [pending, setPending] = useState(false);
-    const [commentDraft, setCommentDraft] = useState(message.feedback?.comment || '');
-    const [justSent, setJustSent] = useState(false);
-    // Only the 404 (conversation owned by another profile — see api.js buildError,
-    // which is where the thrown Error gets its httpStatus) gets an explanation here.
-    // Any other failure keeps its pre-existing behavior: logged, silent to the user.
-    const [errorNotice, setErrorNotice] = useState(null);
-
     const feedback = message.feedback || null;
+    const [commentDraft, setCommentDraft] = useState(feedback?.comment || '');
+    const [justSent, setJustSent] = useState(false);
+    // Failures are explained: the 404 (conversation owned by another profile — see
+    // api.js buildError, which is where the thrown Error gets its httpStatus) on its
+    // own, anything else as "not saved", since the thumbs go back to what is saved.
+    const [errorNotice, setErrorNotice] = useState(null);
     const textareaRef = useRef(null);
+
+    // What the server holds, what the person chose last (already on screen), and
+    // the last comment the server took, which outlives a cleared rating.
+    const savedRef = useRef(feedback);
+    const wantedRef = useRef(feedback);
+    const lastCommentRef = useRef(feedback?.comment || null);
+    const savingRef = useRef(false);
 
     // Grow with the text; the CSS max-height (40vh) caps it and overflow-y scrolls.
     useLayoutEffect(() => {
@@ -47,53 +58,61 @@ export default function MessageFeedback({ message, chatId, setChats }) {
         }));
     };
 
-    const handleThumb = async (value) => {
-        if (pending) return;
-        setPending(true);
-        setErrorNotice(null);
+    const flashSent = () => {
+        setJustSent(true);
+        setTimeout(() => setJustSent(false), 2000);
+    };
+
+    // One request at a time; a choice made meanwhile is picked up by the loop.
+    const save = async () => {
+        if (savingRef.current) return;
+        savingRef.current = true;
         try {
-            if (feedback?.value === value) {
-                await clearFeedback({ completionId: message.completionId, sessionId: chatId });
-                patchFeedback(null);
-                setCommentDraft('');
-            } else {
-                const comment = feedback?.comment || null;
-                await submitFeedback({ completionId: message.completionId, sessionId: chatId, value, comment });
-                patchFeedback({ value, comment });
+            while (!sameFeedback(wantedRef.current, savedRef.current)) {
+                const target = wantedRef.current;
+                if (target) {
+                    await submitFeedback({
+                        completionId: message.completionId,
+                        sessionId: chatId,
+                        value: target.value,
+                        comment: target.comment ?? null,
+                    });
+                } else {
+                    await clearFeedback({ completionId: message.completionId, sessionId: chatId });
+                }
+                savedRef.current = target;
+                if (target?.comment && target.comment !== lastCommentRef.current) {
+                    lastCommentRef.current = target.comment;
+                    flashSent();
+                }
             }
         } catch (e) {
             console.warn('Feedback not recorded:', e);
-            if (e?.httpStatus === 404) {
-                setErrorNotice(t('feedbackNotYours'));
-            }
+            wantedRef.current = savedRef.current;
+            patchFeedback(savedRef.current);
+            setErrorNotice(t(e?.httpStatus === 404 ? 'feedbackNotYours' : 'feedbackNotSaved'));
         } finally {
-            setPending(false);
+            savingRef.current = false;
         }
     };
 
-    const handleSendComment = async () => {
-        const comment = commentDraft.trim();
-        if (pending || !feedback || !comment || comment === (feedback.comment || '')) return;
-        setPending(true);
+    const choose = (next) => {
         setErrorNotice(null);
-        try {
-            await submitFeedback({
-                completionId: message.completionId,
-                sessionId: chatId,
-                value: feedback.value,
-                comment,
-            });
-            patchFeedback({ ...feedback, comment });
-            setJustSent(true);
-            setTimeout(() => setJustSent(false), 2000);
-        } catch (e) {
-            console.warn('Feedback comment not recorded:', e);
-            if (e?.httpStatus === 404) {
-                setErrorNotice(t('feedbackNotYours'));
-            }
-        } finally {
-            setPending(false);
-        }
+        wantedRef.current = next;
+        patchFeedback(next);
+        save();
+    };
+
+    const handleThumb = (value) => {
+        const current = wantedRef.current;
+        choose(current?.value === value ? null : { value, comment: current?.comment ?? lastCommentRef.current });
+    };
+
+    const handleSendComment = () => {
+        const comment = commentDraft.trim();
+        const current = wantedRef.current;
+        if (!current || !comment || comment === (current.comment || '')) return;
+        choose({ ...current, comment });
     };
 
     return (
@@ -103,7 +122,6 @@ export default function MessageFeedback({ message, chatId, setChats }) {
                     <button
                         className={`feedback-btn ${feedback?.value === 'up' ? 'active' : ''}`}
                         onClick={() => handleThumb('up')}
-                        disabled={pending}
                         aria-label={t('feedbackGoodTitle')}
                         aria-pressed={feedback?.value === 'up'}
                         type="button"
@@ -115,7 +133,6 @@ export default function MessageFeedback({ message, chatId, setChats }) {
                     <button
                         className={`feedback-btn down ${feedback?.value === 'down' ? 'active' : ''}`}
                         onClick={() => handleThumb('down')}
-                        disabled={pending}
                         aria-label={t('feedbackBadTitle')}
                         aria-pressed={feedback?.value === 'down'}
                         type="button"
@@ -146,7 +163,6 @@ export default function MessageFeedback({ message, chatId, setChats }) {
                                     handleSendComment();
                                 }
                             }}
-                            disabled={pending}
                         />
                         {commentDraft.length > COMMENT_COUNTER_THRESHOLD && (
                             <span className="feedback-comment-counter">
@@ -157,7 +173,7 @@ export default function MessageFeedback({ message, chatId, setChats }) {
                     <button
                         className="feedback-comment-send"
                         onClick={handleSendComment}
-                        disabled={pending || !commentDraft.trim() || commentDraft.trim() === (feedback.comment || '')}
+                        disabled={!commentDraft.trim() || commentDraft.trim() === (feedback.comment || '')}
                         title={t('feedbackCommentSend')}
                         aria-label={t('feedbackCommentSend')}
                         type="button"

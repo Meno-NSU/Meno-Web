@@ -11,8 +11,9 @@
 // - On a failure the thumbs go back to what is saved. Unsent comments stay queued (and the page still asks before
 //   it is left) until the next click or Send retries them; only a refusal (404: not this person's conversation)
 //   drops them, since retrying cannot help.
-// - forgetFeedback (sign-out, deleting a chat or one's data) aborts what is in flight and forgets the entries, so
-//   nothing queued is written after the person, or the conversation, is gone.
+// - forgetFeedback (sign-out, deleting a chat or one's data) drops what is queued and forgets the entries; it lets
+//   the request already on its way finish (its outcome is ignored) and resolves when it has, so a deletion sent
+//   after it cannot be overtaken by a write.
 
 const SAVE_TIMEOUT_MS = 30000;
 
@@ -36,7 +37,16 @@ function updateUnloadGuard() {
     unloadGuarded = unsent;
 }
 
-const changed = (entry) => entry.watchers.forEach((watch) => watch());
+// What a control renders: a fresh object on every change (a forgotten entry included), so React never discards the
+// render that moves a control onto a new entry just because the rating it shows is the same.
+const freshView = (entry) => {
+    entry.view = { feedback: entry.forgotten ? null : entry.wanted };
+};
+
+const changed = (entry) => {
+    freshView(entry);
+    entry.watchers.forEach((watch) => watch());
+};
 
 function emit(entry, event) {
     if (entry.listeners.size > 0) entry.listeners.forEach((listen) => listen(event));
@@ -54,13 +64,14 @@ export function feedbackEntry(key, stored) {
             seen: stored, // the stored feedback last passed in
             outbox: [],
             saving: false,
-            controller: null,
+            inflight: null, // the request on its way, settled or not
             forgotten: false,
             kept: stored?.comment || null, // the last comment sent: outlives a cleared rating
             unseen: null,
             watchers: new Set(),
             listeners: new Set(),
         };
+        freshView(entry);
         entries.set(key, entry);
     } else if (!sameFeedback(stored, entry.seen)) {
         entry.seen = stored;
@@ -69,6 +80,7 @@ export function feedbackEntry(key, stored) {
             entry.saved = stored;
             entry.wanted = stored;
             if (stored?.comment) entry.kept = stored.comment;
+            freshView(entry); // read by this very render; no one else needs telling
         }
     }
     return entry;
@@ -92,15 +104,17 @@ export function listenFeedback(entry, onEvent) {
     return () => entry.listeners.delete(onEvent);
 }
 
+// One request, given up after SAVE_TIMEOUT_MS (a hung save would hold back every later click on the answer).
 async function attempt(entry, send) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), SAVE_TIMEOUT_MS);
-    entry.controller = controller;
+    const request = send(controller.signal);
+    entry.inflight = request;
     try {
-        await send(controller.signal);
+        await request;
     } finally {
         clearTimeout(timer);
-        entry.controller = null;
+        if (entry.inflight === request) entry.inflight = null;
     }
 }
 
@@ -160,18 +174,22 @@ export function sendComment(entry, comment, io) {
     return true;
 }
 
-// Abort and forget the answers of one chat, or of every chat: nothing queued is sent any more.
+// Forget the answers of one chat, or of every chat: nothing queued is sent any more. Resolves once the requests
+// already on their way have finished. A control still on screen is told, so it takes a fresh entry.
 export function forgetFeedback(chatId = null) {
+    const inflight = [];
     for (const [key, entry] of entries) {
         if (chatId !== null && !key.startsWith(`${chatId}|`)) continue;
         entry.forgotten = true;
         entry.outbox = [];
-        entry.controller?.abort();
+        if (entry.inflight) inflight.push(entry.inflight.catch(() => {}));
         entries.delete(key);
+        changed(entry);
     }
     updateUnloadGuard();
+    return Promise.all(inflight).then(() => undefined);
 }
 
 export function resetFeedbackSyncForTests() {
-    forgetFeedback();
+    void forgetFeedback();
 }

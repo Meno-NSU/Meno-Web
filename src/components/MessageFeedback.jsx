@@ -20,7 +20,8 @@ export default function MessageFeedback({ message, chatId, setChats }) {
     const { t } = useTranslation();
     const entry = feedbackEntry(`${chatId}|${message.completionId}`, message.feedback || null);
     const watch = useCallback((onChange) => watchFeedback(entry, onChange), [entry]);
-    const feedback = useSyncExternalStore(watch, () => entry.wanted);
+    // A forgotten entry reads as changed, so the control renders again and takes the fresh one.
+    const { feedback } = useSyncExternalStore(watch, () => entry.view);
     const [commentDraft, setCommentDraft] = useState(() => entry.wanted?.comment || entry.kept || '');
     const [justSent, setJustSent] = useState(false);
     // Failures are explained: the 404 (conversation owned by another profile — see

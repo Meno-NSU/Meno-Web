@@ -472,28 +472,43 @@ describe('MessageFeedback: a comment that could not go out is not lost', () => {
 });
 
 describe('MessageFeedback: forgetting (sign-out, deleting a chat or one\'s data)', () => {
-    const untilAborted = ({ signal }) => new Promise((_, reject) => {
-        signal.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')));
-    });
+    it('sends nothing queued, stores nothing, and resolves once the save on its way has finished', async () => {
+        const first = deferred();
+        submitFeedback.mockReturnValueOnce(first.promise);
+        const message = { ...baseMessage, feedback: { value: 'up', comment: null } };
+        const setChats = makeSetChats(chatsWith(message));
+        render(<MessageFeedback message={message} chatId="chat-1" setChats={setChats} />);
 
-    it('aborts what is in flight and sends nothing queued for the chat', async () => {
-        submitFeedback.mockImplementationOnce(untilAborted);
-        const setChats = makeSetChats(chatsWith({ ...baseMessage, feedback: { value: 'up', comment: null } }));
-        render(
-            <MessageFeedback
-                message={{ ...baseMessage, feedback: { value: 'up', comment: null } }}
-                chatId="chat-1"
-                setChats={setChats}
-            />,
-        );
-
-        fireEvent.click(bad()); // in flight
+        fireEvent.click(bad()); // on its way
         send('A'); // queued
-        await act(async () => forgetFeedback('chat-1'));
+        let settled = false;
+        let forgotten;
+        act(() => {
+            forgotten = forgetFeedback('chat-1').then(() => { settled = true; });
+        });
+        await act(async () => {});
+        expect(settled).toBe(false); // a deletion sent now could be overtaken by that save
 
-        expect(submitFeedback).toHaveBeenCalledTimes(1);
+        await act(async () => first.resolve({}));
+        await forgotten;
+        expect(settled).toBe(true);
+        expect(submitFeedback).toHaveBeenCalledTimes(1); // «A» never went out
         expect(setChats).not.toHaveBeenCalled(); // nothing is stored for the forgotten chat
         expect(screen.queryByRole('alert')).toBeNull();
+    });
+
+    it('resolves at once when nothing is on its way', async () => {
+        await expect(forgetFeedback()).resolves.toBeUndefined();
+    });
+
+    it('leaves a control still on screen working', async () => {
+        render(<Harness initial={baseMessage} />);
+        await act(async () => forgetFeedback('chat-1')); // e.g. a deletion that then failed
+
+        fireEvent.click(good());
+
+        await waitFor(() => expect(submitFeedback).toHaveBeenCalledTimes(1));
+        expect(good().getAttribute('aria-pressed')).toBe('true');
     });
 
     it('leaves the answers of other chats alone', async () => {

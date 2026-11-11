@@ -75,6 +75,7 @@ import {
   patchPrivacySettings,
   submitSurvey,
   sendChatMessage,
+  clearChatHistory,
 } from './services/api.js';
 import { shouldShowSurvey } from './services/surveyGate.js';
 
@@ -99,6 +100,7 @@ function resetApiMocks() {
   fetchMe.mockResolvedValue(null);
   login.mockResolvedValue({});
   submitSurvey.mockResolvedValue({});
+  clearChatHistory.mockResolvedValue({});
   // Default false: a test that doesn't care about the survey must never have it pop up and
   // obscure its own assertions (see the comment on the vi.mock above).
   shouldShowSurvey.mockReturnValue(false);
@@ -170,7 +172,7 @@ describe('App — a signed-in identity replaces the visible chats, and signing o
 });
 
 describe('App — deleting a chat', () => {
-  it('forgets the ratings still being saved for that chat', async () => {
+  it('forgets the ratings still being saved for that chat, then deletes it on the server', async () => {
     seedGuestChat();
     const { container } = render(<App />);
     await waitFor(() => expect(screen.getByText('Локальный чат')).toBeTruthy());
@@ -178,6 +180,7 @@ describe('App — deleting a chat', () => {
     fireEvent.click(container.querySelector('.delete-chat-btn'));
 
     expect(forgetFeedback).toHaveBeenCalledWith('guest-1');
+    await waitFor(() => expect(clearChatHistory).toHaveBeenCalledWith('guest-1'));
   });
 });
 

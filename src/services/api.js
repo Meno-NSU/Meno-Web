@@ -423,32 +423,24 @@ export async function getLegalDocuments() {
 
 // --- Feedback (S2) ---
 
-// A rating save that hangs would hold back every later click on that answer (they are sent one at a time), so
-// it gives up after a while and the thumbs go back to what is saved.
-const FEEDBACK_TIMEOUT_MS = 30000;
-const feedbackTimeout = () => (
-    typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function'
-        ? AbortSignal.timeout(FEEDBACK_TIMEOUT_MS)
-        : undefined
-);
-
-export async function submitFeedback({ completionId, sessionId, value, comment = null }) {
+// `signal` lets services/feedbackSync.js give up on a hung save and abort what is queued on sign-out or deletion.
+export async function submitFeedback({ completionId, sessionId, value, comment = null, signal }) {
     const res = await fetchWithLogging(`${API_BASE_URL}/v1/feedback`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ completion_id: completionId, session_id: sessionId, value, comment }),
-        signal: feedbackTimeout(),
+        signal,
     });
     if (!res.ok) throw await buildError(res, 'Failed to submit feedback');
     return res.json();
 }
 
-export async function clearFeedback({ completionId, sessionId }) {
+export async function clearFeedback({ completionId, sessionId, signal }) {
     const res = await fetchWithLogging(`${API_BASE_URL}/v1/feedback/clear`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ completion_id: completionId, session_id: sessionId }),
-        signal: feedbackTimeout(),
+        signal,
     });
     if (!res.ok) throw await buildError(res, 'Failed to clear feedback');
     return res.json();

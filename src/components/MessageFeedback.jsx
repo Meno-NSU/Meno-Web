@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { ThumbsUp, ThumbsDown, Check, SendHorizontal } from './icons.jsx';
 import { useTranslation } from '../i18n.js';
 import { clearFeedback, submitFeedback } from '../services/api.js';
@@ -18,9 +18,9 @@ const COMMENT_COUNTER_THRESHOLD = 18000;
 // rating again brings the comment back.
 export default function MessageFeedback({ message, chatId, setChats }) {
     const { t } = useTranslation();
-    const key = `${chatId}|${message.completionId}`;
-    const entry = feedbackEntry(key, message.feedback || null);
-    const feedback = useSyncExternalStore((onChange) => watchFeedback(key, onChange), () => entry.wanted);
+    const entry = feedbackEntry(`${chatId}|${message.completionId}`, message.feedback || null);
+    const watch = useCallback((onChange) => watchFeedback(entry, onChange), [entry]);
+    const feedback = useSyncExternalStore(watch, () => entry.wanted);
     const [commentDraft, setCommentDraft] = useState(() => entry.wanted?.comment || entry.kept || '');
     const [justSent, setJustSent] = useState(false);
     // Failures are explained: the 404 (conversation owned by another profile — see
@@ -31,7 +31,7 @@ export default function MessageFeedback({ message, chatId, setChats }) {
 
     useEffect(() => {
         let timer = null;
-        const stop = listenFeedback(key, (event) => {
+        const stop = listenFeedback(entry, (event) => {
             if (event.type === 'sent') {
                 setJustSent(true);
                 clearTimeout(timer);
@@ -46,7 +46,7 @@ export default function MessageFeedback({ message, chatId, setChats }) {
             stop();
             clearTimeout(timer);
         };
-    }, [key, t]);
+    }, [entry, t]);
 
     // Grow with the text; the CSS max-height (40vh) caps it and overflow-y scrolls.
     useLayoutEffect(() => {
@@ -59,13 +59,14 @@ export default function MessageFeedback({ message, chatId, setChats }) {
     // What the save loop needs. Messages have no stable id of their own — the
     // completion id is unique per assistant response, so patch by it.
     const io = {
-        submit: ({ value, comment }) => submitFeedback({
+        submit: ({ value, comment }, signal) => submitFeedback({
             completionId: message.completionId,
             sessionId: chatId,
             value,
             comment: comment ?? null,
+            signal,
         }),
-        clear: () => clearFeedback({ completionId: message.completionId, sessionId: chatId }),
+        clear: (signal) => clearFeedback({ completionId: message.completionId, sessionId: chatId, signal }),
         confirm: (saved) => setChats((prev) => prev.map((chat) => {
             if (chat.id !== chatId) return chat;
             return {
@@ -79,11 +80,11 @@ export default function MessageFeedback({ message, chatId, setChats }) {
 
     const handleThumb = (value) => {
         setErrorNotice(null);
-        clickThumb(key, value, io);
+        clickThumb(entry, value, io);
     };
 
     const handleSendComment = () => {
-        if (sendComment(key, commentDraft.trim(), io)) setErrorNotice(null);
+        if (sendComment(entry, commentDraft.trim(), io)) setErrorNotice(null);
     };
 
     return (

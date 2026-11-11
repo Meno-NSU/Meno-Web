@@ -51,6 +51,14 @@ vi.mock('./services/surveyGate.js', () => ({
   shouldShowSurvey: vi.fn(),
 }));
 
+// The real rating sync, with forgetFeedback watched: whatever is queued for a chat must not be sent after the
+// person signs out or the chat is deleted.
+vi.mock('./services/feedbackSync.js', async (importOriginal) => {
+  const actual = await importOriginal();
+  return { ...actual, forgetFeedback: vi.fn(actual.forgetFeedback) };
+});
+import { forgetFeedback } from './services/feedbackSync.js';
+
 import {
   fetchModels,
   refreshModels,
@@ -148,14 +156,28 @@ describe('App — a signed-in identity replaces the visible chats, and signing o
     expect(screen.queryByText('Локальный чат')).toBeNull();
 
     // Sign out via SettingsBar's account menu.
+    expect(forgetFeedback).not.toHaveBeenCalled();
     fireEvent.click(container.querySelector('.auth-chip'));
     fireEvent.click(container.querySelector('.auth-menu-item'));
+    expect(forgetFeedback).toHaveBeenCalledWith(); // nothing queued goes out under the next identity
 
     // Signed out: the guest's local chat is back — proving it was hidden,
     // not destroyed, and the server chats are gone from view again.
     await waitFor(() => expect(screen.getByText('Локальный чат')).toBeTruthy());
     expect(screen.queryByText('Чат с сервера 1')).toBeNull();
     expect(screen.queryByText('Чат с сервера 2')).toBeNull();
+  });
+});
+
+describe('App — deleting a chat', () => {
+  it('forgets the ratings still being saved for that chat', async () => {
+    seedGuestChat();
+    const { container } = render(<App />);
+    await waitFor(() => expect(screen.getByText('Локальный чат')).toBeTruthy());
+
+    fireEvent.click(container.querySelector('.delete-chat-btn'));
+
+    expect(forgetFeedback).toHaveBeenCalledWith('guest-1');
   });
 });
 

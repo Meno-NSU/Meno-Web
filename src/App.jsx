@@ -55,6 +55,7 @@ import ArenaIntroModal from './components/ArenaIntroModal.jsx';
 import { submitSurvey } from './services/api.js';
 import { shouldShowConsentModal, hasDecidedConsent, setConsentDecided, getConsentDeferredUntil, deferConsent, CONSENT_DECISION_FLAG, CONSENT_DEFER_UNTIL_KEY, CONSENT_KIND } from './services/consentGate.js';
 import { shouldShowSurvey } from './services/surveyGate.js';
+import { forgetFeedback } from './services/feedbackSync.js';
 import { hasSeenArenaIntro, markArenaIntroSeen } from './services/arenaIntro.js';
 import { watchFrameRate, isLowFrameRate } from './services/frameRate.js';
 import { rememberVersions, fallbackModelId } from './services/versions.js';
@@ -935,6 +936,8 @@ function App() {
   // chat (e.g. registered and signed in immediately) still deserves a fresh
   // one to land on.
   const handleLogout = () => {
+    // A rating still being saved must not go out under the next identity.
+    forgetFeedback();
     auth.logout();
     if (chats.length === 0) {
       const fresh = createNewChat({
@@ -947,6 +950,8 @@ function App() {
   };
 
   const handleDeleteChat = (id) => {
+    // Nothing queued for this chat may write its ratings back after the deletion.
+    forgetFeedback(id);
     setActiveChats((prev) => prev.filter((chat) => chat.id !== id));
     if (activeChatId === id) {
       setActiveChatId(null);
@@ -1588,6 +1593,7 @@ function App() {
   // (isAuthenticated) to not offer a control that would do nothing.
   const handleClearLocalHistory = () => {
     if (auth.isAuthenticated) return;
+    forgetFeedback();
     clearChats();
     const fresh = createNewChat({
       modelId: resolveModelId(models, localStorage.getItem(LAST_USED_MODEL_KEY)),
@@ -1604,6 +1610,7 @@ function App() {
   // this is unconditionally about the server-rendered view, and local history — whatever
   // guest chats were hidden before this sign-in — is not this action's business.
   const handleDeleteServerHistory = async () => {
+    forgetFeedback(); // before the deletion, so nothing queued writes after it
     try {
       await deleteServerHistory();
     } catch (error) {
@@ -1622,6 +1629,7 @@ function App() {
   // Right to erasure: delete everything server-side, then reset to a fresh anonymous
   // identity (the old JWT / guest token no longer resolves).
   const handleDeleteData = async () => {
+    forgetFeedback(); // before the erasure, so nothing queued writes after it
     try {
       await deleteMyData();
     } catch (error) {

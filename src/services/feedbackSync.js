@@ -8,7 +8,13 @@
 // - A comment the person sends is never coalesced away: it waits in `outbox` and goes out with the rating it was
 //   sent with, before the thumbs are settled. While one is unsent, leaving the page asks first.
 // - Only what the server confirmed reaches `io.confirm` (the message's stored feedback, persisted for guests).
-// - On a failure the screen goes back to what is saved and the unsent comments are dropped (the field keeps the text).
+// - On a failure the thumbs go back to what is saved. Unsent comments stay queued (and the page still asks before
+//   it is left) until the next click or Send retries them; only a refusal (404: not this person's conversation)
+//   drops them, since retrying cannot help.
+// - forgetFeedback (sign-out, deleting a chat or one's data) aborts what is in flight and forgets the entries, so
+//   nothing queued is written after the person, or the conversation, is gone.
+
+const SAVE_TIMEOUT_MS = 30000;
 
 const entries = new Map();
 let unloadGuarded = false;
@@ -31,7 +37,11 @@ function updateUnloadGuard() {
 }
 
 const changed = (entry) => entry.watchers.forEach((watch) => watch());
-const emit = (entry, event) => entry.listeners.forEach((listen) => listen(event));
+
+function emit(entry, event) {
+    if (entry.listeners.size > 0) entry.listeners.forEach((listen) => listen(event));
+    else entry.unseen = event; // shown when the answer's control is mounted again
+}
 
 // The entry for an answer, created from the stored feedback the first time it is asked for. A later change of the
 // stored feedback that did not come from here (the conversation loaded again) is taken while nothing is being saved.
@@ -44,7 +54,10 @@ export function feedbackEntry(key, stored) {
             seen: stored, // the stored feedback last passed in
             outbox: [],
             saving: false,
+            controller: null,
+            forgotten: false,
             kept: stored?.comment || null, // the last comment sent: outlives a cleared rating
+            unseen: null,
             watchers: new Set(),
             listeners: new Set(),
         };
@@ -62,33 +75,47 @@ export function feedbackEntry(key, stored) {
 }
 
 // For useSyncExternalStore: re-render when what is shown changes.
-export function watchFeedback(key, onChange) {
-    const entry = entries.get(key);
+export function watchFeedback(entry, onChange) {
     entry.watchers.add(onChange);
     return () => entry.watchers.delete(onChange);
 }
 
-// Events for the mounted instance: { type: 'sent' } once a sent comment is on the server,
-// { type: 'failed', error, what: 'rating' | 'comment' } when a save fails.
-export function listenFeedback(key, onEvent) {
-    const entry = entries.get(key);
+// Events for the mounted control: { type: 'sent' } once the sent comments are on the server,
+// { type: 'failed', error, what: 'rating' | 'comment' } when a save fails (delivered on mount if it failed unseen).
+export function listenFeedback(entry, onEvent) {
     entry.listeners.add(onEvent);
+    if (entry.unseen) {
+        const event = entry.unseen;
+        entry.unseen = null;
+        onEvent(event);
+    }
     return () => entry.listeners.delete(onEvent);
 }
 
+async function attempt(entry, send) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), SAVE_TIMEOUT_MS);
+    entry.controller = controller;
+    try {
+        await send(controller.signal);
+    } finally {
+        clearTimeout(timer);
+        entry.controller = null;
+    }
+}
+
 async function pump(entry, io) {
-    if (entry.saving) return; // the running loop picks up whatever is wanted by now
+    if (entry.saving || entry.forgotten) return; // a running loop picks up whatever is wanted by now
     entry.saving = true;
-    let target = null;
-    let fromOutbox = false;
     try {
         for (;;) {
-            fromOutbox = entry.outbox.length > 0;
+            const fromOutbox = entry.outbox.length > 0;
+            let target;
             if (fromOutbox) target = entry.outbox[0];
             else if (!sameFeedback(entry.wanted, entry.saved)) target = entry.wanted;
             else break;
-            if (target) await io.submit(target);
-            else await io.clear();
+            await attempt(entry, (signal) => (target ? io.submit(target, signal) : io.clear(signal)));
+            if (entry.forgotten) return;
             entry.saved = target;
             if (fromOutbox) entry.outbox.shift();
             io.confirm(target);
@@ -98,8 +125,9 @@ async function pump(entry, io) {
             }
         }
     } catch (error) {
-        const what = fromOutbox || (target?.comment && target.comment !== entry.saved?.comment) ? 'comment' : 'rating';
-        entry.outbox = [];
+        if (entry.forgotten) return;
+        const what = entry.outbox.length > 0 ? 'comment' : 'rating';
+        if (error?.httpStatus === 404) entry.outbox = [];
         entry.wanted = entry.saved;
         updateUnloadGuard();
         changed(entry);
@@ -111,8 +139,7 @@ async function pump(entry, io) {
 
 // A click on a thumb: the active one clears the rating, the other one sets it; the comment rides along, and after
 // a clear the last comment sent comes back with the new rating.
-export function clickThumb(key, value, io) {
-    const entry = entries.get(key);
+export function clickThumb(entry, value, io) {
     const current = entry.wanted;
     entry.wanted = current?.value === value ? null : { value, comment: current?.comment ?? entry.kept };
     changed(entry);
@@ -120,8 +147,7 @@ export function clickThumb(key, value, io) {
 }
 
 // The person sends a comment on the current rating. Returns false when there is nothing new to send.
-export function sendComment(key, comment, io) {
-    const entry = entries.get(key);
+export function sendComment(entry, comment, io) {
     const current = entry.wanted;
     if (!current || !comment || comment === (current.comment || '')) return false;
     const item = { value: current.value, comment };
@@ -134,7 +160,18 @@ export function sendComment(key, comment, io) {
     return true;
 }
 
-export function resetFeedbackSyncForTests() {
-    entries.clear();
+// Abort and forget the answers of one chat, or of every chat: nothing queued is sent any more.
+export function forgetFeedback(chatId = null) {
+    for (const [key, entry] of entries) {
+        if (chatId !== null && !key.startsWith(`${chatId}|`)) continue;
+        entry.forgotten = true;
+        entry.outbox = [];
+        entry.controller?.abort();
+        entries.delete(key);
+    }
     updateUnloadGuard();
+}
+
+export function resetFeedbackSyncForTests() {
+    forgetFeedback();
 }

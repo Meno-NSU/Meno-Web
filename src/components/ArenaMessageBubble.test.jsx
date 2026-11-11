@@ -221,4 +221,45 @@ describe('ArenaMessageBubble vote handling', () => {
         const [, options] = fetchMock.mock.calls[0];
         expect(JSON.parse(options.body)).toMatchObject({ turn_index: 1 });
     });
+
+    it('reveals sides as "<version> · <model>" without kb ids', async () => {
+        const bubble = makeBubble();
+        bubble.arenaData.voted = true;
+        bubble.arenaData.winner = 'a';
+        bubble.arenaData.a = { model: 'gemma-4-12B-it@menon-1.1', kb: 'nsu-kb-11', content: 'A' };
+        bubble.arenaData.b = { model: 'gone-model', kb: 'nsu-ragu', content: 'B' };
+        const models = [{ id: 'gemma-4-12B-it@menon-1.1', stand_id: 'menon-1.1', llm_id: 'gemma-4-12B-it', llm_name: 'Gemma 4 12B' }];
+        const { container } = render(
+            <ArenaMessageBubble message={bubble} chatId="chat-1" setChats={vi.fn()} isGenerating={false} question="q" messagesBeforeRound={[]} models={models} />,
+        );
+        expect(screen.getByText('A: Менон 1.1 · Gemma 4 12B')).toBeTruthy();
+        expect(screen.getByText('B: Менон 1.0 · gone-model')).toBeTruthy();
+        expect(container.textContent).not.toMatch(/nsu-/);
+    });
+
+    it('names an unlisted stand-suffixed id by its stand, not Менон 1.0', () => {
+        const bubble = makeBubble();
+        bubble.arenaData.voted = true;
+        bubble.arenaData.winner = 'a';
+        bubble.arenaData.a = { model: 'x@ragu', kb: 'nsu-ragu', content: 'A' };
+        bubble.arenaData.b = { model: 'gemma-4-12B-it@menon-1.1', kb: 'nsu-kb-11', content: 'B' };
+        const { container } = render(
+            <ArenaMessageBubble message={bubble} chatId="chat-1" setChats={vi.fn()} isGenerating={false} question="q" messagesBeforeRound={[]} models={[]} />,
+        );
+        expect(screen.getByText('A: ragu · x')).toBeTruthy();
+        expect(container.textContent).not.toMatch(/Менон 1\.0/);
+        expect(screen.getByText('B: Менон 1.1 · gemma-4-12B-it')).toBeTruthy();
+    });
+
+    it('renders a restored voted side with a null model as a dash', () => {
+        const bubble = makeBubble();
+        bubble.arenaData.voted = true;
+        bubble.arenaData.winner = 'b';
+        bubble.arenaData.a = { model: null, kb: null, content: '' };
+        render(
+            <ArenaMessageBubble message={bubble} chatId="chat-1" setChats={vi.fn()} isGenerating={false} question="q" messagesBeforeRound={[]} models={[]} />,
+        );
+        expect(screen.getByText('A: —')).toBeTruthy();
+        expect(screen.getByText('B: Менон 1.0 · m-b')).toBeTruthy();
+    });
 });

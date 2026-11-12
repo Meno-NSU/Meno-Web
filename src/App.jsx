@@ -63,7 +63,12 @@ import { buildErrorNotice, buildStopNotice } from './services/chatNotice.js';
 import { dropTrailingNotice } from './services/chatTurns.js';
 import './index.css';
 
-const LAST_USED_MODEL_KEY = 'lastUsedModelId';
+// The model the person picked last (the picker only), for the chats they start. Nothing is stored until they pick,
+// so a chat they start without having picked follows the site's default (versions.js DEFAULT_CHOICES), whatever it is
+// by then. The key before it also held the default and every model a chat was opened in, so it says nothing about
+// a pick and is dropped.
+const PICKED_MODEL_KEY = 'pickedModelId';
+const RETIRED_MODEL_KEY = 'lastUsedModelId';
 const LAST_USED_KB_KEY = 'lastUsedKnowledgeBaseId';
 const SERVER_ERROR_TEXT = 'Извините, произошла ошибка на сервере. Пожалуйста, попробуйте задать свой вопрос позже.';
 const EMPTY_CHAT = {
@@ -422,7 +427,7 @@ function App() {
 
   // The one rule for every model id the app picks on its own (a stored chat, a new
   // chat, the default): keep a listed, usable id; otherwise another model of the same
-  // version, then Менон 1.0, then the first usable entry. After a reload nothing is
+  // version, then the default (versions.js DEFAULT_CHOICES). After a reload nothing is
   // known yet, so the version comes from the id's `@` suffix when it names a listed
   // version. On an empty list the candidate is kept as is.
   const resolveModelId = (list, candidate) => {
@@ -467,16 +472,14 @@ function App() {
       setModels(fetchedModels);
       setKbs(fetchedKbs);
 
-      const defaultModelId = resolveModelId(fetchedModels, localStorage.getItem(LAST_USED_MODEL_KEY));
+      localStorage.removeItem(RETIRED_MODEL_KEY);
+      const defaultModelId = resolveModelId(fetchedModels, localStorage.getItem(PICKED_MODEL_KEY));
       const defaultKnowledgeBaseId = resolveValidId(
         fetchedKbs,
         localStorage.getItem(LAST_USED_KB_KEY),
         fetchedKbs[0]?.id || '',
       );
 
-      if (defaultModelId) {
-        localStorage.setItem(LAST_USED_MODEL_KEY, defaultModelId);
-      }
       if (defaultKnowledgeBaseId) {
         localStorage.setItem(LAST_USED_KB_KEY, defaultKnowledgeBaseId);
       }
@@ -485,8 +488,12 @@ function App() {
       // rule first, so migrateChats (which swaps an unlisted id for the default) never
       // has to move it to the default's version.
       const storedChats = loadChats();
+      // A chat with nothing asked yet starts like a new one.
       const resolvedChats = Array.isArray(storedChats)
         ? storedChats.map((chat) => {
+          if (isEmptyDraft(chat) && defaultModelId) {
+            return { ...chat, runtimeConfig: { ...chat.runtimeConfig, modelId: defaultModelId } };
+          }
           const modelId = chat?.runtimeConfig?.modelId;
           if (typeof modelId !== 'string' || !modelId.trim()) return chat;
           return {
@@ -586,13 +593,13 @@ function App() {
         // nothing. The draft lives only in serverChats (never localStorage), and
         // its first sent message creates the real conversation server-side.
         setServerChats([createNewChat({
-          modelId: resolveModelId(models, localStorage.getItem(LAST_USED_MODEL_KEY)),
+          modelId: resolveModelId(models, localStorage.getItem(PICKED_MODEL_KEY)),
           knowledgeBaseId: resolveValidId(kbs, localStorage.getItem(LAST_USED_KB_KEY), kbs[0]?.id || ''),
         })]);
         return;
       }
       setServerChats(summaries.map((s) => chatFromSummary(s, {
-        defaultModelId: resolveModelId(models, localStorage.getItem(LAST_USED_MODEL_KEY)),
+        defaultModelId: resolveModelId(models, localStorage.getItem(PICKED_MODEL_KEY)),
         defaultKnowledgeBaseId: resolveValidId(kbs, localStorage.getItem(LAST_USED_KB_KEY), kbs[0]?.id || ''),
       })));
     })();
@@ -709,13 +716,10 @@ function App() {
   }, [kbs, selectedKb, activeChatId]);
 
   useEffect(() => {
-    if (selectedModel) {
-      localStorage.setItem(LAST_USED_MODEL_KEY, selectedModel);
-    }
     if (selectedKb) {
       localStorage.setItem(LAST_USED_KB_KEY, selectedKb);
     }
-  }, [selectedModel, selectedKb]);
+  }, [selectedKb]);
 
   // Theme switch "flows" across the screen: a circular reveal growing from
   // the clicked control, via the View Transitions API. Browsers without it,
@@ -797,6 +801,7 @@ function App() {
     // A pick made while a server chat's content is still loading wins over the model its
     // last answer came from (see the load effect).
     if (activeChatStillLoading) modelPickedWhileLoadingRef.current.add(activeChatId);
+    localStorage.setItem(PICKED_MODEL_KEY, modelId);
     updateActiveChatRuntimeConfig({ modelId });
   };
 
@@ -912,7 +917,7 @@ function App() {
     }
 
     const nextChat = createNewChat({
-      modelId: resolveModelId(models, selectedModel || localStorage.getItem(LAST_USED_MODEL_KEY)),
+      modelId: resolveModelId(models, localStorage.getItem(PICKED_MODEL_KEY)),
       knowledgeBaseId: resolveValidId(
         kbs,
         selectedKb || localStorage.getItem(LAST_USED_KB_KEY),
@@ -938,7 +943,7 @@ function App() {
     auth.logout();
     if (chats.length === 0) {
       const fresh = createNewChat({
-        modelId: resolveModelId(models, localStorage.getItem(LAST_USED_MODEL_KEY)),
+        modelId: resolveModelId(models, localStorage.getItem(PICKED_MODEL_KEY)),
         knowledgeBaseId: resolveValidId(kbs, localStorage.getItem(LAST_USED_KB_KEY), kbs[0]?.id || ''),
       });
       setChats([fresh]);
@@ -1590,7 +1595,7 @@ function App() {
     if (auth.isAuthenticated) return;
     clearChats();
     const fresh = createNewChat({
-      modelId: resolveModelId(models, localStorage.getItem(LAST_USED_MODEL_KEY)),
+      modelId: resolveModelId(models, localStorage.getItem(PICKED_MODEL_KEY)),
       knowledgeBaseId: resolveValidId(kbs, localStorage.getItem(LAST_USED_KB_KEY), kbs[0]?.id || ''),
     });
     setChats([fresh]);
@@ -1611,7 +1616,7 @@ function App() {
       return;
     }
     const fresh = createNewChat({
-      modelId: resolveModelId(models, localStorage.getItem(LAST_USED_MODEL_KEY)),
+      modelId: resolveModelId(models, localStorage.getItem(PICKED_MODEL_KEY)),
       knowledgeBaseId: resolveValidId(kbs, localStorage.getItem(LAST_USED_KB_KEY), kbs[0]?.id || ''),
     });
     setServerChats([fresh]);
@@ -1638,7 +1643,7 @@ function App() {
     setConsentDismissible(false); // fresh identity → next prompt is a first prompt
     await ensureGuestSession();
     const fresh = createNewChat({
-      modelId: resolveModelId(models, localStorage.getItem(LAST_USED_MODEL_KEY)),
+      modelId: resolveModelId(models, localStorage.getItem(PICKED_MODEL_KEY)),
       knowledgeBaseId: resolveValidId(kbs, localStorage.getItem(LAST_USED_KB_KEY), kbs[0]?.id || ''),
     });
     setChats([fresh]);

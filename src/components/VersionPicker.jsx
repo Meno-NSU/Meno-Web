@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback, useId } from 'react';
 import { ChevronDown, ChevronRight, AlertCircle, Lock, Check, Circle, Schedule, CloudOff } from './icons.jsx';
 import { useTranslation } from '../i18n.js';
 import Tooltip from './Tooltip.jsx';
-import { MENON_10, describeEntry, groupByVersion, versionName, isUsable, isAvailable } from '../services/versions.js';
+import { MENON_10, LEGACY_VERSIONS, describeEntry, groupByVersion, versionName, isUsable, isAvailable } from '../services/versions.js';
 import './VersionPicker.css';
 
 function StatusIcon({ state }) {
@@ -105,7 +105,7 @@ function AllFreeModelsExpander({ items, selectedModel, onSelect, onRequireAuth }
     );
 }
 
-function VersionRow({ name, group, current, currentModelName, onChoose, autoFocus }) {
+function VersionRow({ name, legacy, group, current, currentModelName, onChoose, autoFocus }) {
     const { t } = useTranslation();
     const unavailable = group.entries.every(m => !isAvailable(m));
     const single = group.entries.length === 1;
@@ -117,7 +117,10 @@ function VersionRow({ name, group, current, currentModelName, onChoose, autoFocu
             type="button"
             autoFocus={autoFocus}
         >
-            <span className="version-row-name">{name}</span>
+            <span className="version-row-name">
+                {name}
+                {legacy && <> <span className="version-row-tag">{t('versionLegacy')}</span></>}
+            </span>
             {current && <span className="version-row-model">{currentModelName}</span>}
             {unavailable && <span className="model-item-state">{t('versionUnavailable')}</span>}
             {!unavailable && !single && <ChevronRight size={16} className="version-row-chevron" />}
@@ -293,6 +296,7 @@ export default function VersionPicker({ models, selectedModel, onSelect, onRequi
                                 <VersionRow
                                     key={g.standId}
                                     name={versionName(g, t)}
+                                    legacy={LEGACY_VERSIONS.has(g.standId)}
                                     group={g}
                                     current={g.standId === current?.standId}
                                     currentModelName={current?.llmName}

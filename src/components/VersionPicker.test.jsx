@@ -48,10 +48,24 @@ describe('VersionPicker', () => {
         expect(screen.getByText('Версия')).toBeTruthy();
         const rows = document.querySelectorAll('.version-row');
         expect(rows).toHaveLength(2);
-        expect(rows[0].textContent).toContain('Менон 1.0');
-        expect(rows[0].textContent).toContain('meno-lite');
-        expect(rows[1].textContent).toBe('Менон 1.1');
+        expect(rows[0].textContent).toBe('Менон 1.1');
+        expect(rows[1].textContent).toContain('Менон 1.0');
+        expect(rows[1].textContent).toContain('meno-lite');
         expect(document.querySelector('.model-item-name')).toBeNull();
+    });
+
+    it('lists RAGU first and marks Менон 1.0 as legacy', () => {
+        const RAGU = [
+            entry('meno-lite@ragu', 'ragu', 'RAGU v3k', 'meno-lite', 'meno-lite', { provider: 'external' }),
+            entry('gemma-4-12B-it@ragu', 'ragu', 'RAGU v3k', 'gemma-4-12B-it', 'Gemma 4 12B', { provider: 'external' }),
+        ];
+        const { open } = setup({ models: [...V10, ...V11, ...RAGU], selectedModel: 'gemma-4-12B-it@ragu' });
+        open();
+        const names = [...document.querySelectorAll('.version-row-name')].map((n) => n.textContent);
+        expect(names).toEqual(['RAGU v3k', 'Менон 1.1', 'Менон 1.0 Legacy']);
+        const tags = document.querySelectorAll('.version-row-tag');
+        expect(tags).toHaveLength(1);
+        expect(tags[0].closest('.version-row').textContent).toContain('Менон 1.0');
     });
 
     it('goes to the models of a version and back', () => {

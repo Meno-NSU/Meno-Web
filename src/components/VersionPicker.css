@@ -55,6 +55,16 @@
     white-space: nowrap;
 }
 
+.version-row-tag {
+    margin-left: 0.25rem;
+    padding: 0 0.35rem;
+    border: 1px solid var(--border-color, rgba(127, 127, 127, 0.35));
+    border-radius: 0.5rem;
+    font-size: 0.65rem;
+    color: var(--text-tertiary, #aaa);
+    vertical-align: middle;
+}
+
 .version-row-model {
     margin-left: auto;
     padding: 0 0.5rem;

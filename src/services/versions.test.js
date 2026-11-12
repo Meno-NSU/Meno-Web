@@ -9,6 +9,7 @@ import {
   isUsable,
   isAvailable,
   rememberVersions,
+  defaultModelId,
   fallbackModelId,
 } from './versions.js'
 
@@ -69,16 +70,58 @@ describe('describeEntry', () => {
 })
 
 describe('groupByVersion', () => {
-  it('groups in order of first appearance', () => {
+  it('puts RAGU first, then Менон 1.1, then other stands, and the legacy Менон 1.0 last', () => {
     const models = [
       { id: 'a' },
       { id: 'b@menon-1.1' },
       { id: 'c' },
       { id: 'd@lab', provider: 'external' },
+      { id: 'e@ragu', provider: 'external' },
+      { id: 'f@zoo', provider: 'external' },
     ]
     const groups = groupByVersion(models)
-    expect(groups.map((g) => g.standId)).toEqual(['menon-1.0', 'menon-1.1', 'lab'])
-    expect(groups[0].entries.map((e) => e.id)).toEqual(['a', 'c'])
+    expect(groups.map((g) => g.standId)).toEqual(['ragu', 'menon-1.1', 'lab', 'zoo', 'menon-1.0'])
+    expect(groups[4].entries.map((e) => e.id)).toEqual(['a', 'c'])
+  })
+})
+
+describe('defaultModelId', () => {
+  const stand = (id, extra = {}) => ({ id, provider: 'external', ...extra })
+  const prod = [
+    { id: 'meno-lite' },
+    { id: 'gemma-4-12B-it' },
+    { id: 'meno-lite@menon-1.1' },
+    { id: 'gemma-4-12B-it@menon-1.1' },
+    stand('meno-lite@ragu'),
+    stand('gemma-4-12B-it@ragu'),
+  ]
+
+  it('is RAGU with Gemma', () => {
+    expect(defaultModelId(prod)).toBe('gemma-4-12B-it@ragu')
+  })
+
+  it('is Менон 1.1 with Gemma while RAGU with Gemma is unreachable', () => {
+    const models = prod.map((m) => (m.id === 'gemma-4-12B-it@ragu' ? { ...m, status: { state: 'unreachable' } } : m))
+    expect(defaultModelId(models)).toBe('gemma-4-12B-it@menon-1.1')
+  })
+
+  it('is the first Менон 1.0 model when neither is listed', () => {
+    expect(defaultModelId(prod.filter((m) => !m.id.startsWith('gemma-4-12B-it@')))).toBe('meno-lite')
+  })
+
+  it('skips an entry that needs sign-in', () => {
+    const models = [{ id: 'meno-lite' }, stand('gemma-4-12B-it@ragu', { requires_auth: true })]
+    expect(defaultModelId(models)).toBe('meno-lite')
+  })
+
+  it('takes an unavailable choice over the rest of the list when nothing it names is available', () => {
+    const down = { status: { state: 'unreachable' } }
+    const models = [stand('x@lab'), stand('gemma-4-12B-it@ragu', down), { id: 'gemma-4-12B-it@menon-1.1', ...down }]
+    expect(defaultModelId(models)).toBe('gemma-4-12B-it@ragu')
+  })
+
+  it('is the first usable entry when no choice is listed', () => {
+    expect(defaultModelId([stand('x@lab', { requires_auth: true }), stand('y@lab')])).toBe('y@lab')
   })
 })
 
@@ -151,6 +194,21 @@ describe('fallbackModelId', () => {
 
   it('treats a vanished provider id with @ as 1.0', () => {
     expect(fallbackModelId(base, 'vendor/model@beta', new Map())).toBe('meno-lite')
+  })
+
+  it('gives the default for no id at all', () => {
+    const models = [...base, { id: 'gemma-4-12B-it@ragu', provider: 'external' }]
+    expect(fallbackModelId(models, '', new Map())).toBe('gemma-4-12B-it@ragu')
+  })
+
+  it('gives the default, not Менон 1.0, for a RAGU pick while RAGU is not listed', () => {
+    const models = [...base, { id: 'gemma-4-12B-it@menon-1.1' }]
+    expect(fallbackModelId(models, 'gemma-4-12B-it@ragu', new Map())).toBe('gemma-4-12B-it@menon-1.1')
+  })
+
+  it('gives the default when the known version is gone', () => {
+    const models = [...base, { id: 'gemma-4-12B-it@ragu', provider: 'external' }]
+    expect(fallbackModelId(models, 'q@lab', new Map([['q@lab', 'lab']]))).toBe('gemma-4-12B-it@ragu')
   })
 
   it('returns currentId for an empty list', () => {

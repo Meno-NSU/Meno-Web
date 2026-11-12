@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import App from './App.jsx';
 import { saveChats } from './store/chatStore.js';
 
@@ -590,7 +590,7 @@ describe('App — the version picker follows the model list', () => {
   const entry = (id, extra) => ({ id, display_name: id, ...backend, ...extra });
 
   it('keeps a chat in its version when its model goes away', async () => {
-    localStorage.setItem('lastUsedModelId', 'a@menon-1.1');
+    localStorage.setItem('pickedModelId', 'a@menon-1.1');
     const c = entry('c', { stand_id: 'menon-1.0', stand_name: 'Menon 1.0', llm_id: 'c', llm_name: 'C' });
     const a = entry('a@menon-1.1', { stand_id: 'menon-1.1', stand_name: 'Menon 1.1', llm_id: 'a', llm_name: 'A' });
     const b = entry('b@menon-1.1', { stand_id: 'menon-1.1', stand_name: 'Menon 1.1', llm_id: 'b', llm_name: 'B' });
@@ -618,7 +618,7 @@ describe('App — the version picker follows the model list', () => {
     beforeEach(() => {
       fetchModels.mockResolvedValue({ models: [v10, v11], coreModelId: 'c' });
       refreshModels.mockResolvedValue({ models: [v10, v11], coreModelId: 'c' });
-      localStorage.setItem('lastUsedModelId', 'b@menon-1.1');
+      localStorage.setItem('pickedModelId', 'b@menon-1.1');
     });
 
     it('keeps a stored guest chat in its version', async () => {
@@ -635,18 +635,18 @@ describe('App — the version picker follows the model list', () => {
       await waitFor(() => expect(trigger(container).model).toBeTruthy());
 
       expect(trigger(container)).toEqual({ version: 'Менон 1.1', model: 'A' });
-      expect(localStorage.getItem('lastUsedModelId')).toBe('a@menon-1.1');
+      expect(localStorage.getItem('pickedModelId')).toBe('b@menon-1.1'); // the pick is the person's: kept as made
     });
 
-    it('starts a fresh visit in the version last used', async () => {
+    it('starts a fresh visit in the version last picked', async () => {
       const { container } = render(<App />);
       await waitFor(() => expect(trigger(container).model).toBeTruthy());
 
       expect(trigger(container)).toEqual({ version: 'Менон 1.1', model: 'A' });
-      expect(localStorage.getItem('lastUsedModelId')).toBe('a@menon-1.1');
+      expect(localStorage.getItem('pickedModelId')).toBe('b@menon-1.1');
     });
 
-    it('opens a signed-in user\'s server chats in the version last used', async () => {
+    it('opens a signed-in user\'s server chats in the version last picked', async () => {
       getAuthToken.mockReturnValue('tok-existing');
       fetchMe.mockResolvedValue({ id: 'u1', email: 'demo@nsu.ru', nickname: 'Demo' });
       fetchConversations.mockResolvedValue([
@@ -659,7 +659,82 @@ describe('App — the version picker follows the model list', () => {
       await waitFor(() => expect(trigger(container).model).toBeTruthy());
 
       expect(trigger(container)).toEqual({ version: 'Менон 1.1', model: 'A' });
-      expect(localStorage.getItem('lastUsedModelId')).toBe('a@menon-1.1');
+      expect(localStorage.getItem('pickedModelId')).toBe('b@menon-1.1');
+    });
+  });
+
+  // Without a pick of their own, a person's new chats start in the site's default, RAGU with Gemma. The key that
+  // held the default (and every model a chat was opened in) as if picked is dropped, so the default reaches those who
+  // came before it changed.
+  describe('the default', () => {
+    const v10 = entry('c', { stand_id: 'menon-1.0', stand_name: 'Menon 1.0', llm_id: 'c', llm_name: 'C' });
+    const v11 = entry('gemma-4-12B-it@menon-1.1', {
+      stand_id: 'menon-1.1', stand_name: 'Menon 1.1', llm_id: 'gemma-4-12B-it', llm_name: 'Gemma 4 12B',
+    });
+    const ragu = entry('gemma-4-12B-it@ragu', {
+      stand_id: 'ragu', stand_name: 'RAGU v3k', llm_id: 'gemma-4-12B-it', llm_name: 'Gemma 4 12B',
+    });
+    const trigger = (container) => ({
+      version: container.querySelector('.version-trigger-version')?.textContent,
+      model: container.querySelector('.version-trigger-model')?.textContent,
+    });
+    const stored = (id, title, messages, updatedAt) => ({
+      id, title, messages, updatedAt, runtimeConfig: { modelId: 'c', knowledgeBaseId: 'kb1', sessionId: id },
+    });
+
+    beforeEach(() => {
+      fetchModels.mockResolvedValue({ models: [v10, v11, ragu], coreModelId: 'c' });
+      refreshModels.mockResolvedValue({ models: [v10, v11, ragu], coreModelId: 'c' });
+    });
+
+    it('starts a first visit in RAGU with Gemma and stores no pick', async () => {
+      const { container } = render(<App />);
+      await waitFor(() => expect(trigger(container).model).toBeTruthy());
+
+      expect(trigger(container)).toEqual({ version: 'RAGU v3k', model: 'Gemma 4 12B' });
+      expect(localStorage.getItem('pickedModelId')).toBeNull();
+    });
+
+    it('moves a returning visitor\'s empty chat to it and keeps a chat with answers in its model', async () => {
+      localStorage.setItem('lastUsedModelId', 'c');
+      saveChats([
+        stored('draft', '', [], 2000),
+        stored('old', 'Старый разговор', [{ role: 'user', content: 'Привет' }], 1000),
+      ]);
+
+      const { container } = render(<App />);
+      await waitFor(() => expect(trigger(container).model).toBeTruthy());
+      expect(trigger(container)).toEqual({ version: 'RAGU v3k', model: 'Gemma 4 12B' });
+      expect(localStorage.getItem('lastUsedModelId')).toBeNull();
+
+      fireEvent.click(screen.getByText('Старый разговор'));
+      await waitFor(() => expect(trigger(container).version).toBe('Менон 1.0'));
+      expect(trigger(container).model).toBe('C');
+    });
+
+    it('starts a new chat in it from an old chat, and in the person\'s pick once they make one', async () => {
+      saveChats([stored('old', 'Старый разговор', [{ role: 'user', content: 'Привет' }], 1000)]);
+
+      const { container } = render(<App />);
+      await waitFor(() => expect(trigger(container).version).toBe('Менон 1.0'));
+
+      fireEvent.click(container.querySelector('.new-chat-btn-icon'));
+      await waitFor(() => expect(trigger(container)).toEqual({ version: 'RAGU v3k', model: 'Gemma 4 12B' }));
+
+      fireEvent.click(screen.getByText('Старый разговор'));
+      await waitFor(() => expect(trigger(container).version).toBe('Менон 1.0'));
+      fireEvent.click(container.querySelector('.model-dropdown-trigger'));
+      const menu = () => within(container.querySelector('.model-dropdown-menu'));
+      await waitFor(() => expect(menu().getByText('Менон 1.1')).toBeTruthy());
+      fireEvent.click(menu().getByText('Менон 1.1')); // its only model: picked at once
+      await waitFor(() => expect(trigger(container).version).toBe('Менон 1.1'));
+      expect(localStorage.getItem('pickedModelId')).toBe('gemma-4-12B-it@menon-1.1');
+
+      // The empty chat made before the pick is reused, in the pick.
+      expect(screen.getByText('Привет')).toBeTruthy();
+      fireEvent.click(container.querySelector('.new-chat-btn-icon'));
+      await waitFor(() => expect(screen.queryByText('Привет')).toBeNull());
+      expect(trigger(container)).toEqual({ version: 'Менон 1.1', model: 'Gemma 4 12B' });
     });
   });
 
@@ -671,7 +746,7 @@ describe('App — the version picker follows the model list', () => {
     const ragu = entry('r@ragu', { stand_id: 'ragu', stand_name: 'RAGU', llm_id: 'r', llm_name: 'R' });
     fetchModels.mockResolvedValue({ models: [v10, v11, ragu], coreModelId: 'c' });
     refreshModels.mockResolvedValue({ models: [v10, v11, ragu], coreModelId: 'c' });
-    localStorage.setItem('lastUsedModelId', 'a@menon-1.1');
+    localStorage.setItem('pickedModelId', 'a@menon-1.1');
     getAuthToken.mockReturnValue('tok-existing');
     fetchMe.mockResolvedValue({ id: 'u1', email: 'demo@nsu.ru', nickname: 'Demo' });
     fetchConversations.mockResolvedValue([

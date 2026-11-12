@@ -201,6 +201,11 @@ describe('fallbackModelId', () => {
     expect(fallbackModelId(models, '', new Map())).toBe('gemma-4-12B-it@ragu')
   })
 
+  it('gives the default, not Менон 1.0, for a RAGU pick while RAGU is not listed', () => {
+    const models = [...base, { id: 'gemma-4-12B-it@menon-1.1' }]
+    expect(fallbackModelId(models, 'gemma-4-12B-it@ragu', new Map())).toBe('gemma-4-12B-it@menon-1.1')
+  })
+
   it('gives the default when the known version is gone', () => {
     const models = [...base, { id: 'gemma-4-12B-it@ragu', provider: 'external' }]
     expect(fallbackModelId(models, 'q@lab', new Map([['q@lab', 'lab']]))).toBe('gemma-4-12B-it@ragu')

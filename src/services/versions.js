@@ -115,7 +115,9 @@ export function fallbackModelId(models, currentId, known) {
   if (!standId) {
     const at = currentId.lastIndexOf('@');
     const suffix = at >= 0 ? currentId.slice(at + 1) : '';
-    if (suffix && groups.some((g) => g.standId === suffix)) standId = suffix;
+    // A version we know of counts even while it is not listed (a stand not reached yet after a restart): its
+    // model then goes to the default, not to Менон 1.0.
+    if (suffix && (groups.some((g) => g.standId === suffix) || VERSION_ORDER.includes(suffix))) standId = suffix;
   }
   if (!standId) standId = MENON_10;
 

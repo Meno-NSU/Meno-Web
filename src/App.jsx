@@ -910,14 +910,20 @@ function App() {
     // chat). A server chat summary not yet opened carries `messages: null`
     // (see chatFromSummary) — Array.isArray excludes it from this check, so
     // an unopened conversation is never mistaken for an empty one.
+    // Either way the chat starts in the person's pick, else the default.
+    const modelId = resolveModelId(models, localStorage.getItem(PICKED_MODEL_KEY));
     const existingEmpty = visibleChats.find(isEmptyDraft);
     if (existingEmpty) {
+      setActiveChats((prev) => updateChatById(prev, existingEmpty.id, (chat) => ({
+        ...chat,
+        runtimeConfig: { ...chat.runtimeConfig, modelId, sessionId: chat.id },
+      })));
       setActiveChatId(existingEmpty.id);
       return;
     }
 
     const nextChat = createNewChat({
-      modelId: resolveModelId(models, localStorage.getItem(PICKED_MODEL_KEY)),
+      modelId,
       knowledgeBaseId: resolveValidId(
         kbs,
         selectedKb || localStorage.getItem(LAST_USED_KB_KEY),

@@ -729,6 +729,12 @@ describe('App — the version picker follows the model list', () => {
       fireEvent.click(menu().getByText('Менон 1.1')); // its only model: picked at once
       await waitFor(() => expect(trigger(container).version).toBe('Менон 1.1'));
       expect(localStorage.getItem('pickedModelId')).toBe('gemma-4-12B-it@menon-1.1');
+
+      // The empty chat made before the pick is reused, in the pick.
+      expect(screen.getByText('Привет')).toBeTruthy();
+      fireEvent.click(container.querySelector('.new-chat-btn-icon'));
+      await waitFor(() => expect(screen.queryByText('Привет')).toBeNull());
+      expect(trigger(container)).toEqual({ version: 'Менон 1.1', model: 'Gemma 4 12B' });
     });
   });
 

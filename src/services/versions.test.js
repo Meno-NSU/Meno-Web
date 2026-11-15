@@ -220,3 +220,13 @@ describe('fallbackModelId', () => {
     expect(fallbackModelId(models, 'gone', new Map())).toBe('')
   })
 })
+
+describe('modelsSignature', () => {
+  it('changes when a listed model changes its state, not only when the ids change', async () => {
+    const { modelsSignature } = await import('./versions.js');
+    const up = [{ id: 'a', status: { state: 'available' } }, { id: 'b' }];
+    const down = [{ id: 'a', status: { state: 'unreachable' } }, { id: 'b' }];
+    expect(modelsSignature(up)).not.toBe(modelsSignature(down));
+    expect(modelsSignature(up)).toBe(modelsSignature([...up].reverse()));
+  });
+});

@@ -1,4 +1,5 @@
 import { afterEach, describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { render, fireEvent, cleanup } from '@testing-library/react';
 import { ReasoningBlock } from './ReasoningBlock.jsx';
 import { setLanguage } from '../i18n.js';
@@ -51,5 +52,24 @@ describe('ReasoningBlock', () => {
     expect(container.querySelector('.spinning')).toBeNull();
     expect(container.querySelector('.loading-phrase')).toBeNull();
     expect(queryByText('!')).toBeNull();
+  });
+});
+
+describe('ReasoningBlock — stage names', () => {
+  it('never shows a raw i18n key for a stage it has no name for', () => {
+    const stages = [{ stage: 'prepare', status: 'complete', durationMs: 10 }, { stage: 'some_new_stage', status: 'complete' }];
+    const { container } = render(<ReasoningBlock stages={stages} summary={{ totalMs: 10 }} isStreaming={false} />);
+    fireEvent.click(container.querySelector('.agent-thinking-summary'));
+    expect(container.textContent).not.toMatch(/stage_/);
+    expect(container.textContent).not.toMatch(/some_new_stage/);
+  });
+
+  it('keeps the running phrase on one line so the answer below does not jump', () => {
+    const { container } = render(<ReasoningBlock stages={RUNNING} summary={null} isStreaming={true} />);
+    expect(container.querySelector('.agent-thinking-summary .loading-phrase')).not.toBeNull();
+    const css = readFileSync('src/components/ChatArea.css', 'utf-8');
+    const rule = css.match(/\.agent-thinking-summary \.loading-phrase \{[^}]*\}/)[0];
+    expect(rule).toMatch(/white-space:\s*nowrap/);
+    expect(rule).toMatch(/text-overflow:\s*ellipsis/);
   });
 });

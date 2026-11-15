@@ -57,7 +57,7 @@ import { shouldShowConsentModal, hasDecidedConsent, setConsentDecided, getConsen
 import { shouldShowSurvey } from './services/surveyGate.js';
 import { hasSeenArenaIntro, markArenaIntroSeen } from './services/arenaIntro.js';
 import { watchFrameRate, isLowFrameRate } from './services/frameRate.js';
-import { rememberVersions, fallbackModelId } from './services/versions.js';
+import { rememberVersions, fallbackModelId, modelsSignature } from './services/versions.js';
 import { translateOnce as i18nLookup } from './i18n.js';
 import { buildErrorNotice, buildStopNotice } from './services/chatNotice.js';
 import { dropTrailingNotice } from './services/chatTurns.js';
@@ -534,11 +534,9 @@ function App() {
         fetchModels(),
         fetchKnowledgeBases(),
       ]);
-      setModels((prev) => {
-        const prevIds = prev.map((m) => m.id).sort().join(',');
-        const nextIds = freshModels.map((m) => m.id).sort().join(',');
-        return prevIds === nextIds ? prev : freshModels;
-      });
+      // A model that goes down keeps its id; compare states too, so the picker
+      // shows it as unavailable without a reload.
+      setModels((prev) => (modelsSignature(prev) === modelsSignature(freshModels) ? prev : freshModels));
       setKbs((prev) => {
         const prevKey = JSON.stringify(prev.map((kb) => ({ id: kb.id, available: kb.available })));
         const nextKey = JSON.stringify(freshKbs.map((kb) => ({ id: kb.id, available: kb.available })));
@@ -807,11 +805,7 @@ function App() {
 
   const handleModelsDropdownOpen = async () => {
     const { models: freshModels } = await refreshModels();
-    setModels((prev) => {
-      const signature = (list) => list
-        .map((m) => `${m.id}:${m.status?.state ?? ''}`).sort().join(',');
-      return signature(prev) === signature(freshModels) ? prev : freshModels;
-    });
+    setModels((prev) => (modelsSignature(prev) === modelsSignature(freshModels) ? prev : freshModels));
   };
 
   const refreshModelsAndApplyState = useCallback(async () => {

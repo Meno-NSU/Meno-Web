@@ -514,7 +514,7 @@ describe('App — survey submission refused by ownership (404)', () => {
     submitSurvey.mockRejectedValue(Object.assign(new Error('Not found'), { httpStatus: 404 }));
 
     const { container } = render(<App />);
-    await waitFor(() => expect(screen.getByText(/сейчас не в форме/i)).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(/технические работы/i)).toBeTruthy());
 
     fireEvent.click(container.querySelector('.new-chat-btn-icon'));
     await waitFor(() => expect(screen.getByText('Будете ли пользоваться Меноном для похожих вопросов?')).toBeTruthy());
@@ -523,7 +523,7 @@ describe('App — survey submission refused by ownership (404)', () => {
     await waitFor(() => expect(submitSurvey).toHaveBeenCalledTimes(1));
 
     fireEvent.click(screen.getByText('Диалог с ошибкой'));
-    await waitFor(() => expect(screen.getByText(/сейчас не в форме/i)).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(/технические работы/i)).toBeTruthy());
     expect(screen.queryByText(/принадлежит другому профилю/i)).toBeNull();
   });
 });

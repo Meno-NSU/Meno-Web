@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Copy, Check, ChevronDown, Brain, ExternalLink, Trophy, ArrowCircleLeft, ArrowCircleRight, Handshake, ThumbsDown, Stop, AlertCircle, Loader } from './icons.jsx';
+import { Copy, Check, ChevronDown, Brain, ExternalLink, Trophy, ArrowCircleLeft, ArrowCircleRight, Handshake, ThumbsDown, Stop, Loader, RotateCw, Wrench } from './icons.jsx';
 import { useTranslation } from '../i18n.js';
 import ChatInput from './ChatInput.jsx';
 import MessageFeedback from './MessageFeedback.jsx';
@@ -24,6 +24,16 @@ const MARKDOWN_COMPONENTS = {
     // eslint-disable-next-line no-unused-vars
     a: ({ node, ...props }) => (
         <a {...props} target="_blank" rel="noopener noreferrer" />
+    ),
+};
+
+// The answer itself: the same links, and a table scrolls sideways inside its own
+// box — a wide table must not make the whole chat scroll sideways on a phone.
+const ANSWER_COMPONENTS = {
+    ...MARKDOWN_COMPONENTS,
+    // eslint-disable-next-line no-unused-vars
+    table: ({ node, ...props }) => (
+        <div className="table-scroll"><table {...props} /></div>
     ),
 };
 
@@ -155,28 +165,6 @@ export default function ChatArea({ messages: rawMessages, isGenerating, onSendMe
                         return <MessageBubble key={index} message={msg} chatId={chatId} setChats={setChats} onRetry={onRetry} isLast={index === messages.length - 1} models={models} />;
                     })}
 
-                    {isGenerating && (() => {
-                        const lastMsg = messages[messages.length - 1];
-                        // Arena bubbles render their own per-column spinner
-                        // (one inside the "A" column and one inside the "B"
-                        // column). The top-level fallback below otherwise
-                        // produced a THIRD spinner outside the two columns
-                        // because `lastMsg.content` and `agentStages` are
-                        // both empty on the arena wrapper — content lives in
-                        // arenaData.{a,b}, which this check doesn't look at.
-                        if (lastMsg?.isArena) return null;
-                        const hasStages = lastMsg?.agentStages?.length > 0;
-                        const hasContent = lastMsg?.content?.length > 0;
-                        if (hasStages || hasContent) return null;
-                        return (
-                            <div className="message-wrapper assistant generating">
-                                <div className="message-content">
-                                    <LoadingPhrase />
-                                </div>
-                            </div>
-                        );
-                    })()}
-
                     <div ref={messagesEndRef} />
                 </div>
             )}
@@ -224,10 +212,10 @@ export default function ChatArea({ messages: rawMessages, isGenerating, onSendMe
 // ── Sources block ────────────────────────────────────────────────────────────
 function SourceLink({ url, label }) {
     return (
-        <>
+        <a className="source-link" href={url} target="_blank" rel="noopener noreferrer">
             <ExternalLink size={12} className="sources-link-icon" />
-            <a href={url} target="_blank" rel="noopener noreferrer">{label}</a>
-        </>
+            <span className="source-link-text">{label}</span>
+        </a>
     );
 }
 
@@ -297,22 +285,64 @@ function SourcesBlock({ sources }) {
 }
 
 // ── Message bubble ───────────────────────────────────────────────────────────
-function MessageBubble({ message, chatId, setChats, onRetry, isLast, models }) {
-    const { t } = useTranslation();
-    const isUser = message.role === 'user';
+function CopyButton({ text, label, tip, align = 'left' }) {
     const [copied, setCopied] = useState(false);
 
     const handleCopy = () => {
-        navigator.clipboard.writeText(message.content);
+        Promise.resolve(navigator.clipboard?.writeText(text)).catch(() => {});
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
     };
 
+    return (
+        <Tooltip text={tip} side="top" align={align}>
+            <button type="button" className="copy-btn" onClick={handleCopy} aria-label={label}>
+                {copied ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
+            </button>
+        </Tooltip>
+    );
+}
+
+// Why the answer stopped (the person stopped it, or it failed) and, on the last
+// message, a Retry under the text — the way chat apps put it.
+function MessageNotice({ message, isLast, onRetry }) {
+    const { t } = useTranslation();
+    const { notice } = message;
+    const failed = notice.kind === 'error';
+    return (
+        <div className={`message-notice ${notice.kind}`} role={failed ? 'alert' : undefined}>
+            <div className="message-notice-row">
+                {failed
+                    ? <Wrench size={16} className="message-notice-icon" />
+                    : <Stop size={14} className="message-notice-icon" />}
+                <span className="message-notice-text">{formatNotice(t, notice)}</span>
+            </div>
+            {isLast && message.retry && (
+                <div className="message-notice-actions">
+                    <button type="button" className="retry-btn" onClick={() => onRetry?.(message)}>
+                        <RotateCw size={14} />
+                        <span>{t('retryButton')}</span>
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+}
+
+function MessageBubble({ message, chatId, setChats, onRetry, isLast, models }) {
+    const { t } = useTranslation();
+    const isUser = message.role === 'user';
+
     if (isUser) {
         return (
             <div className="message-wrapper user">
-                <div className="message-bubble-user">
-                    <div className="message-text">{message.content}</div>
+                <div className="message-user-column">
+                    <div className="message-bubble-user">
+                        <div className="message-text">{message.content}</div>
+                    </div>
+                    <div className="message-actions-bar user-actions">
+                        <CopyButton text={message.content} label={t('copyQuestion')} tip={t('tipCopyQuestion')} align="right" />
+                    </div>
                 </div>
             </div>
         );
@@ -323,52 +353,49 @@ function MessageBubble({ message, chatId, setChats, onRetry, isLast, models }) {
     const { answer, think } = extractReasoning(message.content || '');
     const reasoning = [message.thinkingContent, think].filter(Boolean).join('\n\n');
     const effectiveModelId = message.responseModelId || message.requestModelId;
+    // A failure before any answer: the person only needs to know it could not be
+    // answered now — not which pipeline stages ran or failed.
+    const failedEmpty = message.notice?.kind === 'error' && !answer;
+    const finished = !message.isStreaming;
 
     return (
         <div className="message-wrapper assistant">
             <div className="message-content">
-                <ReasoningBlock
-                    stages={message.agentStages || []}
-                    summary={message.agentSummary || null}
-                    interrupted={!!message.interrupted || !!message.agentError}
-                    isStreaming={!!message.isStreaming}
-                    reasoning={reasoning}
-                />
-                {message.notice && (
-                    <div className={`message-notice ${message.notice.kind}`}>
-                        {message.notice.kind === 'stopped'
-                            ? <Stop size={14} className="message-notice-icon" />
-                            : <AlertCircle size={14} className="message-notice-icon" />}
-                        <span className="message-notice-text">{formatNotice(t, message.notice)}</span>
-                        {isLast && message.retry && (
-                            <button type="button" className="retry-btn" onClick={() => onRetry?.(message)}>
-                                {t('retryButton')}
-                            </button>
-                        )}
-                    </div>
+                {!failedEmpty && (
+                    <ReasoningBlock
+                        stages={message.agentStages || []}
+                        summary={message.agentSummary || null}
+                        interrupted={!!message.interrupted || !!message.agentError}
+                        isStreaming={!!message.isStreaming}
+                        reasoning={reasoning}
+                        pending={!message.content}
+                    />
                 )}
                 {message.slowWarning && message.isStreaming && (
                     <div className="slow-warning-banner">{t('slowWarning')}</div>
                 )}
-                <div className="message-markdown prose">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                        {answer}
-                    </ReactMarkdown>
-                </div>
+                {answer && (
+                    <div className="message-markdown prose">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]} components={ANSWER_COMPONENTS}>
+                            {answer}
+                        </ReactMarkdown>
+                    </div>
+                )}
+                {message.notice && <MessageNotice message={message} isLast={isLast} onRetry={onRetry} />}
 
                 {message.sources?.length > 0 && <SourcesBlock sources={message.sources} />}
 
                 <div className="message-footer">
                     <div className="message-actions-bar">
-                        <Tooltip text={t('tipCopy')} side="top" align="left">
-                            <button className="copy-btn" onClick={handleCopy} aria-label={t('tipCopy')}>
-                                {copied ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
-                            </button>
-                        </Tooltip>
+                        {/* Copy only a finished answer: while it streams there is
+                            nothing whole to copy, and a failed one has nothing. */}
+                        {finished && answer && (
+                            <CopyButton text={answer} label={t('copyAnswer')} tip={t('tipCopy')} />
+                        )}
                         {/* Thumbs need the completion id the backend attaches
                             feedback to — it lands on the message only after a
                             response finishes streaming. */}
-                        {message.completionId && !message.isStreaming && (
+                        {message.completionId && finished && (
                             <MessageFeedback message={message} chatId={chatId} setChats={setChats} />
                         )}
                     </div>
@@ -558,7 +585,7 @@ export function ArenaMessageBubble({ message, chatId, setChats, isGenerating, qu
                             )
                         )}
                         {!arenaData.a.content && arenaData.a.notice && (
-                            <div className="message-notice error"><AlertCircle size={14} className="message-notice-icon" /><span className="message-notice-text">{formatNotice(t, arenaData.a.notice)}</span></div>
+                            <div className="message-notice error" role="alert"><div className="message-notice-row"><Wrench size={16} className="message-notice-icon" /><span className="message-notice-text">{formatNotice(t, arenaData.a.notice)}</span></div></div>
                         )}
                         {arenaData.a.isStreaming && <LoadingPhrase />}
                     </div>
@@ -586,7 +613,7 @@ export function ArenaMessageBubble({ message, chatId, setChats, isGenerating, qu
                             )
                         )}
                         {!arenaData.b.content && arenaData.b.notice && (
-                            <div className="message-notice error"><AlertCircle size={14} className="message-notice-icon" /><span className="message-notice-text">{formatNotice(t, arenaData.b.notice)}</span></div>
+                            <div className="message-notice error" role="alert"><div className="message-notice-row"><Wrench size={16} className="message-notice-icon" /><span className="message-notice-text">{formatNotice(t, arenaData.b.notice)}</span></div></div>
                         )}
                         {arenaData.b.isStreaming && <LoadingPhrase />}
                     </div>

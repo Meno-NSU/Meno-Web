@@ -11,14 +11,17 @@ function StatusIcon({ state }) {
     return <Circle size={9} />; // available
 }
 
-function formatUntil(untilIso) {
+// «до 14:05 (~12 мин)» for a state that lasts until a known time; nothing once that
+// time has passed or when there is none.
+function formatUntil(untilIso, t) {
     if (!untilIso) return null;
     const until = new Date(untilIso);
-    const diffMin = Math.round((until.getTime() - Date.now()) / 60000);
-    if (diffMin <= 0) return 'soon';
-    const hh = String(until.getHours()).padStart(2, '0');
-    const mm = String(until.getMinutes()).padStart(2, '0');
-    return `until ${hh}:${mm} (~${diffMin} min)`;
+    const mins = Math.round((until.getTime() - Date.now()) / 60000);
+    if (!(mins > 0)) return null;
+    return t('modelStateUntil')
+        .replace('{hh}', String(until.getHours()).padStart(2, '0'))
+        .replace('{mm}', String(until.getMinutes()).padStart(2, '0'))
+        .replace('{mins}', String(mins));
 }
 
 function ModelItem({ model, selected, onSelect, onRequireAuth, autoFocus }) {
@@ -29,11 +32,11 @@ function ModelItem({ model, selected, onSelect, onRequireAuth, autoFocus }) {
     // modal instead of selecting an unusable model.
     const requiresAuth = Boolean(model.requires_auth);
     // A status without `until` has no time part: join only the parts that are there.
-    const until = formatUntil(model.status?.until);
+    const until = formatUntil(model.status?.until, t);
     const stateLabel = model.status?.state === 'rate_limited'
-        ? ['Rate-limited', until].filter(Boolean).join(' ')
+        ? [t('modelStateRateLimited'), until].filter(Boolean).join(' ')
         : model.status?.state === 'unreachable'
-            ? ['Unreachable', until].filter(Boolean).join(' ')
+            ? [t('modelStateUnreachable'), until].filter(Boolean).join(' ')
             : null;
     return (
         <button

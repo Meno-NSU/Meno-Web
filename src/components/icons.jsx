@@ -44,6 +44,8 @@ import ArrowCircleLeftSvg from '@phosphor-icons/core/assets/regular/arrow-circle
 import ArrowCircleRightSvg from '@phosphor-icons/core/assets/regular/arrow-circle-right.svg?react';
 import ClockSvg from '@phosphor-icons/core/assets/regular/clock.svg?react';
 import CloudSlashSvg from '@phosphor-icons/core/assets/regular/cloud-slash.svg?react';
+import ArrowClockwiseSvg from '@phosphor-icons/core/assets/regular/arrow-clockwise.svg?react';
+import WrenchSvg from '@phosphor-icons/core/assets/regular/wrench.svg?react';
 import CircleFillSvg from '@phosphor-icons/core/assets/fill/circle-fill.svg?react';
 
 // `forceFill` makes the root <svg> inherit fill="currentColor". Phosphor glyphs
@@ -125,3 +127,5 @@ export const ArrowCircleRight = makeIcon(ArrowCircleRightSvg, 'ArrowCircleRight'
 export const Circle = makeIcon(CircleFillSvg, 'Circle');        // available
 export const Schedule = makeIcon(ClockSvg, 'Schedule');         // rate-limited
 export const CloudOff = makeIcon(CloudSlashSvg, 'CloudOff');    // unreachable
+export const RotateCw = makeIcon(ArrowClockwiseSvg, 'RotateCw'); // retry a failed answer
+export const Wrench = makeIcon(WrenchSvg, 'Wrench');            // the service cannot answer right now

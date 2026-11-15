@@ -184,3 +184,39 @@ describe('conversation history', () => {
         expect(await fetchConversation('c1')).toBeNull();
     });
 });
+
+describe('stream errors', () => {
+    const sseBody = (blocks) => {
+        const bytes = new TextEncoder().encode(blocks.join(''));
+        let sent = false;
+        return {
+            getReader: () => ({
+                read: async () => {
+                    if (sent) return { done: true, value: undefined };
+                    sent = true;
+                    return { done: false, value: bytes };
+                },
+                cancel: async () => {},
+                releaseLock: () => {},
+            }),
+        };
+    };
+
+    it('keeps the backend error code of an error sent inside the stream', async () => {
+        const error = { message: 'Model unreachable', type: 'server_error', code: 'model_unreachable', stage: 'prepare' };
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            body: sseBody([
+                `event: stage\ndata: ${JSON.stringify({ stage: 'prepare', status: 'failed' })}\n\n`,
+                `event: error\ndata: ${JSON.stringify(error)}\n\n`,
+                `data: ${JSON.stringify({ id: 'c1', choices: [{ index: 0, delta: {}, finish_reason: 'error' }], error })}\n\n`,
+                'data: [DONE]\n\n',
+            ]),
+        });
+        vi.stubGlobal('fetch', fetchMock);
+
+        await expect(
+            sendChatMessage({ messages: [], modelId: 'm', knowledgeBaseId: 'kb', sessionId: 's', stream: true, onEvent: () => {} }),
+        ).rejects.toMatchObject({ code: 'model_unreachable' });
+    });
+});

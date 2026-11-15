@@ -1,5 +1,6 @@
 import { afterEach, describe, it, expect, vi } from 'vitest';
-import { render, cleanup } from '@testing-library/react';
+import { render, cleanup, fireEvent } from '@testing-library/react';
+import { readFileSync } from 'node:fs';
 import ChatArea from './ChatArea.jsx';
 import { setLanguage } from '../i18n.js';
 
@@ -111,5 +112,116 @@ describe('ChatArea — answer labels', () => {
       ]} />,
     );
     expect(container.querySelector('.message-model-label').textContent).toBe('Менон 1.1 · gemma-4-12B-it');
+  });
+});
+
+describe('ChatArea — copy buttons', () => {
+  it('offers to copy the question', () => {
+    const writeText = vi.fn().mockResolvedValue();
+    Object.assign(navigator, { clipboard: { writeText } });
+    const { getByLabelText } = render(<ChatArea {...baseProps} messages={[{ role: 'user', content: 'Есть ли общежитие?' }]} />);
+    fireEvent.click(getByLabelText('Скопировать вопрос'));
+    expect(writeText).toHaveBeenCalledWith('Есть ли общежитие?');
+  });
+
+  it('shows no copy-answer button while the answer is still streaming', () => {
+    const messages = [{ role: 'user', content: 'q' }, { role: 'assistant', content: 'нача', isStreaming: true }];
+    const { queryByLabelText } = render(<ChatArea {...baseProps} isGenerating messages={messages} />);
+    expect(queryByLabelText('Скопировать ответ')).toBeNull();
+  });
+
+  it('shows no copy-answer button when there is no answer text', () => {
+    const messages = [{ role: 'user', content: 'q' }, {
+      role: 'assistant', content: '', interrupted: true,
+      notice: { kind: 'error', key: 'botUnavailable' }, retry: { userText: 'q' },
+    }];
+    const { queryByLabelText } = render(<ChatArea {...baseProps} messages={messages} />);
+    expect(queryByLabelText('Скопировать ответ')).toBeNull();
+  });
+
+  it('copies a finished answer without its reasoning', () => {
+    const writeText = vi.fn().mockResolvedValue();
+    Object.assign(navigator, { clipboard: { writeText } });
+    const messages = [{ role: 'user', content: 'q' }, { role: 'assistant', content: '<think>скрыто</think>Ответ.' }];
+    const { getByLabelText } = render(<ChatArea {...baseProps} messages={messages} />);
+    fireEvent.click(getByLabelText('Скопировать ответ'));
+    expect(writeText).toHaveBeenCalledWith('Ответ.');
+  });
+});
+
+describe('ChatArea — a failed answer', () => {
+  const failed = (content = '') => ({
+    role: 'assistant', content, interrupted: true,
+    agentStages: [{ stage: 'query_rewrite', status: 'complete', durationMs: 300 }, { stage: 'prepare', status: 'failed' }],
+    notice: { kind: 'error', key: 'botUnavailable' }, retry: { userText: 'q' },
+  });
+
+  it('shows a friendly notice and no pipeline stages when nothing was answered', () => {
+    const { container, getByText } = render(<ChatArea {...baseProps} messages={[{ role: 'user', content: 'q' }, failed()]} />);
+    expect(container.querySelector('.agent-thinking-block')).toBeNull();
+    expect(container.textContent).not.toMatch(/stage_|Переформулировка/);
+    expect(getByText(/технические работы/)).toBeTruthy();
+  });
+
+  it('puts Retry under the notice text, not beside it', () => {
+    const { container } = render(<ChatArea {...baseProps} messages={[{ role: 'user', content: 'q' }, failed()]} />);
+    const retry = container.querySelector('.retry-btn');
+    expect(retry).toBeTruthy();
+    expect(retry.closest('.message-notice-actions')).toBeTruthy();
+  });
+
+  it('keeps a partly streamed answer and still offers Retry', () => {
+    const { getByText, container } = render(<ChatArea {...baseProps} messages={[{ role: 'user', content: 'q' }, failed('Начало ответа')]} />);
+    expect(getByText('Начало ответа')).toBeTruthy();
+    expect(container.querySelector('.retry-btn')).toBeTruthy();
+  });
+});
+
+describe('ChatArea — answer markdown', () => {
+  it('opens links of the answer in a new tab', () => {
+    const messages = [{ role: 'user', content: 'q' }, { role: 'assistant', content: 'См. [сайт](https://www.nsu.ru/).' }];
+    const { container } = render(<ChatArea {...baseProps} messages={messages} />);
+    const a = container.querySelector('.message-markdown a');
+    expect(a.getAttribute('target')).toBe('_blank');
+    expect(a.getAttribute('rel')).toContain('noopener');
+  });
+
+  it('puts a table in its own horizontal scroller so the page does not scroll sideways', () => {
+    const table = '| a | b |\n|---|---|\n| 1 | 2 |';
+    const messages = [{ role: 'user', content: 'q' }, { role: 'assistant', content: table }];
+    const { container } = render(<ChatArea {...baseProps} messages={messages} />);
+    expect(container.querySelector('.message-markdown .table-scroll > table')).toBeTruthy();
+  });
+});
+
+describe('ChatArea — mobile layout rules', () => {
+  const css = readFileSync('src/components/ChatArea.css', 'utf-8');
+  const feedbackCss = readFileSync('src/components/MessageFeedback.css', 'utf-8');
+
+  it('never scrolls the message list sideways', () => {
+    const rule = css.match(/\.chat-messages \{[^}]*\}/)[0];
+    expect(rule).toMatch(/overflow-x:\s*hidden/);
+  });
+
+  it('gives the feedback box a 16px font on touch screens so iOS does not zoom in', () => {
+    expect(feedbackCss).toMatch(/@media \(hover: none\)[^{]*\{[^@]*\.feedback-comment-input\s*\{[^}]*font-size:\s*16px/);
+  });
+
+  it('shows the message actions on touch screens, where there is no hover', () => {
+    expect(css).toMatch(/@media \(hover: none\)[^{]*\{[^@]*\.message-actions-bar[^{]*\{[^}]*opacity:\s*1/);
+  });
+});
+
+describe('ChatArea — waiting for the first stage', () => {
+  it('shows the waiting phrase in the same header the stages then fill, not in a separate block', () => {
+    const waiting = [{ role: 'user', content: 'q' }, { role: 'assistant', content: '', isStreaming: true, agentStages: [] }];
+    const { container, rerender } = render(<ChatArea {...baseProps} isGenerating messages={waiting} />);
+    expect(container.querySelector('.message-wrapper.generating')).toBeNull();
+    const header = container.querySelector('.agent-thinking-summary');
+    expect(header?.querySelector('.loading-phrase')).toBeTruthy();
+
+    const staged = [waiting[0], { ...waiting[1], agentStages: [{ stage: 'retrieval', status: 'running' }] }];
+    rerender(<ChatArea {...baseProps} isGenerating messages={staged} />);
+    expect(container.querySelector('.agent-thinking-summary')).toBe(header);
   });
 });

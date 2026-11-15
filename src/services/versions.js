@@ -76,6 +76,15 @@ export const isUsable = (entry) => !entry.requires_auth;
 
 export const isAvailable = (entry) => (entry.status?.state ?? 'available') === 'available';
 
+// What a models list shows: its ids and each one's state. Two lists with the same
+// signature render the same picker, so a refresh that changes neither keeps the old list.
+export function modelsSignature(models) {
+  return (models || [])
+    .map((m) => `${m.id}:${m.status?.state ?? 'available'}:${m.status?.until ?? ''}:${m.requires_auth ? 1 : 0}`)
+    .sort()
+    .join(',');
+}
+
 export function rememberVersions(known, models) {
   for (const entry of models) known.set(entry.id, describeEntry(entry).standId);
 }

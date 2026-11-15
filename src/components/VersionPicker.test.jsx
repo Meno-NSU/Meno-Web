@@ -183,7 +183,7 @@ describe('VersionPicker', () => {
         expect(document.activeElement).toBe(menu().getByText('Gemma 4 12B').closest('button'));
     });
 
-    it('labels an unreachable model without a time as just unreachable', () => {
+    it('labels an unreachable model without a time as just unreachable, in the UI language', () => {
         const down = (state) => ({ status: { state } });
         const ragu = [
             entry('a@ragu', 'ragu', 'RAGU', 'a', 'a'),
@@ -195,9 +195,9 @@ describe('VersionPicker', () => {
         fireEvent.click(menu().getByText('RAGU'));
         const b = menu().getByText('b').closest('button');
         const c = menu().getByText('c').closest('button');
-        expect(b.querySelector('.model-item-state').textContent).toBe('Unreachable');
-        expect(b.title).toBe('Unreachable');
-        expect(c.querySelector('.model-item-state').textContent).toBe('Rate-limited');
+        expect(b.querySelector('.model-item-state').textContent).toBe('недоступна');
+        expect(b.title).toBe('недоступна');
+        expect(c.querySelector('.model-item-state').textContent).toBe('перегружена');
         expect(document.querySelector('.model-dropdown-menu').textContent).not.toContain('null');
     });
 

@@ -99,16 +99,27 @@ function StageDetail({ detail, stage }) {
   );
 }
 
+// A stage's name in the UI language; a stage this build has no name for (a new
+// backend stage) gets a generic one instead of its raw key.
+function stageLabel(t, stage) {
+  const key = `stage_${stage}`;
+  const label = t(key);
+  return label && label !== key ? label : t('stage_other');
+}
+
 // One collapsible disclosure per assistant message: pipeline stages + model
 // reasoning, collapsed by default in every state. Running shows the shimmer
 // phrase as the header; done shows the elapsed time; errored stops the spinner.
-export function ReasoningBlock({ stages = [], summary = null, agentError = false, isStreaming = false, reasoning = '', interrupted = false }) {
+// `pending`: the request is out and nothing has come back yet. The header shows the
+// waiting phrase already, so the first stage fills the same header instead of a
+// separate placeholder giving way to it (the answer jumped by the difference).
+export function ReasoningBlock({ stages = [], summary = null, agentError = false, isStreaming = false, reasoning = '', interrupted = false, pending = false }) {
   const [manualToggle, setManualToggle] = useState(null);
   const { t } = useTranslation();
 
   const hasStages = stages && stages.length > 0;
   const hasReasoning = !!(reasoning && reasoning.trim());
-  if (!hasStages && !hasReasoning) return null;
+  if (!hasStages && !hasReasoning && !(pending && isStreaming)) return null;
 
   const status = deriveReasoningStatus({ summary, agentError, isStreaming, interrupted });
   const isOpen = manualToggle !== null ? manualToggle : false; // collapsed by default
@@ -155,7 +166,7 @@ export function ReasoningBlock({ stages = [], summary = null, agentError = false
                       ? <span style={{ color: 'var(--danger)' }}>!</span>
                       : <span>-</span>}
               </span>
-              <span className="agent-stage-label">{t(`stage_${s.stage}`) || s.stage}</span>
+              <span className="agent-stage-label">{stageLabel(t, s.stage)}</span>
               {s.durationMs != null && (
                 <span className="agent-stage-duration">{formatDuration(s.durationMs)}</span>
               )}

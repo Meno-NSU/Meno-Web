@@ -52,3 +52,16 @@ describe('formatNotice', () => {
     expect(formatNotice(translateOnce, buildStopNotice())).toBe('Stopped');
   });
 });
+
+describe('the generic error text', () => {
+  it('tells the person about technical works, nothing about the pipeline', () => {
+    const text = formatNotice(translateOnce, buildErrorNotice(new Error('boom')));
+    expect(text).toMatch(/технические работы/);
+    expect(text).not.toMatch(/stage|RAG|бэкенд/i);
+  });
+
+  it('names no internals for an unavailable core model either', () => {
+    const text = formatNotice(translateOnce, buildErrorNotice({ code: 'core_model_unavailable' }));
+    expect(text).not.toMatch(/RAG|бэкенд|⚠/);
+  });
+});

@@ -719,9 +719,21 @@ export async function sendChatMessage({
                 return false;
             }
 
-            // Default: OpenAI-compatible content/model events
+            // The backend's own `event: error` carries the same payload as the
+            // error chunk that follows it; the chunk is where we act on it.
+            if (parsedEvent.eventType === 'error') {
+                return false;
+            }
+
+            // Default: OpenAI-compatible content/model events. An error chunk keeps
+            // its code so the notice can tell an unavailable model from the rest.
             if (data?.error?.message) {
-                throw new Error(data.error.message);
+                const err = new Error(data.error.message);
+                err.code = data.error.code;
+                err.until = data.error.until;
+                err.retryAfterSec = data.error.retry_after_sec;
+                err.stage = data.error.stage;
+                throw err;
             }
 
             const parsedModelId = typeof data?.model === 'string' && data.model.trim()

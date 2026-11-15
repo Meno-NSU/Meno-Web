@@ -72,8 +72,9 @@
     display: flex;
     align-items: flex-end;
     gap: 0.3rem;
-    flex: 1;
-    min-width: 200px;
+    /* Its own line under the thumbs, never squeezed beside them. */
+    flex: 1 1 100%;
+    min-width: 0;
     max-width: 640px;
     width: 100%;
     animation: feedbackRowIn 0.18s ease;
@@ -148,4 +149,12 @@
 .feedback-comment-send:disabled {
     opacity: 0.45;
     cursor: default;
+}
+
+/* iOS Safari zooms the page in when a field under 16px gets focus (and then the
+   page pans every way). On touch screens the comment box uses 16px. */
+@media (hover: none) and (pointer: coarse) {
+    .feedback-comment-input {
+        font-size: 16px;
+    }
 }

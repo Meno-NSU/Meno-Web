@@ -1,0 +1,2 @@
+{"object":"list","data":[{"id":"nsu-stand-faiss-bm25","name":"База НГУ (июль 2026) · прежний поиск","description":"Корпус документов НГУ на июль 2026 года и прежний поиск по нему.","supported_rag_engines":["stand_rag"],"available":true}],"default_selection":{"knowledge_base_id":"nsu-stand-faiss-bm25","rag_engine_id":"stand_rag"}}
+200

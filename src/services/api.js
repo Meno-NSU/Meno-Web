@@ -423,21 +423,24 @@ export async function getLegalDocuments() {
 
 // --- Feedback (S2) ---
 
-export async function submitFeedback({ completionId, sessionId, value, comment = null }) {
+// `signal` lets services/feedbackSync.js give up on a hung save and abort what is queued on sign-out or deletion.
+export async function submitFeedback({ completionId, sessionId, value, comment = null, signal }) {
     const res = await fetchWithLogging(`${API_BASE_URL}/v1/feedback`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ completion_id: completionId, session_id: sessionId, value, comment }),
+        signal,
     });
     if (!res.ok) throw await buildError(res, 'Failed to submit feedback');
     return res.json();
 }
 
-export async function clearFeedback({ completionId, sessionId }) {
+export async function clearFeedback({ completionId, sessionId, signal }) {
     const res = await fetchWithLogging(`${API_BASE_URL}/v1/feedback/clear`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ completion_id: completionId, session_id: sessionId }),
+        signal,
     });
     if (!res.ok) throw await buildError(res, 'Failed to clear feedback');
     return res.json();

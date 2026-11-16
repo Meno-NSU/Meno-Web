@@ -55,6 +55,7 @@ import ArenaIntroModal from './components/ArenaIntroModal.jsx';
 import { submitSurvey } from './services/api.js';
 import { shouldShowConsentModal, hasDecidedConsent, setConsentDecided, getConsentDeferredUntil, deferConsent, CONSENT_DECISION_FLAG, CONSENT_DEFER_UNTIL_KEY, CONSENT_KIND } from './services/consentGate.js';
 import { shouldShowSurvey } from './services/surveyGate.js';
+import { forgetFeedback } from './services/feedbackSync.js';
 import { hasSeenArenaIntro, markArenaIntroSeen } from './services/arenaIntro.js';
 import { watchFrameRate, isLowFrameRate } from './services/frameRate.js';
 import { rememberVersions, fallbackModelId, modelsSignature } from './services/versions.js';
@@ -943,6 +944,8 @@ function App() {
   // chat (e.g. registered and signed in immediately) still deserves a fresh
   // one to land on.
   const handleLogout = () => {
+    // Ratings still queued must not go out under the next identity (the one on its way finishes as it was sent).
+    void forgetFeedback();
     auth.logout();
     if (chats.length === 0) {
       const fresh = createNewChat({
@@ -960,9 +963,13 @@ function App() {
       setActiveChatId(null);
     }
 
-    void clearChatHistory(id).catch((error) => {
-      console.warn('Failed to clear server-side chat history', error);
-    });
+    // The deletion goes out once a rating save on its way for this chat has finished, so it cannot write the
+    // chat's ratings back after it; nothing queued is sent.
+    void forgetFeedback(id)
+      .then(() => clearChatHistory(id))
+      .catch((error) => {
+        console.warn('Failed to clear server-side chat history', error);
+      });
   };
 
   const handleSendMessage = async (text, { retryOf = null } = {}) => {
@@ -1598,6 +1605,7 @@ function App() {
   // (isAuthenticated) to not offer a control that would do nothing.
   const handleClearLocalHistory = () => {
     if (auth.isAuthenticated) return;
+    void forgetFeedback();
     clearChats();
     const fresh = createNewChat({
       modelId: resolveModelId(models, localStorage.getItem(PICKED_MODEL_KEY)),
@@ -1614,6 +1622,7 @@ function App() {
   // this is unconditionally about the server-rendered view, and local history — whatever
   // guest chats were hidden before this sign-in — is not this action's business.
   const handleDeleteServerHistory = async () => {
+    await forgetFeedback(); // nothing queued is sent, and the save on its way finishes before the deletion
     try {
       await deleteServerHistory();
     } catch (error) {
@@ -1632,6 +1641,7 @@ function App() {
   // Right to erasure: delete everything server-side, then reset to a fresh anonymous
   // identity (the old JWT / guest token no longer resolves).
   const handleDeleteData = async () => {
+    await forgetFeedback(); // nothing queued is sent, and the save on its way finishes before the erasure
     try {
       await deleteMyData();
     } catch (error) {

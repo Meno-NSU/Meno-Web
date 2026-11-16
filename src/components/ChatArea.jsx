@@ -5,8 +5,10 @@ import { Copy, Check, ChevronDown, Brain, ExternalLink, Trophy, ArrowCircleLeft,
 import { useTranslation } from '../i18n.js';
 import ChatInput from './ChatInput.jsx';
 import MessageFeedback from './MessageFeedback.jsx';
+import FeedbackStatus from './FeedbackStatus.jsx';
 import Tooltip from './Tooltip.jsx';
 import { submitArenaVote } from '../services/api.js';
+import { useOneShotSend } from './useOneShotSend.js';
 import { formatNotice } from '../services/chatNotice.js';
 import { buildArenaHistories, arenaTurnIndex } from '../services/arenaHistory.js';
 import { groupSourcesByTitle, formatSourceUrl } from '../services/sourceGrouping.js';
@@ -439,19 +441,21 @@ function modelLabel(modelId, models, t) {
     return `${versionName({ standId: d.standId, standName: d.standName }, t)} · ${d.llmName}`;
 }
 
+// The vote buttons' own labels name the choice in «Голос учтён: «…».».
+const VOTE_LABEL_KEYS = { a: 'arenaVoteLeftBetter', b: 'arenaVoteRightBetter', tie: 'arenaVoteTie', both_bad: 'arenaVoteBothBad' };
+
 export function ArenaMessageBubble({ message, chatId, setChats, isGenerating, question, messagesBeforeRound, models }) {
     const { t } = useTranslation();
     const { arenaData } = message;
-    const [voting, setVoting] = useState(false);
+    // One vote per round: pending while the POST is in flight, «Голос учтён» + the thanks once
+    // the server confirmed it, an error with «Повторить» if it failed. The hook's synchronous
+    // guard drops every click while a vote is in flight (setState lags a render, so spammed
+    // clicks used to sneak in before the buttons disabled) and every click after it landed.
+    const vote = useOneShotSend({ failedKey: 'arenaVoteFailed', notYoursKey: 'feedbackNotYours' });
+    const voting = vote.pending;
     const [activeDot, setActiveDot] = useState(0);
     const scrollRef = useRef(null);
     const [hintVisible, setHintVisible] = useState(true);
-    // Synchronous guard: setState is async (state updates are batched, the
-    // closure-captured `voting` stays false across rapid clicks within the
-    // same microtask). A ref's `.current` reads/writes synchronously, so this
-    // closes the race where a spammed click sneaks in before React re-renders
-    // the disabled button. Reset to false on POST failure to permit retry.
-    const submittedRef = useRef(false);
 
     useEffect(() => {
         if (!hintVisible) return;
@@ -477,19 +481,17 @@ export function ArenaMessageBubble({ message, chatId, setChats, isGenerating, qu
     // in that state would either poison the Elo store or hit the backend's
     // VoteRequest min_length=1 guard with a 422.
     const bothSidesReady = Boolean(arenaData?.a?.model && arenaData?.b?.model);
-    const canVote = !arenaData.voted && !isGenerating && bothSidesReady;
+    // `vote.status === 'sent'` too: the confirmed vote hides the buttons even before the
+    // parent re-renders this bubble with `voted: true`.
+    const voted = Boolean(arenaData.voted) || vote.status === 'sent';
+    const canVote = !voted && !isGenerating && bothSidesReady;
 
-    const handleVote = async (winner) => {
-        // Sync ref guard — wins the race against rapid clicks. `voting` from
-        // useState lags by a render cycle and is unreliable here.
-        if (submittedRef.current) return;
-        if (arenaData.voted || voting) return;
+    const handleVote = (winner) => {
+        if (arenaData.voted) return;
         if (!bothSidesReady) {
             console.warn('Arena vote suppressed: one or both sides have no model.');
             return;
         }
-        submittedRef.current = true;
-        setVoting(true);
 
         // Stable bubble id (assigned at creation in App.jsx). Used in BOTH
         // setChats calls below so the success-path update finds the bubble
@@ -502,8 +504,6 @@ export function ArenaMessageBubble({ message, chatId, setChats, isGenerating, qu
             // Legacy bubble (older session with no id). Block voting entirely
             // rather than risk the silent-no-op bug.
             console.error('Arena vote refused: bubble has no bubbleId.');
-            submittedRef.current = false;
-            setVoting(false);
             return;
         }
         const updateBubble = (patch) => setChats(prev => prev.map(c => {
@@ -518,13 +518,6 @@ export function ArenaMessageBubble({ message, chatId, setChats, isGenerating, qu
             };
         }));
 
-        // Reveal names immediately (optimistic) — even if the POST fails, the
-        // user has already seen the identities and hiding them again would
-        // feel like a glitch. But DON'T mark `voted: true` yet — that gates
-        // the vote buttons, and we want the user to be able to retry if the
-        // POST fails. We finalise `voted: true` only after a successful POST.
-        updateBubble({ namesRevealed: true, winner });
-
         // A comparison restored from the server carries the index it was stored under.
         // Recomputing over a restored message array is wrong: rounds that were never stored
         // leave gaps, so the recomputed number can name a different comparison — and the
@@ -534,7 +527,13 @@ export function ArenaMessageBubble({ message, chatId, setChats, isGenerating, qu
         const historyLenA = historyA.length;
         const historyLenB = historyB.length;
 
-        try {
+        vote.run(async () => {
+            // Reveal names immediately (optimistic) — even if the POST fails, the
+            // user has already seen the identities and hiding them again would
+            // feel like a glitch. But DON'T mark `voted: true` yet — that gates
+            // the vote buttons, and we want the user to be able to retry if the
+            // POST fails. We finalise `voted: true` only after a successful POST.
+            updateBubble({ namesRevealed: true, winner });
             // Through the API client (not raw fetch) so a signed-in voter's
             // Bearer token is attached and the vote is attributed to them.
             await submitArenaVote({
@@ -553,21 +552,18 @@ export function ArenaMessageBubble({ message, chatId, setChats, isGenerating, qu
             });
             // Vote recorded: finalise voted=true so the bubble locks in.
             updateBubble({ voted: true, winner });
-        } catch (e) {
-            console.error('Vote failed:', e);
-            // Allow retry — but keep names revealed (no rollback of
-            // namesRevealed/winner) so the UI doesn't visually flicker.
-            submittedRef.current = false;
-            if (typeof window !== 'undefined') {
-                // No toast library is wired up yet — fall back to console.warn so
-                // the user can notice in devtools. Replace with a real toast when
-                // one lands in the project.
-                console.warn('Arena vote not recorded; please vote again to retry.');
-            }
-        } finally {
-            setVoting(false);
-        }
+            // A failure keeps names revealed (no rollback of namesRevealed/winner) so the UI
+            // doesn't visually flicker; the buttons stay for another try, «Повторить» re-sends it.
+        }, { tag: winner });
     };
+
+    const votedWinner = arenaData.winner || vote.tag;
+    const voteSettled = voted && VOTE_LABEL_KEYS[votedWinner]
+        ? t('arenaVoteSent').replace('{choice}', t(VOTE_LABEL_KEYS[votedWinner]))
+        : null;
+    const voteIcon = (winner, Icon, size) => (
+        voting && vote.tag === winner ? <Loader size={size} className="feedback-spinner" /> : <Icon size={size} />
+    );
 
     const segmentsA = parseThinkBlocks(arenaData.a.content || '', arenaData.a.thinkTime, arenaData.a.isStreaming);
     const segmentsB = parseThinkBlocks(arenaData.b.content || '', arenaData.b.thinkTime, arenaData.b.isStreaming);
@@ -608,8 +604,8 @@ export function ArenaMessageBubble({ message, chatId, setChats, isGenerating, qu
                     </div>
                     {canVote && (
                         <div className="arena-vote-primary">
-                            <button className="vote-btn vote-btn-primary" onClick={() => handleVote('a')} disabled={voting}>
-                                <ArrowCircleLeft size={18} />
+                            <button className="vote-btn vote-btn-primary" onClick={() => handleVote('a')} disabled={voting} aria-busy={(voting && vote.tag === 'a') || undefined}>
+                                {voteIcon('a', ArrowCircleLeft, 18)}
                                 {t('arenaVoteLeftBetter')}
                             </button>
                         </div>
@@ -636,8 +632,8 @@ export function ArenaMessageBubble({ message, chatId, setChats, isGenerating, qu
                     </div>
                     {canVote && (
                         <div className="arena-vote-primary">
-                            <button className="vote-btn vote-btn-primary" onClick={() => handleVote('b')} disabled={voting}>
-                                <ArrowCircleRight size={18} />
+                            <button className="vote-btn vote-btn-primary" onClick={() => handleVote('b')} disabled={voting} aria-busy={(voting && vote.tag === 'b') || undefined}>
+                                {voteIcon('b', ArrowCircleRight, 18)}
                                 {t('arenaVoteRightBetter')}
                             </button>
                         </div>
@@ -665,10 +661,12 @@ export function ArenaMessageBubble({ message, chatId, setChats, isGenerating, qu
 
             {canVote && (
                 <div className="arena-vote-secondary" style={{ display: 'flex', justifyContent: 'center', gap: '1rem', marginTop: '1rem' }}>
-                    <button className="vote-btn vote-btn-secondary" onClick={() => handleVote('tie')} disabled={voting}><Handshake size={16} />{t('arenaVoteTie')}</button>
-                    <button className="vote-btn vote-btn-secondary" onClick={() => handleVote('both_bad')} disabled={voting}><ThumbsDown size={16} />{t('arenaVoteBothBad')}</button>
+                    <button className="vote-btn vote-btn-secondary" onClick={() => handleVote('tie')} disabled={voting} aria-busy={(voting && vote.tag === 'tie') || undefined}>{voteIcon('tie', Handshake, 16)}{t('arenaVoteTie')}</button>
+                    <button className="vote-btn vote-btn-secondary" onClick={() => handleVote('both_bad')} disabled={voting} aria-busy={(voting && vote.tag === 'both_bad') || undefined}>{voteIcon('both_bad', ThumbsDown, 16)}{t('arenaVoteBothBad')}</button>
                 </div>
             )}
+
+            <FeedbackStatus send={vote} settled={voteSettled} className="centered arena-vote-status" />
         </div>
     );
 }

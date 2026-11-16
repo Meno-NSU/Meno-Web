@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { act, render, fireEvent, screen, waitFor } from '@testing-library/react';
 import MessageFeedback from './MessageFeedback.jsx';
 import { clearFeedback, submitFeedback } from '../services/api.js';
@@ -176,8 +176,12 @@ describe('MessageFeedback', () => {
         const { container } = render(
             <MessageFeedback message={message} chatId="chat-1" setChats={makeSetChats(chatsWith(message))} />,
         );
+        // A sent comment shows as «Отзыв отправлен.»; reopening it does not enable Send.
+        fireEvent.click(screen.getByRole('button', { name: 'Изменить' }));
         const sendButton = container.querySelector('.feedback-comment-send');
         expect(sendButton.disabled).toBe(true);
+        fireEvent.keyDown(commentInput(), { key: 'Enter', ctrlKey: true });
+        expect(submitFeedback).not.toHaveBeenCalled();
     });
 });
 
@@ -285,6 +289,8 @@ describe('MessageFeedback: the thumbs answer at once and only the final choice i
             comment: 'не тот год',
             signal: expect.anything(),
         }));
+        expect(await screen.findByText(/Отзыв отправлен\./)).toBeTruthy();
+        fireEvent.click(screen.getByRole('button', { name: 'Изменить' }));
         expect(commentInput().value).toBe('не тот год');
         expect(document.querySelector('.feedback-comment-send').disabled).toBe(true);
     });
@@ -305,7 +311,7 @@ describe('MessageFeedback: the thumbs answer at once and only the final choice i
 
         send('очень полезно');
 
-        expect(await screen.findByText(/не удалось отправить комментарий/i)).toBeTruthy();
+        expect(await screen.findByText(/не удалось отправить отзыв/i)).toBeTruthy();
         expect(commentInput().value).toBe('очень полезно');
         expect(document.querySelector('.feedback-comment-send').disabled).toBe(false);
     });
@@ -400,6 +406,8 @@ describe('MessageFeedback after a remount (chat switch) while saving', () => {
         await waitFor(() => expect(submitFeedback).toHaveBeenLastCalledWith(
             expect.objectContaining({ value: 'up', comment: 'не тот год' }),
         ));
+        expect(await screen.findByText(/Отзыв отправлен\./)).toBeTruthy();
+        fireEvent.click(screen.getByRole('button', { name: 'Изменить' }));
         expect(commentInput().value).toBe('не тот год');
     });
 });
@@ -421,7 +429,7 @@ describe('MessageFeedback: a comment that could not go out is not lost', () => {
         send('A');
         await act(async () => first.reject(boom()));
 
-        expect(await screen.findByText(/не удалось отправить комментарий/i)).toBeTruthy();
+        expect(await screen.findByText(/не удалось отправить отзыв/i)).toBeTruthy();
         expect(leave()).toBe(true); // still unsent: leaving asks first
         expect(commentInput().value).toBe('A');
 
@@ -441,7 +449,7 @@ describe('MessageFeedback: a comment that could not go out is not lost', () => {
         send('A'); // in flight, will fail
         send('B');
         await act(async () => first.reject(boom()));
-        expect(await screen.findByText(/не удалось отправить комментарий/i)).toBeTruthy();
+        expect(await screen.findByText(/не удалось отправить отзыв/i)).toBeTruthy();
 
         fireEvent.click(good()); // off: the queued comments go out first
         await waitFor(() => expect(clearFeedback).toHaveBeenCalledTimes(1));
@@ -457,7 +465,7 @@ describe('MessageFeedback: a comment that could not go out is not lost', () => {
         fireEvent.click(good()); // carries «X» back, fails
 
         expect(await screen.findByText(/не удалось сохранить оценку/i)).toBeTruthy();
-        expect(screen.queryByText(/не удалось отправить комментарий/i)).toBeNull();
+        expect(screen.queryByText(/не удалось отправить отзыв/i)).toBeNull();
     });
 
     it('drops a comment the server refuses for good (not this person\'s conversation)', async () => {
@@ -550,5 +558,168 @@ describe('MessageFeedback ownership refusal (404)', () => {
 
         fireEvent.click(bad());
         await waitFor(() => expect(screen.queryByText(/принадлежит другому профилю/i)).toBeNull());
+    });
+});
+
+const THANKS = 'Спасибо, что помогаете сделать Менона лучше!';
+const thumbsGroup = () => document.querySelector('.feedback-thumbs');
+
+describe('MessageFeedback: «sent» and the thanks only once the server has the final choice', () => {
+    afterEach(() => {
+        vi.useRealTimers();
+    });
+
+    it('shows the chosen thumb at once as pending, and thanks once the server confirmed it', async () => {
+        const first = deferred();
+        submitFeedback.mockReturnValueOnce(first.promise);
+        render(<Harness initial={baseMessage} />);
+
+        fireEvent.click(good());
+
+        expect(good().getAttribute('aria-pressed')).toBe('true');
+        expect(good().classList.contains('saving')).toBe(true);
+        expect(thumbsGroup().getAttribute('aria-busy')).toBe('true');
+        expect(screen.queryByText(THANKS)).toBeNull();
+
+        await act(async () => first.resolve({}));
+
+        expect(good().classList.contains('saving')).toBe(false);
+        expect(thumbsGroup().getAttribute('aria-busy')).toBeNull();
+        expect(screen.getByRole('status').textContent).toContain(THANKS);
+    });
+
+    it('thanks only for where rapid clicks end up, after its save', async () => {
+        const first = deferred();
+        const second = deferred();
+        submitFeedback.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
+        render(<Harness initial={baseMessage} />);
+
+        fireEvent.click(good());
+        fireEvent.click(bad());
+        await act(async () => first.resolve({})); // «up» saved, but «down» is what is wanted
+        expect(screen.queryByText(THANKS)).toBeNull();
+        expect(bad().classList.contains('saving')).toBe(true);
+
+        await act(async () => second.resolve({}));
+        expect(submitFeedback).toHaveBeenCalledTimes(2);
+        expect(screen.getAllByText(THANKS)).toHaveLength(1);
+        expect(bad().getAttribute('aria-pressed')).toBe('true');
+    });
+
+    it('does not thank for withdrawing a rating', async () => {
+        render(<Harness initial={{ ...baseMessage, feedback: { value: 'up', comment: null } }} />);
+
+        fireEvent.click(good());
+
+        await waitFor(() => expect(clearFeedback).toHaveBeenCalledTimes(1));
+        await act(async () => {});
+        expect(good().getAttribute('aria-pressed')).toBe('false');
+        expect(screen.queryByText(THANKS)).toBeNull();
+    });
+
+    it('lets the thanks go after a few seconds; the chosen thumb stays', async () => {
+        vi.useFakeTimers();
+        render(<Harness initial={baseMessage} />);
+
+        await act(async () => { fireEvent.click(good()); });
+        expect(screen.getByText(THANKS)).toBeTruthy();
+
+        act(() => { vi.advanceTimersByTime(10000); });
+        expect(screen.queryByText(THANKS)).toBeNull();
+        expect(good().getAttribute('aria-pressed')).toBe('true');
+    });
+
+    it('on failure offers «Повторить», which sends the choice again and then thanks', async () => {
+        submitFeedback.mockRejectedValueOnce(Object.assign(new Error('Boom'), { httpStatus: 503 }));
+        render(<Harness initial={baseMessage} />);
+
+        fireEvent.click(good());
+
+        expect(await screen.findByText(/не удалось сохранить оценку/i)).toBeTruthy();
+        expect(screen.queryByText(THANKS)).toBeNull();
+        expect(good().getAttribute('aria-pressed')).toBe('false');
+
+        await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Повторить' })); });
+
+        expect(submitFeedback).toHaveBeenCalledTimes(2);
+        expect(submitFeedback).toHaveBeenLastCalledWith(expect.objectContaining({ value: 'up', comment: null }));
+        expect(screen.queryByText(/не удалось сохранить оценку/i)).toBeNull();
+        expect(good().getAttribute('aria-pressed')).toBe('true');
+        expect(screen.getByText(THANKS)).toBeTruthy();
+    });
+
+    it('keeps the comment box until the server has the comment, then folds it into «Отзыв отправлен.»', async () => {
+        const first = deferred();
+        submitFeedback.mockReturnValueOnce(first.promise);
+        render(<Harness initial={{ ...baseMessage, feedback: { value: 'up', comment: null } }} />);
+
+        send('мало деталей');
+
+        const sendButton = screen.getByRole('button', { name: 'Отправить отзыв' });
+        expect(sendButton.getAttribute('aria-busy')).toBe('true');
+        expect(good().classList.contains('saving')).toBe(false); // the rating itself is already saved
+        expect(commentInput().value).toBe('мало деталей');
+        expect(screen.queryByText(/Отзыв отправлен/)).toBeNull();
+        expect(screen.queryByText(THANKS)).toBeNull();
+
+        await act(async () => first.resolve({}));
+
+        expect(commentInput()).toBeNull();
+        const line = screen.getByRole('status');
+        expect(line.textContent).toContain('Отзыв отправлен.');
+        expect(line.textContent).toContain(THANKS);
+
+        fireEvent.click(screen.getByRole('button', { name: 'Изменить' }));
+        expect(commentInput().value).toBe('мало деталей');
+    });
+
+    it('retries a comment that could not be sent and folds it once it is on the server', async () => {
+        submitFeedback.mockRejectedValueOnce(Object.assign(new Error('Boom'), { httpStatus: 500 }));
+        render(<Harness initial={{ ...baseMessage, feedback: { value: 'down', comment: null } }} />);
+
+        send('неверный адрес');
+
+        expect(await screen.findByText(/не удалось отправить отзыв/i)).toBeTruthy();
+        expect(commentInput().value).toBe('неверный адрес');
+        expect(screen.queryByText(THANKS)).toBeNull();
+
+        await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Повторить' })); });
+
+        expect(submitFeedback).toHaveBeenCalledTimes(2);
+        expect(submitFeedback).toHaveBeenLastCalledWith(expect.objectContaining({ value: 'down', comment: 'неверный адрес' }));
+        expect(screen.getByRole('status').textContent).toContain('Отзыв отправлен.');
+        expect(commentInput()).toBeNull();
+    });
+
+    it('offers no retry for the ownership refusal (retrying cannot help)', async () => {
+        submitFeedback.mockRejectedValueOnce(Object.assign(new Error('Not found'), { httpStatus: 404 }));
+        render(<Harness initial={baseMessage} />);
+
+        fireEvent.click(good());
+
+        expect(await screen.findByText(/принадлежит другому профилю/i)).toBeTruthy();
+        expect(screen.queryByRole('button', { name: 'Повторить' })).toBeNull();
+    });
+
+    it('shows a comment restored from the server as sent, without the thanks', () => {
+        render(<Harness initial={{ ...baseMessage, feedback: { value: 'up', comment: 'было' } }} />);
+
+        expect(commentInput()).toBeNull();
+        expect(screen.getByText(/Отзыв отправлен\./)).toBeTruthy();
+        expect(screen.queryByText(THANKS)).toBeNull();
+        expect(screen.getByRole('button', { name: 'Изменить' })).toBeTruthy();
+    });
+
+    it('does not thank later for a save that finished while the answer was off screen', async () => {
+        const first = deferred();
+        submitFeedback.mockReturnValueOnce(first.promise);
+        const view = switchAwayAndBack(baseMessage);
+        fireEvent.click(good());
+        view.away();
+        await act(async () => first.resolve({}));
+        view.back();
+
+        expect(good().getAttribute('aria-pressed')).toBe('true');
+        expect(screen.queryByText(THANKS)).toBeNull();
     });
 });

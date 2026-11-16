@@ -849,30 +849,39 @@ function App() {
     if (shouldShowSurvey()) setSurveySessionId(prevId);
   }, [activeChatId, visibleChats, generatingChats, setActiveChats]);
 
-  // Both outcomes mark the chat surveyed locally first (never nag twice, even
-  // if the POST fails) and report best-effort: answers as themselves, every
-  // dismissal path as the explicit 'skipped'. A 404 means the caller no longer owns this
-  // conversation (the realistic case: started as a guest, answered after signing in) — the
-  // same cause the rating control already explains (feedbackNotYours in MessageFeedback.jsx),
-  // so it gets the matching notice on the chat instead of vanishing into just a console.warn.
-  // Any other failure keeps the pre-existing behavior: logged, silent to the user — there is
-  // no known cause worth explaining, and "surveyed" already protects against a retry loop.
-  // Notice targets `sessionId`, not whatever chat is active by the time this promise settles:
-  // the modal closed immediately (above), so the user has very likely already moved on.
-  const handleSurveyDone = (answer) => {
-    const sessionId = surveySessionId;
-    setSurveySessionId(null);
-    if (!sessionId) return;
+  // Every outcome marks the chat surveyed locally first (never nag twice, even
+  // if the POST fails) and reports: answers as themselves, every dismissal before an
+  // answer as the explicit 'skipped'. An answer keeps the modal open — SurveyModal awaits
+  // the returned promise to show the pending state, then the thanks (and closes itself) or a
+  // short error with a retry. A skip closes at once and is reported best-effort.
+  // A 404 means the caller no longer owns this conversation (the realistic case: started as a
+  // guest, answered after signing in) — the same cause the rating control already explains
+  // (feedbackNotYours in MessageFeedback.jsx). The modal says so, and the chat also gets the
+  // matching notice, so it is still explained after the modal is gone. The notice targets
+  // `sessionId`, not whatever chat is active by the time this promise settles: the person has
+  // already left that chat (that is what opened the survey).
+  const postSurvey = (sessionId, answer) => {
     setActiveChats((prev) => prev.map((chat) => (
       chat.id === sessionId ? { ...chat, surveyed: true } : chat
     )));
-    submitSurvey({ sessionId, answer }).catch((error) => {
+    return submitSurvey({ sessionId, answer }).catch((error) => {
       console.warn('Survey answer not recorded', error);
       if (error?.httpStatus === 404) {
         setActiveChats((prev) => applyChatNotice(prev, sessionId, { kind: 'error', key: 'surveyNotYours' }));
       }
+      throw error;
     });
   };
+  const handleSurveyAnswer = (answer) => (
+    surveySessionId ? postSurvey(surveySessionId, answer) : Promise.resolve()
+  );
+  const handleSurveySkip = () => {
+    const sessionId = surveySessionId;
+    setSurveySessionId(null);
+    if (sessionId) postSurvey(sessionId, 'skipped').catch(() => {});
+  };
+  // Stable: SurveyModal's self-close timer must not restart on every App render.
+  const closeSurvey = useCallback(() => setSurveySessionId(null), []);
 
   // Signing in/out changes what /v1/models returns (OpenRouter is gated behind
   // login), so refresh the list whenever the auth state actually flips. The
@@ -1768,9 +1777,11 @@ function App() {
       />
 
       <SurveyModal
+        key={surveySessionId ?? 'none'}
         isOpen={surveySessionId !== null}
-        onAnswer={handleSurveyDone}
-        onSkip={() => handleSurveyDone('skipped')}
+        onAnswer={handleSurveyAnswer}
+        onSkip={handleSurveySkip}
+        onClose={closeSurvey}
       />
 
       {isConsentModalVisible && (

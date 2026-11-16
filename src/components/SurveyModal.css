@@ -69,6 +69,10 @@
 }
 
 .survey-answer {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
     padding: 0.55rem 0.5rem;
     border-radius: 0.6rem;
     border: 1px solid var(--border-color);
@@ -79,13 +83,24 @@
     transition: all 0.15s ease;
 }
 
-.survey-answer:hover {
+.survey-answer:hover:not(:disabled) {
     background: var(--bg-tertiary);
     border-color: var(--text-tertiary);
 }
 
-.survey-answer:active {
+.survey-answer:active:not(:disabled) {
     transform: scale(0.96);
+}
+
+/* While the answer is sent: the others dim, the pressed one keeps its look and spins. */
+.survey-answer:disabled {
+    opacity: 0.55;
+    cursor: default;
+}
+
+.survey-answer[aria-busy='true']:disabled {
+    opacity: 1;
+    cursor: progress;
 }
 
 /* "Yes" is the primary answer — brand cyan. */
@@ -95,7 +110,7 @@
     color: var(--accent-text);
 }
 
-.survey-answer.yes:hover {
+.survey-answer.yes:hover:not(:disabled) {
     background: var(--accent-hover);
     border-color: var(--accent-hover);
 }
@@ -109,4 +124,20 @@
 
 .survey-skip:hover {
     color: var(--text-secondary);
+}
+
+/* The answer went through: a green check and the thanks in place of the question; the
+   modal closes itself a moment later (SURVEY_THANKS_MS). */
+.survey-emoji.sent {
+    color: var(--success-strong);
+}
+
+.survey-thanks .survey-question {
+    margin-bottom: 0.5rem;
+}
+
+/* The error with «Повторить» under the answers. */
+.survey-status {
+    margin-top: 0.9rem;
+    font-size: 0.85rem;
 }

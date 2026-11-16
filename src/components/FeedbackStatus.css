@@ -1,0 +1,125 @@
+/* The line under a feedback control (FeedbackStatus.jsx): a check with the thanks / the
+   settled text, or a short error with «Повторить». Quiet secondary text, like the rest of an
+   answer's footer; only the icon carries the colour. Its own line in the row it sits in. */
+.feedback-status {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.4rem;
+    flex-basis: 100%;
+    min-width: 0;
+    font-size: 0.8rem;
+    line-height: 1.4;
+    color: var(--text-secondary);
+    animation: feedbackStatusIn 0.2s ease;
+}
+
+.feedback-status-icon {
+    flex-shrink: 0;
+    /* On the first line of the text. */
+    margin-top: 0.1em;
+}
+
+/* The text and its button flow inline: a long line wraps under the text, never under the
+   icon, and the button follows the text (or starts the next line on a narrow screen). */
+.feedback-status-body {
+    min-width: 0;
+}
+
+.feedback-status.sent .feedback-status-icon {
+    color: var(--success-strong);
+    /* The check glyph sits low in its box: lift it onto the text's middle. */
+    margin-top: -0.1em;
+}
+
+.feedback-status.error {
+    color: var(--text-primary);
+}
+
+.feedback-status.error .feedback-status-icon {
+    color: var(--danger);
+}
+
+/* A centred line (under the arena round, in the survey card): one inline flow, so a wrapped
+   line keeps the icon next to its first word instead of at the far edge. */
+.feedback-status.centered {
+    display: block;
+    text-align: center;
+}
+
+.feedback-status.centered .feedback-status-icon {
+    margin: 0 0.35rem 0 0;
+    vertical-align: -0.2em;
+}
+
+.feedback-status.centered .feedback-status-body {
+    display: inline;
+}
+
+/* «Повторить»: a text button in the action colour. */
+.feedback-status-retry {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    margin-left: 0.35rem;
+    padding: 0 0.2rem;
+    vertical-align: top;
+    border-radius: 0.3rem;
+    font-size: inherit;
+    font-weight: 500;
+    line-height: inherit;
+    color: var(--accent-primary);
+    transition: background-color 0.15s ease;
+}
+
+.feedback-status-retry:hover {
+    background-color: var(--bg-tertiary);
+}
+
+/* The thanks fades out just before it is removed (THANKS_MS, set inline). A thanks-only line
+   fades as a whole; on a settled line only the thanks goes and the settled text stays. */
+.feedback-status.sent.only-thanks {
+    animation:
+        feedbackStatusIn 0.2s ease,
+        feedbackThanksOut 0.4s ease var(--feedback-thanks-out, 5.6s) forwards;
+}
+
+.feedback-status.sent:not(.only-thanks) .feedback-status-thanks {
+    animation: feedbackThanksOut 0.4s ease var(--feedback-thanks-out, 5.6s) forwards;
+}
+
+@keyframes feedbackStatusIn {
+    from {
+        opacity: 0;
+        transform: translateY(-2px);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+@keyframes feedbackThanksOut {
+    to {
+        opacity: 0;
+    }
+}
+
+/* In-flight send: the pressed control swaps its icon for this spinner. */
+.feedback-spinner {
+    animation: feedbackSpin 0.9s linear infinite;
+}
+
+@keyframes feedbackSpin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Less motion: the line just appears and goes, no slide or fade. */
+@media (prefers-reduced-motion: reduce) {
+    .feedback-status,
+    .feedback-status.sent.only-thanks,
+    .feedback-status.sent:not(.only-thanks) .feedback-status-thanks {
+        animation: none;
+    }
+}

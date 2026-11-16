@@ -10,6 +10,7 @@
 // match by id in setChats. Plus a synchronous `submittedRef` guard so even
 // rapid double-clicks within one render cycle can only fire one POST.
 import { describe, it, expect, vi, afterEach } from 'vitest';
+import { useState } from 'react';
 import { render, fireEvent, screen, waitFor, act } from '@testing-library/react';
 import { ArenaMessageBubble } from './ChatArea.jsx';
 
@@ -261,5 +262,109 @@ describe('ArenaMessageBubble vote handling', () => {
         );
         expect(screen.getByText('A: —')).toBeTruthy();
         expect(screen.getByText('B: Менон 1.0 · m-b')).toBeTruthy();
+    });
+});
+
+// The chat state lives in the parent, as in ChatArea: the patched bubble comes back as a prop.
+function ArenaHarness({ initial }) {
+    const [chats, setChats] = useState(makeChats(initial));
+    return (
+        <ArenaMessageBubble
+            message={chats[0].messages[1]}
+            chatId="chat-1"
+            setChats={setChats}
+            isGenerating={false}
+            question="q"
+            messagesBeforeRound={[]}
+        />
+    );
+}
+
+function deferred() {
+    let resolve;
+    const promise = new Promise((res) => { resolve = res; });
+    return { promise, resolve };
+}
+
+const THANKS = 'Спасибо, что помогаете сделать Менона лучше!';
+const voteButtons = () => [...document.querySelectorAll('.vote-btn')];
+
+describe('ArenaMessageBubble vote confirmation', () => {
+    afterEach(() => {
+        vi.unstubAllGlobals();
+        vi.restoreAllMocks();
+    });
+
+    it('shows the vote as pending, then «Голос учтён» with the thanks once the server confirms', async () => {
+        const d = deferred();
+        const fetchMock = vi.fn(() => d.promise);
+        vi.stubGlobal('fetch', fetchMock);
+        render(<ArenaHarness initial={makeBubble()} />);
+
+        fireEvent.click(screen.getByText('Оба хорошие'));
+
+        const tie = screen.getByText('Оба хорошие').closest('button');
+        expect(tie.getAttribute('aria-busy')).toBe('true');
+        expect(voteButtons().every((b) => b.disabled)).toBe(true);
+        expect(screen.queryByText(THANKS)).toBeNull();
+        expect(screen.queryByText(/Голос учтён/)).toBeNull();
+
+        await act(async () => { d.resolve({ ok: true }); });
+
+        expect(voteButtons()).toHaveLength(0);
+        const line = screen.getByRole('status');
+        expect(line.textContent).toContain('Голос учтён: «Оба хорошие».');
+        expect(line.textContent).toContain(THANKS);
+    });
+
+    it('on failure keeps the vote buttons, shows an error with a retry, and the retry re-sends the same vote', async () => {
+        vi.spyOn(console, 'error').mockImplementation(() => {});
+        vi.spyOn(console, 'warn').mockImplementation(() => {});
+        const fetchMock = vi.fn()
+            .mockResolvedValueOnce({ ok: false, status: 500 })
+            .mockResolvedValueOnce({ ok: true });
+        vi.stubGlobal('fetch', fetchMock);
+        render(<ArenaHarness initial={makeBubble()} />);
+
+        await act(async () => { fireEvent.click(screen.getByText('Оба плохие')); });
+
+        expect(screen.getByText('Не удалось отправить голос.')).toBeTruthy();
+        expect(screen.queryByText(THANKS)).toBeNull();
+        expect(voteButtons().length).toBe(4);
+        expect(voteButtons().every((b) => !b.disabled)).toBe(true);
+
+        await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Повторить' })); });
+
+        expect(fetchMock).toHaveBeenCalledTimes(2);
+        expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toMatchObject({ winner: 'both_bad' });
+        expect(screen.getByRole('status').textContent).toContain('Голос учтён: «Оба плохие».');
+    });
+
+    it('sends one vote for rapid clicks on different buttons', async () => {
+        const d = deferred();
+        const fetchMock = vi.fn(() => d.promise);
+        vi.stubGlobal('fetch', fetchMock);
+        render(<ArenaHarness initial={makeBubble()} />);
+
+        const left = screen.getByText(/Левый/).closest('button');
+        const tie = screen.getByText('Оба хорошие').closest('button');
+        fireEvent.click(left);
+        fireEvent.click(left);
+        fireEvent.click(tie);
+        await act(async () => { d.resolve({ ok: true }); });
+
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({ winner: 'a' });
+        expect(screen.getByRole('status').textContent).toContain('Голос учтён: «Левый ответ лучше».');
+    });
+
+    it('shows a vote restored from the server as counted, without the thanks', () => {
+        const bubble = makeBubble();
+        bubble.arenaData.voted = true;
+        bubble.arenaData.winner = 'b';
+        render(<ArenaHarness initial={bubble} />);
+
+        expect(screen.getByText(/Голос учтён: «Правый ответ лучше»\./)).toBeTruthy();
+        expect(screen.queryByText(THANKS)).toBeNull();
     });
 });

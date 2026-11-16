@@ -1,0 +1,237 @@
+{
+ "steps": {
+  "thumbError": {
+   "status": [],
+   "errors": [],
+   "activeThumbs": [],
+   "pendingThumbs": 0,
+   "commentBox": false,
+   "commentSent": [],
+   "voteButtons": 0,
+   "voteSent": [],
+   "survey": false,
+   "surveyText": null,
+   "overflowX": false
+  },
+  "thumbPending": {
+   "status": [],
+   "errors": [],
+   "activeThumbs": [],
+   "pendingThumbs": 0,
+   "commentBox": false,
+   "commentSent": [],
+   "voteButtons": 0,
+   "voteSent": [],
+   "survey": false,
+   "surveyText": null,
+   "overflowX": false
+  },
+  "thumbSent": {
+   "status": [],
+   "errors": [],
+   "activeThumbs": [
+    "Хороший ответ"
+   ],
+   "pendingThumbs": 0,
+   "commentBox": true,
+   "commentSent": [],
+   "voteButtons": 0,
+   "voteSent": [],
+   "survey": false,
+   "surveyText": null,
+   "overflowX": false
+  },
+  "commentError": {
+   "status": [],
+   "errors": [],
+   "activeThumbs": [
+    "Хороший ответ"
+   ],
+   "pendingThumbs": 0,
+   "commentBox": true,
+   "commentSent": [],
+   "voteButtons": 0,
+   "voteSent": [],
+   "survey": false,
+   "surveyText": null,
+   "overflowX": false
+  },
+  "commentPending": {
+   "status": [],
+   "errors": [],
+   "activeThumbs": [
+    "Хороший ответ"
+   ],
+   "pendingThumbs": 0,
+   "commentBox": true,
+   "commentSent": [],
+   "voteButtons": 0,
+   "voteSent": [],
+   "survey": false,
+   "surveyText": null,
+   "overflowX": false
+  },
+  "commentSent": {
+   "status": [],
+   "errors": [],
+   "activeThumbs": [
+    "Хороший ответ"
+   ],
+   "pendingThumbs": 0,
+   "commentBox": true,
+   "commentSent": [],
+   "voteButtons": 0,
+   "voteSent": [],
+   "survey": false,
+   "surveyText": null,
+   "overflowX": false
+  },
+  "surveyError": {
+   "status": [],
+   "errors": [],
+   "activeThumbs": [],
+   "pendingThumbs": 0,
+   "commentBox": false,
+   "commentSent": [],
+   "voteButtons": 0,
+   "voteSent": [],
+   "survey": false,
+   "surveyText": null,
+   "overflowX": false
+  },
+  "arenaError": {
+   "status": [],
+   "errors": [],
+   "activeThumbs": [],
+   "pendingThumbs": 0,
+   "commentBox": false,
+   "commentSent": [],
+   "voteButtons": 4,
+   "voteSent": [],
+   "survey": false,
+   "surveyText": null,
+   "overflowX": false
+  },
+  "arenaPending": {
+   "status": [],
+   "errors": [],
+   "activeThumbs": [],
+   "pendingThumbs": 0,
+   "commentBox": false,
+   "commentSent": [],
+   "voteButtons": 4,
+   "voteSent": [],
+   "survey": false,
+   "surveyText": null,
+   "overflowX": false
+  },
+  "arenaSent": {
+   "status": [],
+   "errors": [],
+   "activeThumbs": [],
+   "pendingThumbs": 0,
+   "commentBox": false,
+   "commentSent": [],
+   "voteButtons": 0,
+   "voteSent": [],
+   "survey": false,
+   "surveyText": null,
+   "overflowX": false
+  }
+ },
+ "surveyShown": true,
+ "arenaReady": true,
+ "mockLog": [
+  {
+   "path": "/v1/feedback",
+   "body": {
+    "completion_id": "chatcmpl-mock-1794820166665",
+    "session_id": "bbf86abe-d728-4237-919f-8c730b101c53",
+    "value": "up",
+    "comment": null
+   },
+   "fail": true,
+   "at": 1794820174031
+  },
+  {
+   "path": "/v1/feedback",
+   "body": {
+    "completion_id": "chatcmpl-mock-1794820166665",
+    "session_id": "bbf86abe-d728-4237-919f-8c730b101c53",
+    "value": "up",
+    "comment": null
+   },
+   "fail": false,
+   "at": 1794820175674
+  },
+  {
+   "path": "/v1/feedback",
+   "body": {
+    "completion_id": "chatcmpl-mock-1794820166665",
+    "session_id": "bbf86abe-d728-4237-919f-8c730b101c53",
+    "value": "up",
+    "comment": "Хорошо, но не хватает часов работы бассейна по выходным."
+   },
+   "fail": true,
+   "at": 1794820180174
+  },
+  {
+   "path": "/v1/feedback",
+   "body": {
+    "completion_id": "chatcmpl-mock-1794820166665",
+    "session_id": "bbf86abe-d728-4237-919f-8c730b101c53",
+    "value": "up",
+    "comment": "Хорошо, но не хватает часов работы бассейна по выходным."
+   },
+   "fail": false,
+   "at": 1794820181848
+  },
+  {
+   "path": "/v1/feedback/survey",
+   "body": {
+    "session_id": "bbf86abe-d728-4237-919f-8c730b101c53",
+    "answer": "yes"
+   },
+   "fail": true,
+   "at": 1794820186534
+  },
+  {
+   "path": "/v1/arena/vote",
+   "body": {
+    "model_a": "gemma-4-12B-it@ragu",
+    "kb_a": "nsu-stand-faiss-bm25",
+    "model_b": "gemma-4-12B-it",
+    "kb_b": "nsu-stand-faiss-bm25",
+    "winner": "tie",
+    "response_a": "Да, в НГУ есть спортивный комплекс. Он находится по адресу ул. Пирогова, 12 и открыт для студентов и сотрудников.\n\n## Что там есть\n- **Бассейн** — 25 м, 6 дорожек; запись через [личный кабинет](https://www.nsu.ru/n/physical-education-department/sport-complex/swimming-pool-schedule-and-rules-for-students-and-staff-2026/).\n- **Игровые залы** — волейбол, баскетбол, мини-футбол.\n- **Тренажёрный зал** — по абонементу.\n\n| Секция | Дни | Время |\n|---|---|---|\n| Плавание | Пн, Ср, Пт | 18:00–21:00 |\n| Волейбол | Вт, Чт | 19:00–21:00 |\n| Очень-длинное-название-секции-без-пробелов-для-проверки-переноса | Сб | 10:00–12:00 |\n\nПодробности: https://www.nsu.ru/n/physical-education-department/sport-complex/very-long-path/with/many/segments/index.php?lang=ru&tab=schedule\n\n```\nрасписание_бассейна_на_осенний_семестр_2026_года_версия_окончательная_и_утверждённая.pdf\n```",
+    "response_b": "Да, в НГУ есть спортивный комплекс. Он находится по адресу ул. Пирогова, 12 и открыт для студентов и сотрудников.\n\n## Что там есть\n- **Бассейн** — 25 м, 6 дорожек; запись через [личный кабинет](https://www.nsu.ru/n/physical-education-department/sport-complex/swimming-pool-schedule-and-rules-for-students-and-staff-2026/).\n- **Игровые залы** — волейбол, баскетбол, мини-футбол.\n- **Тренажёрный зал** — по абонементу.\n\n| Секция | Дни | Время |\n|---|---|---|\n| Плавание | Пн, Ср, Пт | 18:00–21:00 |\n| Волейбол | Вт, Чт | 19:00–21:00 |\n| Очень-длинное-название-секции-без-пробелов-для-проверки-переноса | Сб | 10:00–12:00 |\n\nПодробности: https://www.nsu.ru/n/physical-education-department/sport-complex/very-long-path/with/many/segments/index.php?lang=ru&tab=schedule\n\n```\nрасписание_бассейна_на_осенний_семестр_2026_года_версия_окончательная_и_утверждённая.pdf\n```",
+    "question": "Где в НГУ поплавать?",
+    "session_id": "b780a419-4490-4ac4-9323-cd9a6ae7dd9c",
+    "turn_index": 0,
+    "history_len_a": 0,
+    "history_len_b": 0
+   },
+   "fail": true,
+   "at": 1794820196276
+  },
+  {
+   "path": "/v1/arena/vote",
+   "body": {
+    "model_a": "gemma-4-12B-it@ragu",
+    "kb_a": "nsu-stand-faiss-bm25",
+    "model_b": "gemma-4-12B-it",
+    "kb_b": "nsu-stand-faiss-bm25",
+    "winner": "tie",
+    "response_a": "Да, в НГУ есть спортивный комплекс. Он находится по адресу ул. Пирогова, 12 и открыт для студентов и сотрудников.\n\n## Что там есть\n- **Бассейн** — 25 м, 6 дорожек; запись через [личный кабинет](https://www.nsu.ru/n/physical-education-department/sport-complex/swimming-pool-schedule-and-rules-for-students-and-staff-2026/).\n- **Игровые залы** — волейбол, баскетбол, мини-футбол.\n- **Тренажёрный зал** — по абонементу.\n\n| Секция | Дни | Время |\n|---|---|---|\n| Плавание | Пн, Ср, Пт | 18:00–21:00 |\n| Волейбол | Вт, Чт | 19:00–21:00 |\n| Очень-длинное-название-секции-без-пробелов-для-проверки-переноса | Сб | 10:00–12:00 |\n\nПодробности: https://www.nsu.ru/n/physical-education-department/sport-complex/very-long-path/with/many/segments/index.php?lang=ru&tab=schedule\n\n```\nрасписание_бассейна_на_осенний_семестр_2026_года_версия_окончательная_и_утверждённая.pdf\n```",
+    "response_b": "Да, в НГУ есть спортивный комплекс. Он находится по адресу ул. Пирогова, 12 и открыт для студентов и сотрудников.\n\n## Что там есть\n- **Бассейн** — 25 м, 6 дорожек; запись через [личный кабинет](https://www.nsu.ru/n/physical-education-department/sport-complex/swimming-pool-schedule-and-rules-for-students-and-staff-2026/).\n- **Игровые залы** — волейбол, баскетбол, мини-футбол.\n- **Тренажёрный зал** — по абонементу.\n\n| Секция | Дни | Время |\n|---|---|---|\n| Плавание | Пн, Ср, Пт | 18:00–21:00 |\n| Волейбол | Вт, Чт | 19:00–21:00 |\n| Очень-длинное-название-секции-без-пробелов-для-проверки-переноса | Сб | 10:00–12:00 |\n\nПодробности: https://www.nsu.ru/n/physical-education-department/sport-complex/very-long-path/with/many/segments/index.php?lang=ru&tab=schedule\n\n```\nрасписание_бассейна_на_осенний_семестр_2026_года_версия_окончательная_и_утверждённая.pdf\n```",
+    "question": "Где в НГУ поплавать?",
+    "session_id": "b780a419-4490-4ac4-9323-cd9a6ae7dd9c",
+    "turn_index": 0,
+    "history_len_a": 0,
+    "history_len_b": 0
+   },
+   "fail": false,
+   "at": 1794820198250
+  }
+ ]
+}

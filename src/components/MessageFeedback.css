@@ -58,14 +58,45 @@
     cursor: default;
 }
 
-/* Explains a rating the backend refused (404 — conversation owned by another
-   profile). Always drops to its own line below the thumbs, regardless of
-   how much room the row has left. */
-.feedback-error {
-    flex-basis: 100%;
-    font-size: 0.8rem;
-    color: var(--danger);
-    line-height: 1.4;
+/* The chosen thumb shows at once; until the server has it, it pulses softly (after the pop). */
+.feedback-btn.active.saving svg {
+    animation:
+        thumbPop 0.25s ease,
+        thumbSaving 0.9s ease-in-out 0.25s infinite alternate;
+}
+
+@keyframes thumbSaving {
+    from { opacity: 1; }
+    to { opacity: 0.35; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .feedback-btn.active.saving svg {
+        animation: none;
+        opacity: 0.55;
+    }
+}
+
+/* «Изменить» at the end of «Отзыв отправлен.»: a text button in the action colour. */
+.feedback-comment-edit {
+    margin-left: 0.35rem;
+    padding: 0 0.2rem;
+    vertical-align: top;
+    border-radius: 0.3rem;
+    font-size: inherit;
+    font-weight: 500;
+    line-height: inherit;
+    color: var(--accent-primary);
+    transition: background-color 0.15s ease;
+}
+
+.feedback-comment-edit:hover:not(:disabled) {
+    background-color: var(--bg-tertiary);
+}
+
+.feedback-comment-edit:disabled {
+    opacity: 0.45;
+    cursor: default;
 }
 
 .feedback-comment-row {
@@ -149,6 +180,11 @@
 .feedback-comment-send:disabled {
     opacity: 0.45;
     cursor: default;
+}
+
+.feedback-comment-send[aria-busy='true'] {
+    opacity: 1;
+    color: var(--accent-primary);
 }
 
 /* iOS Safari zooms the page in when a field under 16px gets focus (and then the

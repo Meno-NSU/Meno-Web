@@ -447,7 +447,8 @@
 
 /* An open feedback comment takes the whole width; the model label moves under it
    instead of squeezing the box or pushing past the screen edge. */
-.message-footer .message-actions-bar:has(.feedback-comment-row) {
+.message-footer .message-actions-bar:has(.feedback-comment-row),
+.message-footer .message-actions-bar:has(.feedback-status) {
     flex-basis: 100%;
 }
 
@@ -527,9 +528,12 @@
 }
 
 /* Keep the bar visible when feedback is active (the given thumb shouldn't
-   vanish when the cursor leaves) and for keyboard focus. */
+   vanish when the cursor leaves), while a rating is in flight or its thanks /
+   error line is up, and for keyboard focus. */
 .message-actions-bar:focus-within,
-.message-actions-bar:has(.feedback-btn.active) {
+.message-actions-bar:has(.feedback-btn.active),
+.message-actions-bar:has(.feedback-thumbs[aria-busy='true']),
+.message-actions-bar:has(.feedback-status) {
     opacity: 1;
 }
 
@@ -1002,6 +1006,18 @@
 .vote-btn-secondary:hover:not(:disabled) {
     background-color: var(--sidebar-hover);
     transform: translateY(-1px);
+}
+
+/* The vote being sent keeps full strength while the other buttons dim as disabled. */
+.vote-btn[aria-busy='true']:disabled {
+    opacity: 1;
+    cursor: progress;
+}
+
+/* «Голос учтён: «…».» + the thanks, or the error with «Повторить», under the round. */
+.arena-vote-status {
+    margin-top: 1rem;
+    font-size: 0.9rem;
 }
 
 /* ══════════════════════════════════════════════════════════

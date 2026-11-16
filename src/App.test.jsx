@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within, act } from '@testing-library/react';
 import App from './App.jsx';
 import { saveChats } from './store/chatStore.js';
 
@@ -469,6 +469,31 @@ function seedAnsweredChat() {
   }]);
 }
 
+describe('App — survey answer confirmed', () => {
+  it('keeps the modal until the server confirms, thanks, and closes it by itself', async () => {
+    seedAnsweredChat();
+    shouldShowSurvey.mockReturnValue(true);
+    let resolveSurvey;
+    submitSurvey.mockReturnValue(new Promise((resolve) => { resolveSurvey = resolve; }));
+
+    const { container } = render(<App />);
+    await waitFor(() => expect(screen.getByText('Ответ Менона')).toBeTruthy());
+    fireEvent.click(container.querySelector('.new-chat-btn-icon'));
+    await waitFor(() => expect(screen.getByText('Будете ли пользоваться Меноном для похожих вопросов?')).toBeTruthy());
+
+    fireEvent.click(screen.getByText('Да'));
+    expect(submitSurvey).toHaveBeenCalledWith({ sessionId: 'guest-1', answer: 'yes' });
+    expect(screen.getByText('Будете ли пользоваться Меноном для похожих вопросов?')).toBeTruthy();
+    expect(screen.queryByText('Спасибо, что помогаете сделать Менона лучше!')).toBeNull();
+
+    await act(async () => { resolveSurvey({}); });
+    expect(screen.getByText('Спасибо, что помогаете сделать Менона лучше!')).toBeTruthy();
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull(), { timeout: 5000 });
+    expect(submitSurvey).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('App — survey submission refused by ownership (404)', () => {
   it('shows the ownership refusal instead of staying silent, and still never nags twice', async () => {
     seedAnsweredChat();
@@ -484,11 +509,17 @@ describe('App — survey submission refused by ownership (404)', () => {
 
     fireEvent.click(screen.getByText('Да'));
 
-    // Never-nag-twice: the modal closes immediately, before the request resolves.
-    await waitFor(() => expect(screen.queryByText('Будете ли пользоваться Меноном для похожих вопросов?')).toBeNull());
-    await waitFor(() => expect(submitSurvey).toHaveBeenCalledTimes(1));
+    // The modal waits for the server and explains the refusal there (no retry: it cannot help).
+    await waitFor(() => expect(screen.getByRole('dialog').textContent).toMatch(/принадлежит другому профилю/i));
+    expect(submitSurvey).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('button', { name: 'Повторить' })).toBeNull();
 
-    // Back to guest-1: the refusal is now visible on the answer, not silently discarded.
+    // Closing it after an answer never reports a skip on top of it.
+    fireEvent.keyDown(document, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByText('Будете ли пользоваться Меноном для похожих вопросов?')).toBeNull());
+    expect(submitSurvey).toHaveBeenCalledTimes(1);
+
+    // Back to guest-1: the refusal is also kept on the answer, not silently discarded.
     fireEvent.click(screen.getByText('Вопрос про НГУ'));
     await waitFor(() => expect(screen.getByText(/принадлежит другому профилю/i)).toBeTruthy());
 
@@ -509,8 +540,13 @@ describe('App — survey submission refused by ownership (404)', () => {
     await waitFor(() => expect(screen.getByText('Будете ли пользоваться Меноном для похожих вопросов?')).toBeTruthy());
     fireEvent.click(screen.getByText('Да'));
 
+    // A generic failure: a short error with a retry in the modal, no thanks.
+    await waitFor(() => expect(screen.getByText('Не удалось отправить ответ.')).toBeTruthy());
+    expect(screen.getByRole('button', { name: 'Повторить' })).toBeTruthy();
+    expect(screen.queryByText('Спасибо, что помогаете сделать Менона лучше!')).toBeNull();
+    fireEvent.keyDown(document, { key: 'Escape' });
     await waitFor(() => expect(screen.queryByText('Будете ли пользоваться Меноном для похожих вопросов?')).toBeNull());
-    await waitFor(() => expect(submitSurvey).toHaveBeenCalledTimes(1));
+    expect(submitSurvey).toHaveBeenCalledTimes(1);
 
     fireEvent.click(screen.getByText('Вопрос про НГУ'));
     expect(screen.queryByText(/принадлежит другому профилю/i)).toBeNull();
@@ -544,8 +580,10 @@ describe('App — survey submission refused by ownership (404)', () => {
     fireEvent.click(container.querySelector('.new-chat-btn-icon'));
     await waitFor(() => expect(screen.getByText('Будете ли пользоваться Меноном для похожих вопросов?')).toBeTruthy());
     fireEvent.click(screen.getByText('Да'));
+    await waitFor(() => expect(screen.getByRole('dialog').textContent).toMatch(/принадлежит другому профилю/i));
+    fireEvent.keyDown(document, { key: 'Escape' });
     await waitFor(() => expect(screen.queryByText('Будете ли пользоваться Меноном для похожих вопросов?')).toBeNull());
-    await waitFor(() => expect(submitSurvey).toHaveBeenCalledTimes(1));
+    expect(submitSurvey).toHaveBeenCalledTimes(1);
 
     fireEvent.click(screen.getByText('Диалог с ошибкой'));
     await waitFor(() => expect(screen.getByText(/технические работы/i)).toBeTruthy());

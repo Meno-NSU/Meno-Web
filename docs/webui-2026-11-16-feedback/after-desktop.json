@@ -1,0 +1,296 @@
+{
+ "steps": {
+  "thumbError": {
+   "status": [
+    "Не удалось сохранить оценку.\nПовторить"
+   ],
+   "errors": [
+    "Не удалось сохранить оценку.\nПовторить"
+   ],
+   "activeThumbs": [],
+   "savingThumbs": 0,
+   "busy": 0,
+   "commentBox": false,
+   "voteButtons": 0,
+   "survey": false,
+   "surveyText": null,
+   "overflowX": false
+  },
+  "thumbPending": {
+   "status": [],
+   "errors": [],
+   "activeThumbs": [
+    "Хороший ответ"
+   ],
+   "savingThumbs": 1,
+   "busy": 1,
+   "commentBox": true,
+   "voteButtons": 0,
+   "survey": false,
+   "surveyText": null,
+   "overflowX": false
+  },
+  "thumbSent": {
+   "status": [
+    "Спасибо, что помогаете сделать Менона лучше!"
+   ],
+   "errors": [],
+   "activeThumbs": [
+    "Хороший ответ"
+   ],
+   "savingThumbs": 0,
+   "busy": 0,
+   "commentBox": true,
+   "voteButtons": 0,
+   "survey": false,
+   "surveyText": null,
+   "overflowX": false
+  },
+  "commentError": {
+   "status": [
+    "Не удалось отправить отзыв — текст не потерян.\nПовторить"
+   ],
+   "errors": [
+    "Не удалось отправить отзыв — текст не потерян.\nПовторить"
+   ],
+   "activeThumbs": [
+    "Хороший ответ"
+   ],
+   "savingThumbs": 0,
+   "busy": 0,
+   "commentBox": true,
+   "voteButtons": 0,
+   "survey": false,
+   "surveyText": null,
+   "overflowX": false
+  },
+  "commentPending": {
+   "status": [],
+   "errors": [],
+   "activeThumbs": [
+    "Хороший ответ"
+   ],
+   "savingThumbs": 0,
+   "busy": 2,
+   "commentBox": true,
+   "voteButtons": 0,
+   "survey": false,
+   "surveyText": null,
+   "overflowX": false
+  },
+  "commentSent": {
+   "status": [
+    "Отзыв отправлен. Спасибо, что помогаете сделать Менона лучше!Изменить"
+   ],
+   "errors": [],
+   "activeThumbs": [
+    "Хороший ответ"
+   ],
+   "savingThumbs": 0,
+   "busy": 0,
+   "commentBox": false,
+   "voteButtons": 0,
+   "survey": false,
+   "surveyText": null,
+   "overflowX": false
+  },
+  "surveyError": {
+   "status": [
+    "Не удалось отправить ответ.\nПовторить"
+   ],
+   "errors": [
+    "Не удалось отправить ответ.\nПовторить"
+   ],
+   "activeThumbs": [],
+   "savingThumbs": 0,
+   "busy": 0,
+   "commentBox": false,
+   "voteButtons": 0,
+   "survey": true,
+   "surveyText": "Будете ли пользоваться Меноном для похожих вопросов?\nДа\nВозможно\nНет\nНе удалось отправить ответ.\nПовторить",
+   "overflowX": false
+  },
+  "surveyPending": {
+   "status": [],
+   "errors": [],
+   "activeThumbs": [],
+   "savingThumbs": 0,
+   "busy": 1,
+   "commentBox": false,
+   "voteButtons": 0,
+   "survey": true,
+   "surveyText": "Будете ли пользоваться Меноном для похожих вопросов?\nДа\nВозможно\nНет",
+   "overflowX": false
+  },
+  "surveySent": {
+   "status": [],
+   "errors": [],
+   "activeThumbs": [],
+   "savingThumbs": 0,
+   "busy": 0,
+   "commentBox": false,
+   "voteButtons": 0,
+   "survey": true,
+   "surveyText": "Спасибо, что помогаете сделать Менона лучше!",
+   "overflowX": false
+  },
+  "surveyAfter": {
+   "status": [],
+   "errors": [],
+   "activeThumbs": [],
+   "savingThumbs": 0,
+   "busy": 0,
+   "commentBox": false,
+   "voteButtons": 0,
+   "survey": false,
+   "surveyText": null,
+   "overflowX": false
+  },
+  "arenaError": {
+   "status": [
+    "Не удалось отправить голос.\nПовторить"
+   ],
+   "errors": [
+    "Не удалось отправить голос.\nПовторить"
+   ],
+   "activeThumbs": [],
+   "savingThumbs": 0,
+   "busy": 0,
+   "commentBox": false,
+   "voteButtons": 4,
+   "survey": false,
+   "surveyText": null,
+   "overflowX": false
+  },
+  "arenaPending": {
+   "status": [],
+   "errors": [],
+   "activeThumbs": [],
+   "savingThumbs": 0,
+   "busy": 1,
+   "commentBox": false,
+   "voteButtons": 4,
+   "survey": false,
+   "surveyText": null,
+   "overflowX": false
+  },
+  "arenaSent": {
+   "status": [
+    "Голос учтён: «Оба хорошие». Спасибо, что помогаете сделать Менона лучше!"
+   ],
+   "errors": [],
+   "activeThumbs": [],
+   "savingThumbs": 0,
+   "busy": 0,
+   "commentBox": false,
+   "voteButtons": 0,
+   "survey": false,
+   "surveyText": null,
+   "overflowX": false
+  }
+ },
+ "surveyShown": true,
+ "arenaReady": true,
+ "mockLog": [
+  {
+   "path": "/v1/feedback",
+   "body": {
+    "completion_id": "chatcmpl-mock-1794821365362",
+    "session_id": "a3924350-7c3b-4423-b73d-5af310b1de9b",
+    "value": "up",
+    "comment": null
+   },
+   "fail": true,
+   "at": 1794821372677
+  },
+  {
+   "path": "/v1/feedback",
+   "body": {
+    "completion_id": "chatcmpl-mock-1794821365362",
+    "session_id": "a3924350-7c3b-4423-b73d-5af310b1de9b",
+    "value": "up",
+    "comment": null
+   },
+   "fail": false,
+   "at": 1794821374488
+  },
+  {
+   "path": "/v1/feedback",
+   "body": {
+    "completion_id": "chatcmpl-mock-1794821365362",
+    "session_id": "a3924350-7c3b-4423-b73d-5af310b1de9b",
+    "value": "up",
+    "comment": "Хорошо, но не хватает часов работы бассейна по выходным."
+   },
+   "fail": true,
+   "at": 1794821379625
+  },
+  {
+   "path": "/v1/feedback",
+   "body": {
+    "completion_id": "chatcmpl-mock-1794821365362",
+    "session_id": "a3924350-7c3b-4423-b73d-5af310b1de9b",
+    "value": "up",
+    "comment": "Хорошо, но не хватает часов работы бассейна по выходным."
+   },
+   "fail": false,
+   "at": 1794821381408
+  },
+  {
+   "path": "/v1/feedback/survey",
+   "body": {
+    "session_id": "a3924350-7c3b-4423-b73d-5af310b1de9b",
+    "answer": "yes"
+   },
+   "fail": true,
+   "at": 1794821386180
+  },
+  {
+   "path": "/v1/feedback/survey",
+   "body": {
+    "session_id": "a3924350-7c3b-4423-b73d-5af310b1de9b",
+    "answer": "yes"
+   },
+   "fail": false,
+   "at": 1794821388088
+  },
+  {
+   "path": "/v1/arena/vote",
+   "body": {
+    "model_a": "gemma-4-12B-it@menon-1.1",
+    "kb_a": "nsu-stand-faiss-bm25",
+    "model_b": "gemma-4-12B-it@ragu",
+    "kb_b": "nsu-stand-faiss-bm25",
+    "winner": "tie",
+    "response_a": "Да, в НГУ есть спортивный комплекс. Он находится по адресу ул. Пирогова, 12 и открыт для студентов и сотрудников.\n\n## Что там есть\n- **Бассейн** — 25 м, 6 дорожек; запись через [личный кабинет](https://www.nsu.ru/n/physical-education-department/sport-complex/swimming-pool-schedule-and-rules-for-students-and-staff-2026/).\n- **Игровые залы** — волейбол, баскетбол, мини-футбол.\n- **Тренажёрный зал** — по абонементу.\n\n| Секция | Дни | Время |\n|---|---|---|\n| Плавание | Пн, Ср, Пт | 18:00–21:00 |\n| Волейбол | Вт, Чт | 19:00–21:00 |\n| Очень-длинное-название-секции-без-пробелов-для-проверки-переноса | Сб | 10:00–12:00 |\n\nПодробности: https://www.nsu.ru/n/physical-education-department/sport-complex/very-long-path/with/many/segments/index.php?lang=ru&tab=schedule\n\n```\nрасписание_бассейна_на_осенний_семестр_2026_года_версия_окончательная_и_утверждённая.pdf\n```",
+    "response_b": "Да, в НГУ есть спортивный комплекс. Он находится по адресу ул. Пирогова, 12 и открыт для студентов и сотрудников.\n\n## Что там есть\n- **Бассейн** — 25 м, 6 дорожек; запись через [личный кабинет](https://www.nsu.ru/n/physical-education-department/sport-complex/swimming-pool-schedule-and-rules-for-students-and-staff-2026/).\n- **Игровые залы** — волейбол, баскетбол, мини-футбол.\n- **Тренажёрный зал** — по абонементу.\n\n| Секция | Дни | Время |\n|---|---|---|\n| Плавание | Пн, Ср, Пт | 18:00–21:00 |\n| Волейбол | Вт, Чт | 19:00–21:00 |\n| Очень-длинное-название-секции-без-пробелов-для-проверки-переноса | Сб | 10:00–12:00 |\n\nПодробности: https://www.nsu.ru/n/physical-education-department/sport-complex/very-long-path/with/many/segments/index.php?lang=ru&tab=schedule\n\n```\nрасписание_бассейна_на_осенний_семестр_2026_года_версия_окончательная_и_утверждённая.pdf\n```",
+    "question": "Где в НГУ поплавать?",
+    "session_id": "93745df1-765e-40dc-a374-ad1b92621019",
+    "turn_index": 0,
+    "history_len_a": 0,
+    "history_len_b": 0
+   },
+   "fail": true,
+   "at": 1794821404238
+  },
+  {
+   "path": "/v1/arena/vote",
+   "body": {
+    "model_a": "gemma-4-12B-it@menon-1.1",
+    "kb_a": "nsu-stand-faiss-bm25",
+    "model_b": "gemma-4-12B-it@ragu",
+    "kb_b": "nsu-stand-faiss-bm25",
+    "winner": "tie",
+    "response_a": "Да, в НГУ есть спортивный комплекс. Он находится по адресу ул. Пирогова, 12 и открыт для студентов и сотрудников.\n\n## Что там есть\n- **Бассейн** — 25 м, 6 дорожек; запись через [личный кабинет](https://www.nsu.ru/n/physical-education-department/sport-complex/swimming-pool-schedule-and-rules-for-students-and-staff-2026/).\n- **Игровые залы** — волейбол, баскетбол, мини-футбол.\n- **Тренажёрный зал** — по абонементу.\n\n| Секция | Дни | Время |\n|---|---|---|\n| Плавание | Пн, Ср, Пт | 18:00–21:00 |\n| Волейбол | Вт, Чт | 19:00–21:00 |\n| Очень-длинное-название-секции-без-пробелов-для-проверки-переноса | Сб | 10:00–12:00 |\n\nПодробности: https://www.nsu.ru/n/physical-education-department/sport-complex/very-long-path/with/many/segments/index.php?lang=ru&tab=schedule\n\n```\nрасписание_бассейна_на_осенний_семестр_2026_года_версия_окончательная_и_утверждённая.pdf\n```",
+    "response_b": "Да, в НГУ есть спортивный комплекс. Он находится по адресу ул. Пирогова, 12 и открыт для студентов и сотрудников.\n\n## Что там есть\n- **Бассейн** — 25 м, 6 дорожек; запись через [личный кабинет](https://www.nsu.ru/n/physical-education-department/sport-complex/swimming-pool-schedule-and-rules-for-students-and-staff-2026/).\n- **Игровые залы** — волейбол, баскетбол, мини-футбол.\n- **Тренажёрный зал** — по абонементу.\n\n| Секция | Дни | Время |\n|---|---|---|\n| Плавание | Пн, Ср, Пт | 18:00–21:00 |\n| Волейбол | Вт, Чт | 19:00–21:00 |\n| Очень-длинное-название-секции-без-пробелов-для-проверки-переноса | Сб | 10:00–12:00 |\n\nПодробности: https://www.nsu.ru/n/physical-education-department/sport-complex/very-long-path/with/many/segments/index.php?lang=ru&tab=schedule\n\n```\nрасписание_бассейна_на_осенний_семестр_2026_года_версия_окончательная_и_утверждённая.pdf\n```",
+    "question": "Где в НГУ поплавать?",
+    "session_id": "93745df1-765e-40dc-a374-ad1b92621019",
+    "turn_index": 0,
+    "history_len_a": 0,
+    "history_len_b": 0
+   },
+   "fail": false,
+   "at": 1794821406027
+  }
+ ]
+}

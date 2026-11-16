@@ -47,6 +47,8 @@ import CloudSlashSvg from '@phosphor-icons/core/assets/regular/cloud-slash.svg?r
 import ArrowClockwiseSvg from '@phosphor-icons/core/assets/regular/arrow-clockwise.svg?react';
 import WrenchSvg from '@phosphor-icons/core/assets/regular/wrench.svg?react';
 import CircleFillSvg from '@phosphor-icons/core/assets/fill/circle-fill.svg?react';
+import ThumbsUpFillSvg from '@phosphor-icons/core/assets/fill/thumbs-up-fill.svg?react';
+import ThumbsDownFillSvg from '@phosphor-icons/core/assets/fill/thumbs-down-fill.svg?react';
 
 // `forceFill` makes the root <svg> inherit fill="currentColor". Phosphor glyphs
 // declare no per-path fill, so they depend on it. The custom Менон SVGs colour
@@ -118,6 +120,8 @@ export const Loader = makeIcon(CircleNotchSvg, 'Loader');
 export const Database = makeIcon(DatabaseSvg, 'Database');
 export const ThumbsUp = makeIcon(ThumbsUpSvg, 'ThumbsUp');
 export const ThumbsDown = makeIcon(ThumbsDownSvg, 'ThumbsDown');
+export const ThumbsUpFill = makeIcon(ThumbsUpFillSvg, 'ThumbsUpFill');       // the chosen 👍
+export const ThumbsDownFill = makeIcon(ThumbsDownFillSvg, 'ThumbsDownFill'); // the chosen 👎
 export const X = makeIcon(XSvg, 'X');
 export const Users = makeIcon(UsersSvg, 'Users');               // contributors leaderboard
 export const Handshake = makeIcon(HandshakeSvg, 'Handshake');   // arena tie

@@ -2,6 +2,9 @@
 // Question text picks the scenario: contains "ошибка" -> prepare-stage failure;
 // "долго" -> slow long answer; "стоп" -> knowledge-base search that never ends (to stop it);
 // anything else -> normal answer with long links.
+// Feedback writes (👍/👎, comment, survey, arena vote) answer {status: ok}; POST /mock/state
+// (straight to :9906, not through the site) sets {fail, delayMs} for them — fail -> HTTP 500 —
+// and GET /mock/log lists what they received (to count duplicates).
 import express from 'express'; // run with NODE_PATH or from a Meno-Web checkout
 import { readFileSync } from 'fs';
 
@@ -31,8 +34,22 @@ app.get('/v1/status', (_q, r) => r.json({ active_requests: 0, limit: 128 }));
 app.get('/v1/legal/documents', (_q, r) => r.json(legal));
 app.get('/v1/auth/me', (_q, r) => r.status(401).json({ detail: 'Not authenticated.' }));
 app.post('/v1/guest/session', (_q, r) => r.json({ guest_token: 'mock-guest' }));
-app.post('/v1/feedback', (_q, r) => r.json({ status: 'ok' }));
-app.post('/v1/feedback/clear', (_q, r) => r.json({ status: 'ok' }));
+const feedbackState = { fail: false, delayMs: 0 };
+const feedbackLog = [];
+app.post('/mock/state', (q, r) => { Object.assign(feedbackState, q.body || {}); r.json(feedbackState); });
+app.get('/mock/log', (_q, r) => r.json(feedbackLog));
+app.delete('/mock/log', (_q, r) => { feedbackLog.length = 0; r.json({ status: 'ok' }); });
+const feedbackWrite = (extra = {}) => async (q, r) => {
+  feedbackLog.push({ path: q.path, body: q.body, fail: feedbackState.fail, at: Date.now() });
+  if (feedbackState.delayMs) await new Promise((res) => setTimeout(res, feedbackState.delayMs));
+  if (feedbackState.fail) return r.status(500).json({ detail: 'mock: feedback write failed' });
+  r.json({ status: 'ok', ...extra });
+};
+app.post('/v1/feedback', feedbackWrite());
+app.post('/v1/feedback/clear', feedbackWrite({ removed: true }));
+app.post('/v1/feedback/survey', feedbackWrite());
+app.post('/v1/arena/vote', feedbackWrite({ duplicate: false }));
+app.post('/v1/arena/turn', (_q, r) => r.json({ status: 'ok', stored: true }));
 app.post('/v1/chat/completions/clear_history', (_q, r) => r.json({ status: 'ok' }));
 
 const sleep = (ms) => new Promise((res) => setTimeout(res, ms));

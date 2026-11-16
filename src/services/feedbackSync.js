@@ -9,8 +9,10 @@
 //   sent with, before the thumbs are settled. While one is unsent, leaving the page asks first.
 // - Only what the server confirmed reaches `io.confirm` (the message's stored feedback, persisted for guests).
 // - On a failure the thumbs go back to what is saved. Unsent comments stay queued (and the page still asks before
-//   it is left) until the next click or Send retries them; only a refusal (404: not this person's conversation)
-//   drops them, since retrying cannot help.
+//   it is left) until the next click, Send or retrySave (which also brings back the choice that failed) retries
+//   them; only a refusal (404: not this person's conversation) drops them, since retrying cannot help.
+// - When the server has the final choice (nothing left to send), the control hears { type: 'saved' }: that is
+//   when it says «sent» and thanks — never for a click that is still on its way.
 // - forgetFeedback (sign-out, deleting a chat or one's data) drops what is queued and forgets the entries; it lets
 //   the request already on its way finish (its outcome is ignored) and resolves when it has, so a deletion sent
 //   after it cannot be overtaken by a write.
@@ -38,9 +40,17 @@ function updateUnloadGuard() {
 }
 
 // What a control renders: a fresh object on every change (a forgotten entry included), so React never discards the
-// render that moves a control onto a new entry just because the rating it shows is the same.
+// render that moves a control onto a new entry just because the rating it shows is the same. `feedback` is the
+// person's current choice (shown at once), `saved` what the server has, `saving` whether a save is running, and
+// `unsent` whether sent comments still wait to go out.
 const freshView = (entry) => {
-    entry.view = { feedback: entry.forgotten ? null : entry.wanted };
+    const live = !entry.forgotten;
+    entry.view = {
+        feedback: live ? entry.wanted : null,
+        saved: live ? entry.saved : null,
+        saving: live && entry.saving,
+        unsent: live && entry.outbox.length > 0,
+    };
 };
 
 const changed = (entry) => {
@@ -48,9 +58,11 @@ const changed = (entry) => {
     entry.watchers.forEach((watch) => watch());
 };
 
+// A failure nobody saw is shown when the answer's control is mounted again; a late «saved» is not (no thanks for
+// something the person has long moved away from).
 function emit(entry, event) {
     if (entry.listeners.size > 0) entry.listeners.forEach((listen) => listen(event));
-    else entry.unseen = event; // shown when the answer's control is mounted again
+    else if (event.type === 'failed') entry.unseen = event;
 }
 
 // The entry for an answer, created from the stored feedback the first time it is asked for. A later change of the
@@ -67,6 +79,7 @@ export function feedbackEntry(key, stored) {
             inflight: null, // the request on its way, settled or not
             forgotten: false,
             kept: stored?.comment || null, // the last comment sent: outlives a cleared rating
+            retry: undefined, // what was wanted when a save failed, for retrySave
             unseen: null,
             watchers: new Set(),
             listeners: new Set(),
@@ -92,8 +105,9 @@ export function watchFeedback(entry, onChange) {
     return () => entry.watchers.delete(onChange);
 }
 
-// Events for the mounted control: { type: 'sent' } once the sent comments are on the server,
-// { type: 'failed', error, what: 'rating' | 'comment' } when a save fails (delivered on mount if it failed unseen).
+// Events for the mounted control: { type: 'saved', thank } once the server has the final choice — `thank` unless
+// all that happened was taking a rating back — and { type: 'failed', error, what: 'rating' | 'comment' } when a
+// save fails (delivered on mount if it failed unseen).
 export function listenFeedback(entry, onEvent) {
     entry.listeners.add(onEvent);
     if (entry.unseen) {
@@ -121,6 +135,9 @@ async function attempt(entry, send) {
 async function pump(entry, io) {
     if (entry.saving || entry.forgotten) return; // a running loop picks up whatever is wanted by now
     entry.saving = true;
+    changed(entry);
+    let sentSomething = false;
+    let deliveredComment = false;
     try {
         for (;;) {
             const fromOutbox = entry.outbox.length > 0;
@@ -130,30 +147,38 @@ async function pump(entry, io) {
             else break;
             await attempt(entry, (signal) => (target ? io.submit(target, signal) : io.clear(signal)));
             if (entry.forgotten) return;
+            sentSomething = true;
             entry.saved = target;
-            if (fromOutbox) entry.outbox.shift();
-            io.confirm(target);
-            if (fromOutbox && entry.outbox.length === 0) {
-                updateUnloadGuard();
-                emit(entry, { type: 'sent' });
+            if (fromOutbox) {
+                entry.outbox.shift();
+                deliveredComment = true;
+                if (entry.outbox.length === 0) updateUnloadGuard();
             }
+            io.confirm(target);
         }
+        if (sentSomething) emit(entry, { type: 'saved', thank: Boolean(entry.saved) || deliveredComment });
     } catch (error) {
         if (entry.forgotten) return;
         const what = entry.outbox.length > 0 ? 'comment' : 'rating';
-        if (error?.httpStatus === 404) entry.outbox = [];
+        if (error?.httpStatus === 404) {
+            entry.outbox = [];
+            entry.retry = undefined;
+        } else {
+            entry.retry = entry.wanted;
+        }
         entry.wanted = entry.saved;
         updateUnloadGuard();
-        changed(entry);
         emit(entry, { type: 'failed', error, what });
     } finally {
         entry.saving = false;
+        if (!entry.forgotten) changed(entry);
     }
 }
 
 // A click on a thumb: the active one clears the rating, the other one sets it; the comment rides along, and after
 // a clear the last comment sent comes back with the new rating.
 export function clickThumb(entry, value, io) {
+    entry.retry = undefined;
     const current = entry.wanted;
     entry.wanted = current?.value === value ? null : { value, comment: current?.comment ?? entry.kept };
     changed(entry);
@@ -164,6 +189,7 @@ export function clickThumb(entry, value, io) {
 export function sendComment(entry, comment, io) {
     const current = entry.wanted;
     if (!current || !comment || comment === (current.comment || '')) return false;
+    entry.retry = undefined;
     const item = { value: current.value, comment };
     entry.outbox.push(item);
     entry.wanted = item;
@@ -172,6 +198,17 @@ export function sendComment(entry, comment, io) {
     changed(entry);
     pump(entry, io);
     return true;
+}
+
+// «Повторить» after a failed save: bring back what was wanted when it failed and send it, comments queued first.
+export function retrySave(entry, io) {
+    if (entry.forgotten || entry.saving) return;
+    if (entry.retry !== undefined) {
+        entry.wanted = entry.retry;
+        entry.retry = undefined;
+    }
+    changed(entry);
+    pump(entry, io);
 }
 
 // Forget the answers of one chat, or of every chat: nothing queued is sent any more. Resolves once the requests

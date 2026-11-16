@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { extractReasoning, deriveReasoningStatus, formatDuration, stageDisplayStatus, hasReasoningBlock } from './reasoning.js';
+import { extractReasoning, deriveReasoningStatus, formatDuration, stageDisplayStatus, hasReasoningBlock, endedAfterMs } from './reasoning.js';
 
 describe('extractReasoning', () => {
   it('separates a closed think block from the answer', () => {
@@ -79,5 +79,17 @@ describe('hasReasoningBlock', () => {
     expect(hasReasoningBlock({ stages: [], reasoning: '  ' })).toBe(false);
     expect(hasReasoningBlock({ stages: [], pending: true, isStreaming: false })).toBe(false);
     expect(hasReasoningBlock({})).toBe(false);
+  });
+});
+
+describe('endedAfterMs', () => {
+  it('is the time from the request to the stop or failure recorded on the message', () => {
+    expect(endedAfterMs({ thinkStartTime: 1_000_000, endedAt: 1_004_100 })).toBe(4100);
+  });
+  it('is unknown for a message saved before the end was recorded, or with broken times', () => {
+    expect(endedAfterMs({ thinkStartTime: 1_000_000 })).toBeNull();
+    expect(endedAfterMs({ endedAt: 1_004_100 })).toBeNull();
+    expect(endedAfterMs({ thinkStartTime: 1_004_100, endedAt: 1_000_000 })).toBeNull();
+    expect(endedAfterMs(null)).toBeNull();
   });
 });

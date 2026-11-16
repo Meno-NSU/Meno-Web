@@ -13,7 +13,7 @@ import { groupSourcesByTitle, formatSourceUrl } from '../services/sourceGrouping
 import { describeEntry, versionName } from '../services/versions.js';
 import './ChatArea.css';
 import { ReasoningBlock, LoadingPhrase } from './ReasoningBlock.jsx';
-import { extractReasoning, hasReasoningBlock } from './reasoning.js';
+import { extractReasoning, hasReasoningBlock, endedAfterMs } from './reasoning.js';
 
 // All inline links rendered from model output must open in a new tab —
 // otherwise tapping one inside an in-progress arena round navigates the SPA
@@ -380,6 +380,7 @@ function MessageBubble({ message, chatId, setChats, onRetry, isLast, models }) {
                         summary={message.agentSummary || null}
                         interrupted={!!message.interrupted || !!message.agentError}
                         stoppedByUser={stoppedByUser}
+                        elapsedMs={endedAfterMs(message)}
                         isStreaming={!!message.isStreaming}
                         reasoning={reasoning}
                         pending={!message.content}

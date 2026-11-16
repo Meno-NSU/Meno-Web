@@ -48,6 +48,17 @@ export function hasReasoningBlock({ stages, reasoning, pending, isStreaming }) {
   return (stages?.length ?? 0) > 0 || !!(reasoning && reasoning.trim()) || !!(pending && isStreaming);
 }
 
+// How long an answer that ended early ran: from the request (the message's
+// thinkStartTime, set when it was created) to the stop or failure (endedAt). Null
+// for a message saved before endedAt was recorded — the header then falls back to
+// the finished stages' time.
+export function endedAfterMs(message) {
+  const start = message?.thinkStartTime;
+  const end = message?.endedAt;
+  if (typeof start !== 'number' || typeof end !== 'number' || end < start) return null;
+  return end - start;
+}
+
 export function formatDuration(ms) {
   if (ms == null) return '';
   if (ms < 1000) return `${Math.round(ms)}ms`;

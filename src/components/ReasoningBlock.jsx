@@ -114,8 +114,9 @@ function stageLabel(t, stage) {
 // waiting phrase already, so the first stage fills the same header instead of a
 // separate placeholder giving way to it (the answer jumped by the difference).
 // `interrupted`: the answer ended early (stopped or failed); `stoppedByUser`: it was
-// the person's stop, which the header then states itself.
-export function ReasoningBlock({ stages = [], summary = null, agentError = false, isStreaming = false, reasoning = '', interrupted = false, stoppedByUser = false, pending = false }) {
+// the person's stop, which the header then states itself; `elapsedMs`: how long it
+// ran up to that end (see endedAfterMs), when known.
+export function ReasoningBlock({ stages = [], summary = null, agentError = false, isStreaming = false, reasoning = '', interrupted = false, stoppedByUser = false, elapsedMs = null, pending = false }) {
   const [manualToggle, setManualToggle] = useState(null);
   const { t } = useTranslation();
 
@@ -140,10 +141,12 @@ export function ReasoningBlock({ stages = [], summary = null, agentError = false
     // Calm, factual: no "!" and no lingering "processing…". A stop by the person is
     // stated here, once, with how long it ran (ChatArea then drops the notice's own
     // "Остановлено" and keeps only its Retry). A failure keeps the time; its notice
-    // below says what went wrong.
-    const time = (totalMs / 1000).toFixed(1);
+    // below says what went wrong. The time is the real one up to the end when the
+    // message recorded it, else (older saved messages) the finished stages' time.
+    const ranMs = elapsedMs ?? totalMs;
+    const time = (ranMs / 1000).toFixed(1);
     let text = t('agentThoughtFor').replace('{time}', time);
-    if (stoppedByUser) text = totalMs > 0 ? t('agentStoppedAfter').replace('{time}', time) : t('stopped');
+    if (stoppedByUser) text = ranMs > 0 ? t('agentStoppedAfter').replace('{time}', time) : t('stopped');
     header = <span>{text}</span>;
     icon = <Stop size={13} className="agent-thinking-icon" style={{ color: 'var(--text-tertiary)' }} />;
   } else if (status === 'errored') {

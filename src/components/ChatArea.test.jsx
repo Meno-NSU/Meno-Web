@@ -304,3 +304,24 @@ describe('ChatArea — a stopped answer has one status', () => {
     expect(answer.querySelectorAll('.retry-btn')).toHaveLength(1);
   });
 });
+
+describe('ChatArea — the real time a stopped answer ran', () => {
+  const stages = [
+    { stage: 'query_rewrite', status: 'complete', durationMs: 300 },
+    { stage: 'generation', status: 'running', durationMs: null },
+  ];
+
+  it('shows the time from the request to the stop, recorded on the message', () => {
+    const messages = [{ role: 'user', content: 'q' }, {
+      ...stopped('Начало ответа'), agentStages: stages, thinkStartTime: 1_000_000, endedAt: 1_004_100,
+    }];
+    const { container } = render(<ChatArea {...baseProps} messages={messages} />);
+    expect(container.querySelector('.agent-thinking-summary').textContent).toBe('Остановлено · 4.1 с');
+  });
+
+  it('keeps the finished-stages time for an older saved message without the stop moment', () => {
+    const messages = [{ role: 'user', content: 'q' }, { ...stopped('Начало ответа'), agentStages: stages, thinkStartTime: 1_000_000 }];
+    const { container } = render(<ChatArea {...baseProps} messages={messages} />);
+    expect(container.querySelector('.agent-thinking-summary').textContent).toBe('Остановлено · 0.3 с');
+  });
+});

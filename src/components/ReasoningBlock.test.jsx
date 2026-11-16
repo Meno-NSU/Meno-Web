@@ -158,3 +158,48 @@ describe('ReasoningBlock — a normally finished answer', () => {
     expect(container.querySelector('.agent-stage-row.running .spinning')).not.toBeNull();
   });
 });
+
+describe('ReasoningBlock — the real time an ended answer ran', () => {
+  const CUT = [
+    { stage: 'query_rewrite', status: 'complete', durationMs: 300 },
+    { stage: 'generation', status: 'running', durationMs: null },
+  ];
+  const header = (container) => container.querySelector('.agent-thinking-summary').textContent;
+
+  it('states the time from the request to the stop, not just the finished stages', () => {
+    const { container } = render(<ReasoningBlock stages={CUT} interrupted stoppedByUser elapsedMs={4100} isStreaming={false} />);
+    expect(header(container)).toBe('Остановлено · 4.1 с');
+  });
+
+  it('states the time to the failure for a failed answer', () => {
+    const { container } = render(<ReasoningBlock stages={CUT} interrupted elapsedMs={4100} isStreaming={false} />);
+    expect(header(container)).toBe('Обработка заняла 4.1 сек');
+  });
+
+  it('keeps the summary time of a finished answer', () => {
+    const { container } = render(<ReasoningBlock stages={CUT} summary={{ totalMs: 4500 }} elapsedMs={9000} isStreaming={false} />);
+    expect(header(container)).toBe('Обработка заняла 4.5 сек');
+  });
+});
+
+describe('ReasoningBlock — the accent border is for a running answer only', () => {
+  const css = readFileSync('src/components/ChatArea.css', 'utf-8').replace(/\/\*[\s\S]*?\*\//g, '');
+  const borderOf = (cls) => {
+    const rule = [...css.matchAll(/([^{}]*)\{([^}]*)\}/g)]
+      .find(([, sel, body]) => sel.split(',').some((s) => s.trim() === `.agent-thinking-block.${cls}`) && /border-left-color/.test(body));
+    return rule?.[2].match(/border-left-color:\s*([^;]+);/)[1].trim();
+  };
+
+  it('greys the border of a stopped or failed answer the same as a finished one', () => {
+    expect(borderOf('complete')).toBe('var(--text-tertiary)');
+    expect(borderOf('stopped')).toBe(borderOf('complete'));
+  });
+
+  it('marks a stopped and a failed answer as such (a failure reaches the block as interrupted)', () => {
+    const stages = [{ stage: 'retrieval', status: 'running' }];
+    const { container, rerender } = render(<ReasoningBlock stages={stages} interrupted stoppedByUser isStreaming={false} />);
+    expect(container.querySelector('.agent-thinking-block.stopped')).not.toBeNull();
+    rerender(<ReasoningBlock stages={stages} interrupted isStreaming={false} />);
+    expect(container.querySelector('.agent-thinking-block.stopped')).not.toBeNull();
+  });
+});

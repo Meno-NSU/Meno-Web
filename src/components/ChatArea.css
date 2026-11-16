@@ -641,7 +641,10 @@
     transition: border-color 0.3s ease;
 }
 
-.agent-thinking-block.complete {
+/* The accent border is for a running answer: once nothing runs — finished,
+   stopped or failed — it greys. */
+.agent-thinking-block.complete,
+.agent-thinking-block.stopped {
     border-left-color: var(--text-tertiary);
 }
 

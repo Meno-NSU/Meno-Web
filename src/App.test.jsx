@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import App from './App.jsx';
 import { saveChats } from './store/chatStore.js';
@@ -785,5 +785,58 @@ describe('App — the version picker follows the model list', () => {
     });
     fireEvent.click(row);
     await waitFor(() => expect(screen.getByText('Model 2').closest('button').disabled).toBe(true));
+  });
+});
+
+// The header of an answer that ended early shows how long it really ran — from the
+// request to the stop (or the failure) — not only the stages that had finished.
+describe('App — the time an ended answer ran', () => {
+  const T0 = 1_800_000_000_000;
+  let now;
+
+  beforeEach(() => {
+    now = T0;
+    vi.spyOn(Date, 'now').mockImplementation(() => now);
+  });
+  afterEach(() => { vi.mocked(Date.now).mockRestore(); });
+
+  // A stream that ran one stage (0.3 s), started generating, and then hangs; the
+  // returned `fail` makes it fail instead, and the stop button aborts it.
+  function hangingStream() {
+    let fail;
+    sendChatMessage.mockImplementation(({ onEvent, signal }) => new Promise((resolve, reject) => {
+      onEvent({ type: 'stage', stage: 'query_rewrite', status: 'started' });
+      onEvent({ type: 'stage', stage: 'query_rewrite', status: 'completed', durationMs: 300 });
+      onEvent({ type: 'stage', stage: 'generation', status: 'started' });
+      onEvent({ type: 'content', fullContent: 'Начало ответа' });
+      signal.addEventListener('abort', () => reject(Object.assign(new Error('stopped'), { code: 'user_stopped' })));
+      fail = () => reject(Object.assign(new Error('boom'), { code: 'internal_error' }));
+    }));
+    return { fail: () => fail() };
+  }
+
+  async function ask(container) {
+    await waitFor(() => expect(container.querySelector('.chat-textarea')).toBeTruthy());
+    fireEvent.change(container.querySelector('.chat-textarea'), { target: { value: 'Вопрос' } });
+    fireEvent.submit(container.querySelector('.input-form'));
+    await waitFor(() => expect(screen.getByText('Начало ответа')).toBeTruthy());
+  }
+
+  it('says "Остановлено · 4.1 с" when stopped 4.1 s after the request', async () => {
+    hangingStream();
+    const { container } = render(<App />);
+    await ask(container);
+    now = T0 + 4100;
+    fireEvent.click(container.querySelector('.send-btn.stop'));
+    await waitFor(() => expect(container.querySelector('.agent-thinking-summary').textContent).toBe('Остановлено · 4.1 с'));
+  });
+
+  it('says how long it ran before a failure, too', async () => {
+    const stream = hangingStream();
+    const { container } = render(<App />);
+    await ask(container);
+    now = T0 + 4100;
+    stream.fail();
+    await waitFor(() => expect(container.querySelector('.agent-thinking-summary').textContent).toBe('Обработка заняла 4.1 сек'));
   });
 });

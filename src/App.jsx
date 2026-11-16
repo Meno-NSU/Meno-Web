@@ -280,12 +280,15 @@ function applyLastMessageNotice(chats, chatId, notice, opts = {}) {
     }
 
     // content is preserved verbatim — we never wipe what the user already saw.
+    // endedAt: the moment of the stop / failure, so the header can show how long
+    // the answer really ran (from thinkStartTime, set when the message was created).
     return {
       ...message,
       responseModelId: message.responseModelId || message.requestModelId || null,
       isStreaming: false,
       slowWarning: false,
       interrupted: true,
+      endedAt: opts.endedAt ?? Date.now(),
       notice,
       retry: { userText: opts.userText || '' },
     };
@@ -1446,11 +1449,13 @@ function App() {
         }));
       }
     } catch (error) {
+      // Taken before the overload probe below, which can take a while.
+      const endedAt = Date.now();
       console.error(error);
       if (error?.code === 'user_stopped') {
         // Manual stop: keep whatever streamed, show a neutral "Stopped" notice and
         // a retry. No /v1/status probe, no model refresh — nothing failed.
-        setActiveChats((prev) => applyLastMessageNotice(prev, targetChatId, buildStopNotice(), { userText: trimmedText }));
+        setActiveChats((prev) => applyLastMessageNotice(prev, targetChatId, buildStopNotice(), { userText: trimmedText, endedAt }));
       } else {
         // Overload UX: for a timeout, fetch live load so the message can show
         // "~N in progress" past the threshold. Retry re-runs this same user turn.
@@ -1462,7 +1467,7 @@ function App() {
                   ? { active: error?.activeRequests, limit: error?.limit }
                   : {},
               );
-        setActiveChats((prev) => applyLastMessageNotice(prev, targetChatId, buildErrorNotice(error, { load }), { userText: trimmedText }));
+        setActiveChats((prev) => applyLastMessageNotice(prev, targetChatId, buildErrorNotice(error, { load }), { userText: trimmedText, endedAt }));
         refreshModelsAndApplyState();
       }
     } finally {

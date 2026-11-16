@@ -1,6 +1,7 @@
 // Mock Meno gateway for UI checks: real prod GET payloads + scripted chat streams.
 // Question text picks the scenario: contains "ошибка" -> prepare-stage failure;
-// "долго" -> slow long answer; anything else -> normal answer with long links.
+// "долго" -> slow long answer; "стоп" -> knowledge-base search that never ends (to stop it);
+// anything else -> normal answer with long links.
 import express from 'express'; // run with NODE_PATH or from a Meno-Web checkout
 import { readFileSync } from 'fs';
 
@@ -72,6 +73,13 @@ app.post('/v1/chat/completions', async (req, res) => {
     await sleep(ms);
     send('stage', { stage: name, status: 'completed', duration_ms: ms, detail });
   };
+  if (/стоп/i.test(q)) {
+    // Knowledge-base search that runs until the person presses stop.
+    await stage('query_rewrite', 300, { search_queries: ['спорткомплекс НГУ'] });
+    send('stage', { stage: 'retrieval', status: 'started' });
+    await new Promise((resolve) => { res.on('close', resolve); setTimeout(resolve, 120000); });
+    return res.end();
+  }
   if (/ошибка/i.test(q)) {
     await stage('query_rewrite', 300);
     await sleep(400);

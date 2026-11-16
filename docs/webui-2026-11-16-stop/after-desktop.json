@@ -1,0 +1,27 @@
+{
+ "stop1": true,
+ "search": {
+  "header": "Остановлено · 0.3 с",
+  "notice": "Повторить запрос",
+  "spinners": 0,
+  "stages": [
+   "agent-stage-row complete | Переформулировка запроса\n300ms",
+   "agent-stage-row interrupted | Поиск по базе знаний"
+  ],
+  "retry": true
+ },
+ "stop2": true,
+ "answer": {
+  "header": "Остановлено · 1.2 с",
+  "notice": "Повторить запрос",
+  "spinners": 0,
+  "stages": [
+   "agent-stage-row complete | Переформулировка запроса\n300ms",
+   "agent-stage-row complete | Поиск по базе знаний\n400ms",
+   "agent-stage-row complete | Ранжирование\n300ms",
+   "agent-stage-row complete | Сборка контекста\n200ms",
+   "agent-stage-row interrupted | Генерация ответа"
+  ],
+  "retry": true
+ }
+}

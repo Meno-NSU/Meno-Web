@@ -3,7 +3,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { ChevronDown, Loader, CheckCircle, Check, Stop } from './icons.jsx';
 import { useTranslation } from '../i18n.js';
-import { deriveReasoningStatus, formatDuration } from './reasoning.js';
+import { deriveReasoningStatus, formatDuration, hasReasoningBlock, stageDisplayStatus } from './reasoning.js';
 
 // Links from model output open in a new tab so they never navigate the SPA
 // away mid-stream (kills arena rounds). `noreferrer` keeps referrer private.
@@ -113,17 +113,23 @@ function stageLabel(t, stage) {
 // `pending`: the request is out and nothing has come back yet. The header shows the
 // waiting phrase already, so the first stage fills the same header instead of a
 // separate placeholder giving way to it (the answer jumped by the difference).
-export function ReasoningBlock({ stages = [], summary = null, agentError = false, isStreaming = false, reasoning = '', interrupted = false, pending = false }) {
+// `interrupted`: the answer ended early (stopped or failed); `stoppedByUser`: it was
+// the person's stop, which the header then states itself.
+export function ReasoningBlock({ stages = [], summary = null, agentError = false, isStreaming = false, reasoning = '', interrupted = false, stoppedByUser = false, pending = false }) {
   const [manualToggle, setManualToggle] = useState(null);
   const { t } = useTranslation();
 
-  const hasStages = stages && stages.length > 0;
   const hasReasoning = !!(reasoning && reasoning.trim());
-  if (!hasStages && !hasReasoning && !(pending && isStreaming)) return null;
+  if (!hasReasoningBlock({ stages, reasoning, pending, isStreaming })) return null;
 
-  const status = deriveReasoningStatus({ summary, agentError, isStreaming, interrupted });
+  const status = deriveReasoningStatus({ summary, agentError, isStreaming, interrupted: interrupted || stoppedByUser });
   const isOpen = manualToggle !== null ? manualToggle : false; // collapsed by default
   const totalMs = summary?.totalMs ?? stages.reduce((sum, s) => sum + (s.durationMs || 0), 0);
+  // Once the answer is over no stage spins: see stageDisplayStatus.
+  const shownStages = stages.map((s) => {
+    const shown = stageDisplayStatus(s.status, status);
+    return shown === s.status ? s : { ...s, status: shown };
+  });
 
   let header;
   let icon;
@@ -131,9 +137,14 @@ export function ReasoningBlock({ stages = [], summary = null, agentError = false
     header = <LoadingPhrase />;
     icon = <Loader size={14} className="agent-thinking-icon spinning" />;
   } else if (status === 'stopped') {
-    // Calm, factual: it did process for a while before the stop. No "!" and no
-    // lingering "processing…" — the "Остановлено" notice row states the outcome.
-    header = <span>{t('agentThoughtFor').replace('{time}', (totalMs / 1000).toFixed(1))}</span>;
+    // Calm, factual: no "!" and no lingering "processing…". A stop by the person is
+    // stated here, once, with how long it ran (ChatArea then drops the notice's own
+    // "Остановлено" and keeps only its Retry). A failure keeps the time; its notice
+    // below says what went wrong.
+    const time = (totalMs / 1000).toFixed(1);
+    let text = t('agentThoughtFor').replace('{time}', time);
+    if (stoppedByUser) text = totalMs > 0 ? t('agentStoppedAfter').replace('{time}', time) : t('stopped');
+    header = <span>{text}</span>;
     icon = <Stop size={13} className="agent-thinking-icon" style={{ color: 'var(--text-tertiary)' }} />;
   } else if (status === 'errored') {
     header = <span>{t('agentProcessing')}</span>;
@@ -155,7 +166,7 @@ export function ReasoningBlock({ stages = [], summary = null, agentError = false
       </button>
       {isOpen && (
         <div className="agent-thinking-stages">
-          {stages.map((s, i) => (
+          {shownStages.map((s, i) => (
             <div key={i} className={`agent-stage-row ${s.status}`}>
               <span className="agent-stage-icon">
                 {s.status === 'running'
@@ -164,7 +175,9 @@ export function ReasoningBlock({ stages = [], summary = null, agentError = false
                     ? <Check size={12} />
                     : s.status === 'failed'
                       ? <span style={{ color: 'var(--danger)' }}>!</span>
-                      : <span>-</span>}
+                      : s.status === 'interrupted'
+                        ? <Stop size={12} />
+                        : <span>-</span>}
               </span>
               <span className="agent-stage-label">{stageLabel(t, s.stage)}</span>
               {s.durationMs != null && (
@@ -172,7 +185,7 @@ export function ReasoningBlock({ stages = [], summary = null, agentError = false
               )}
             </div>
           ))}
-          {stages.filter(s => s.status === 'complete' && s.detail).map((s, i) => (
+          {shownStages.filter(s => s.status === 'complete' && s.detail).map((s, i) => (
             <StageDetail key={`detail-${i}`} detail={s.detail} stage={s.stage} />
           ))}
           {hasReasoning && (

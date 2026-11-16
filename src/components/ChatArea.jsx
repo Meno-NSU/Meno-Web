@@ -13,7 +13,7 @@ import { groupSourcesByTitle, formatSourceUrl } from '../services/sourceGrouping
 import { describeEntry, versionName } from '../services/versions.js';
 import './ChatArea.css';
 import { ReasoningBlock, LoadingPhrase } from './ReasoningBlock.jsx';
-import { extractReasoning } from './reasoning.js';
+import { extractReasoning, hasReasoningBlock } from './reasoning.js';
 
 // All inline links rendered from model output must open in a new tab —
 // otherwise tapping one inside an in-progress arena round navigates the SPA
@@ -304,20 +304,26 @@ function CopyButton({ text, label, tip, align = 'left' }) {
 }
 
 // Why the answer stopped (the person stopped it, or it failed) and, on the last
-// message, a Retry under the text — the way chat apps put it.
-function MessageNotice({ message, isLast, onRetry }) {
+// message, a Retry under the text — the way chat apps put it. `statedAbove`: the
+// reasoning block's header already says the answer was stopped, so the notice keeps
+// only its Retry rather than a second "■ Остановлено".
+function MessageNotice({ message, isLast, onRetry, statedAbove = false }) {
     const { t } = useTranslation();
     const { notice } = message;
     const failed = notice.kind === 'error';
+    const canRetry = isLast && !!message.retry;
+    if (statedAbove && !canRetry) return null;
     return (
         <div className={`message-notice ${notice.kind}`} role={failed ? 'alert' : undefined}>
-            <div className="message-notice-row">
-                {failed
-                    ? <Wrench size={16} className="message-notice-icon" />
-                    : <Stop size={14} className="message-notice-icon" />}
-                <span className="message-notice-text">{formatNotice(t, notice)}</span>
-            </div>
-            {isLast && message.retry && (
+            {!statedAbove && (
+                <div className="message-notice-row">
+                    {failed
+                        ? <Wrench size={16} className="message-notice-icon" />
+                        : <Stop size={14} className="message-notice-icon" />}
+                    <span className="message-notice-text">{formatNotice(t, notice)}</span>
+                </div>
+            )}
+            {canRetry && (
                 <div className="message-notice-actions">
                     <button type="button" className="retry-btn" onClick={() => onRetry?.(message)}>
                         <RotateCw size={14} />
@@ -357,15 +363,23 @@ function MessageBubble({ message, chatId, setChats, onRetry, isLast, models }) {
     // answered now — not which pipeline stages ran or failed.
     const failedEmpty = message.notice?.kind === 'error' && !answer;
     const finished = !message.isStreaming;
+    const stages = message.agentStages || [];
+    const showsReasoning = !failedEmpty && hasReasoningBlock({
+        stages, reasoning, pending: !message.content, isStreaming: !!message.isStreaming,
+    });
+    // The person's stop is stated once: in the reasoning block's header when there is
+    // one, otherwise by the notice.
+    const stoppedByUser = message.notice?.kind === 'stopped';
 
     return (
         <div className="message-wrapper assistant">
             <div className="message-content">
-                {!failedEmpty && (
+                {showsReasoning && (
                     <ReasoningBlock
-                        stages={message.agentStages || []}
+                        stages={stages}
                         summary={message.agentSummary || null}
                         interrupted={!!message.interrupted || !!message.agentError}
+                        stoppedByUser={stoppedByUser}
                         isStreaming={!!message.isStreaming}
                         reasoning={reasoning}
                         pending={!message.content}
@@ -381,7 +395,9 @@ function MessageBubble({ message, chatId, setChats, onRetry, isLast, models }) {
                         </ReactMarkdown>
                     </div>
                 )}
-                {message.notice && <MessageNotice message={message} isLast={isLast} onRetry={onRetry} />}
+                {message.notice && (
+                    <MessageNotice message={message} isLast={isLast} onRetry={onRetry} statedAbove={stoppedByUser && showsReasoning} />
+                )}
 
                 {message.sources?.length > 0 && <SourcesBlock sources={message.sources} />}
 

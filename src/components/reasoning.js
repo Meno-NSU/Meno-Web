@@ -33,6 +33,21 @@ export function deriveReasoningStatus({ summary, agentError, isStreaming, interr
   return 'running';
 }
 
+// How a stage row shows once the answer is over. A stage still 'running' then
+// will never get its "completed" event: after a stop or a failure it was cut off
+// ('interrupted' — static, with a stop mark); after a normal finish it did end, the
+// way the summary event marks still-running stages complete.
+export function stageDisplayStatus(stageStatus, blockStatus) {
+  if (stageStatus !== 'running' || blockStatus === 'running') return stageStatus;
+  return blockStatus === 'done' ? 'complete' : 'interrupted';
+}
+
+// Whether the reasoning disclosure has anything to show: stages, model reasoning,
+// or (while the request is out) the waiting phrase in its header.
+export function hasReasoningBlock({ stages, reasoning, pending, isStreaming }) {
+  return (stages?.length ?? 0) > 0 || !!(reasoning && reasoning.trim()) || !!(pending && isStreaming);
+}
+
 export function formatDuration(ms) {
   if (ms == null) return '';
   if (ms < 1000) return `${Math.round(ms)}ms`;

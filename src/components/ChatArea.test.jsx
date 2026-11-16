@@ -225,3 +225,82 @@ describe('ChatArea — waiting for the first stage', () => {
     expect(container.querySelector('.agent-thinking-summary')).toBe(header);
   });
 });
+
+describe('ChatArea — a stopped answer has one status', () => {
+  const cutAtSearch = [
+    { stage: 'query_rewrite', status: 'complete', durationMs: 300 },
+    { stage: 'retrieval', status: 'running', durationMs: null },
+  ];
+  const lastAnswer = (container) => [...container.querySelectorAll('.message-wrapper.assistant')].at(-1);
+
+  it('says "Остановлено" once — in the block header, with the time — and keeps Retry', () => {
+    const messages = [{ role: 'user', content: 'q' }, { ...stopped(''), agentStages: cutAtSearch }];
+    const { container } = render(<ChatArea {...baseProps} messages={messages} />);
+    const answer = lastAnswer(container);
+    expect(answer.textContent.match(/Остановлено/g)).toHaveLength(1);
+    expect(answer.querySelector('.agent-thinking-summary').textContent).toBe('Остановлено · 0.3 с');
+    expect(answer.querySelector('.message-notice-icon')).toBeNull(); // no second stop square
+    expect(answer.querySelectorAll('.retry-btn')).toHaveLength(1);
+    expect(answer.querySelector('.spinning')).toBeNull();
+  });
+
+  it('the same with a partly streamed answer', () => {
+    const generating = [...cutAtSearch.slice(0, 1), { stage: 'generation', status: 'running', durationMs: null }];
+    const messages = [{ role: 'user', content: 'q' }, { ...stopped('Начало ответа'), agentStages: generating }];
+    const { container, getByText } = render(<ChatArea {...baseProps} messages={messages} />);
+    const answer = lastAnswer(container);
+    expect(getByText('Начало ответа')).toBeTruthy();
+    expect(answer.querySelector('.agent-thinking-summary').textContent).toBe('Остановлено · 0.3 с');
+    expect(answer.textContent.match(/Остановлено/g)).toHaveLength(1);
+    expect(answer.querySelector('.message-notice-icon')).toBeNull();
+    expect(answer.querySelectorAll('.retry-btn')).toHaveLength(1);
+  });
+
+  it('an older stopped answer, with no Retry, leaves no empty notice behind', () => {
+    const messages = [
+      { role: 'user', content: 'q1' },
+      { ...stopped('older'), agentStages: cutAtSearch },
+      { role: 'user', content: 'q2' },
+      { role: 'assistant', content: 'clean answer' },
+    ];
+    const { container } = render(<ChatArea {...baseProps} messages={messages} />);
+    const older = container.querySelectorAll('.message-wrapper.assistant')[0];
+    expect(older.querySelector('.message-notice')).toBeNull();
+    expect(older.textContent.match(/Остановлено/g)).toHaveLength(1);
+  });
+
+  it('keeps the "Остановлено" notice when stopped before any stage (no block to say it)', () => {
+    const messages = [{ role: 'user', content: 'q' }, stopped('')];
+    const { container } = render(<ChatArea {...baseProps} messages={messages} />);
+    const answer = lastAnswer(container);
+    expect(answer.querySelector('.agent-thinking-block')).toBeNull();
+    expect(answer.querySelector('.message-notice-text').textContent).toBe('Остановлено');
+    expect(answer.querySelectorAll('.retry-btn')).toHaveLength(1);
+  });
+
+  it('a normally finished answer keeps its time header and has no notice', () => {
+    const messages = [{ role: 'user', content: 'q' }, {
+      role: 'assistant', content: 'Ответ.',
+      agentStages: [{ stage: 'query_rewrite', status: 'complete', durationMs: 300 }], agentSummary: { totalMs: 4500 },
+    }];
+    const { container } = render(<ChatArea {...baseProps} messages={messages} />);
+    const answer = lastAnswer(container);
+    expect(answer.querySelector('.agent-thinking-summary').textContent).toBe('Обработка заняла 4.5 сек');
+    expect(answer.querySelector('.message-notice')).toBeNull();
+    expect(answer.textContent).not.toMatch(/Остановлено/);
+  });
+
+  it('a partly answered failure keeps the time header and the notice text, and never says "Остановлено"', () => {
+    const messages = [{ role: 'user', content: 'q' }, {
+      role: 'assistant', content: 'Начало ответа', interrupted: true, agentStages: cutAtSearch,
+      notice: { kind: 'error', key: 'botUnavailable' }, retry: { userText: 'q' },
+    }];
+    const { container } = render(<ChatArea {...baseProps} messages={messages} />);
+    const answer = lastAnswer(container);
+    expect(answer.querySelector('.agent-thinking-summary').textContent).toBe('Обработка заняла 0.3 сек');
+    expect(answer.querySelector('.message-notice-text').textContent).toMatch(/технические работы/);
+    expect(answer.textContent).not.toMatch(/Остановлено/);
+    expect(answer.querySelector('.spinning')).toBeNull();
+    expect(answer.querySelectorAll('.retry-btn')).toHaveLength(1);
+  });
+});

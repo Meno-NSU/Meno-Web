@@ -73,3 +73,88 @@ describe('ReasoningBlock — stage names', () => {
     expect(rule).toMatch(/text-overflow:\s*ellipsis/);
   });
 });
+
+// The person pressed stop (or the request failed) while a stage was running: that
+// stage keeps status 'running' in the message forever, since no "completed" event
+// will ever come for it.
+describe('ReasoningBlock — an answer that ended early', () => {
+  const CUT_AT_SEARCH = [
+    { stage: 'query_rewrite', status: 'complete', durationMs: 300 },
+    { stage: 'retrieval', status: 'running', durationMs: null },
+  ];
+  const open = (container) => fireEvent.click(container.querySelector('.agent-thinking-summary'));
+  const row = (container, label) => [...container.querySelectorAll('.agent-stage-row')].find((r) => r.textContent.includes(label));
+
+  it('spins nothing after a stop: the cut stage is static and marked, finished stages stay finished', () => {
+    const { container } = render(<ReasoningBlock stages={CUT_AT_SEARCH} interrupted stoppedByUser isStreaming={false} />);
+    open(container);
+    expect(container.querySelector('.spinning')).toBeNull();
+    expect(container.querySelector('.agent-stage-row.running')).toBeNull();
+    const cut = row(container, 'Поиск по базе знаний');
+    expect(cut.classList.contains('interrupted')).toBe(true);
+    expect(cut.querySelector('.agent-stage-icon svg')).not.toBeNull(); // the stop mark
+    expect(row(container, 'Переформулировка запроса').classList.contains('complete')).toBe(true);
+  });
+
+  it('spins nothing after a failure either', () => {
+    // ChatArea passes a failure as `interrupted` without `stoppedByUser`.
+    const { container } = render(<ReasoningBlock stages={CUT_AT_SEARCH} interrupted isStreaming={false} />);
+    open(container);
+    expect(container.querySelector('.spinning')).toBeNull();
+    expect(row(container, 'Поиск по базе знаний').classList.contains('interrupted')).toBe(true);
+  });
+
+  it('says in its header that the answer was stopped, with the time it ran', () => {
+    const { container } = render(<ReasoningBlock stages={CUT_AT_SEARCH} interrupted stoppedByUser isStreaming={false} />);
+    expect(container.querySelector('.agent-thinking-summary').textContent).toBe('Остановлено · 0.3 с');
+  });
+
+  it('says it in English too', () => {
+    setLanguage('en');
+    const { container } = render(<ReasoningBlock stages={CUT_AT_SEARCH} interrupted stoppedByUser isStreaming={false} />);
+    expect(container.querySelector('.agent-thinking-summary').textContent).toBe('Stopped · 0.3 s');
+  });
+
+  it('says just "Остановлено" when no stage had finished yet', () => {
+    const stages = [{ stage: 'query_rewrite', status: 'running', durationMs: null }];
+    const { container } = render(<ReasoningBlock stages={stages} interrupted stoppedByUser isStreaming={false} />);
+    expect(container.querySelector('.agent-thinking-summary').textContent).toBe('Остановлено');
+  });
+
+  it('keeps the time header after a failure — the notice below says what went wrong', () => {
+    const { container } = render(<ReasoningBlock stages={CUT_AT_SEARCH} interrupted isStreaming={false} />);
+    expect(container.querySelector('.agent-thinking-summary').textContent).toBe('Обработка заняла 0.3 сек');
+  });
+});
+
+describe('ReasoningBlock — a normally finished answer', () => {
+  const FINISHED = [
+    { stage: 'query_rewrite', status: 'complete', durationMs: 300 },
+    { stage: 'generation', status: 'complete', durationMs: 3000 },
+  ];
+
+  it('keeps its look: elapsed-time header, checked stages, no stop mark', () => {
+    const { container } = render(<ReasoningBlock stages={FINISHED} summary={{ totalMs: 4500 }} isStreaming={false} />);
+    expect(container.querySelector('.agent-thinking-summary').textContent).toBe('Обработка заняла 4.5 сек');
+    expect(container.querySelector('.agent-thinking-block.complete')).not.toBeNull();
+    fireEvent.click(container.querySelector('.agent-thinking-summary'));
+    const rows = [...container.querySelectorAll('.agent-stage-row')];
+    expect(rows.map((r) => r.className)).toEqual(['agent-stage-row complete', 'agent-stage-row complete']);
+    expect(container.querySelector('.spinning')).toBeNull();
+  });
+
+  it('shows a stage whose end never came as finished once the answer is done', () => {
+    const stages = [FINISHED[0], { stage: 'generation', status: 'running', durationMs: null }];
+    const { container } = render(<ReasoningBlock stages={stages} summary={null} isStreaming={false} />);
+    fireEvent.click(container.querySelector('.agent-thinking-summary'));
+    expect(container.querySelector('.spinning')).toBeNull();
+    expect([...container.querySelectorAll('.agent-stage-row')].every((r) => r.classList.contains('complete'))).toBe(true);
+  });
+
+  it('still spins the running stage while the answer streams', () => {
+    const stages = [FINISHED[0], { stage: 'generation', status: 'running', durationMs: null }];
+    const { container } = render(<ReasoningBlock stages={stages} summary={null} isStreaming={true} />);
+    fireEvent.click(container.querySelector('.agent-thinking-summary'));
+    expect(container.querySelector('.agent-stage-row.running .spinning')).not.toBeNull();
+  });
+});

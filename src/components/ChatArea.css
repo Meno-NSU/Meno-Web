@@ -723,6 +723,12 @@
     color: #ef4444;
 }
 
+/* Cut off by a stop or a failure: static and muted, with a stop mark — never the
+   running look. */
+.agent-stage-row.interrupted {
+    color: var(--text-tertiary);
+}
+
 .agent-stage-row.skipped {
     color: var(--text-tertiary);
     opacity: 0.6;

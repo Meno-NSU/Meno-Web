@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { extractReasoning, deriveReasoningStatus, formatDuration } from './reasoning.js';
+import { extractReasoning, deriveReasoningStatus, formatDuration, stageDisplayStatus, hasReasoningBlock } from './reasoning.js';
 
 describe('extractReasoning', () => {
   it('separates a closed think block from the answer', () => {
@@ -48,5 +48,36 @@ describe('formatDuration', () => {
     expect(formatDuration(450)).toBe('450ms');
     expect(formatDuration(1500)).toBe('1.5s');
     expect(formatDuration(null)).toBe('');
+  });
+});
+
+describe('stageDisplayStatus', () => {
+  it('keeps every stage as it is while the answer runs', () => {
+    for (const s of ['running', 'complete', 'failed', 'skipped']) expect(stageDisplayStatus(s, 'running')).toBe(s);
+  });
+  it('shows a stage still running when the answer was stopped or failed as cut off', () => {
+    expect(stageDisplayStatus('running', 'stopped')).toBe('interrupted');
+    expect(stageDisplayStatus('running', 'errored')).toBe('interrupted');
+  });
+  it('shows a stage still running when the answer finished normally as complete', () => {
+    expect(stageDisplayStatus('running', 'done')).toBe('complete');
+  });
+  it('never changes a stage that has its own end', () => {
+    for (const block of ['stopped', 'errored', 'done']) {
+      for (const s of ['complete', 'failed', 'skipped']) expect(stageDisplayStatus(s, block)).toBe(s);
+    }
+  });
+});
+
+describe('hasReasoningBlock', () => {
+  it('is shown for stages, for reasoning text, and while waiting for the first stage', () => {
+    expect(hasReasoningBlock({ stages: [{ stage: 'retrieval' }] })).toBe(true);
+    expect(hasReasoningBlock({ stages: [], reasoning: 'думаю' })).toBe(true);
+    expect(hasReasoningBlock({ stages: [], pending: true, isStreaming: true })).toBe(true);
+  });
+  it('is not shown with nothing to show', () => {
+    expect(hasReasoningBlock({ stages: [], reasoning: '  ' })).toBe(false);
+    expect(hasReasoningBlock({ stages: [], pending: true, isStreaming: false })).toBe(false);
+    expect(hasReasoningBlock({})).toBe(false);
   });
 });

@@ -1,7 +1,7 @@
 {
  "stop1": true,
  "search": {
-  "header": "Остановлено · 0.3 с",
+  "header": "Остановлено · 1.5 с",
   "notice": "Повторить запрос",
   "spinners": 0,
   "stages": [
@@ -12,7 +12,7 @@
  },
  "stop2": true,
  "answer": {
-  "header": "Остановлено · 1.2 с",
+  "header": "Остановлено · 4.8 с",
   "notice": "Повторить запрос",
   "spinners": 0,
   "stages": [
